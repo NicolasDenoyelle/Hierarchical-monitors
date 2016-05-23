@@ -100,7 +100,7 @@ ins_cyc{
 #include <unistd.h>
 
 int main(){
-    monitor_lib_init(NULL, "output");
+    monitor_lib_init(NULL, "output_file");
     monitors_attach(getpid(), -1);
     monitors_import("my_monitors_path");
     monitors_start();
@@ -111,6 +111,11 @@ int main(){
     return 0;
 }
 ```
+It is really easy to access information into monitors.
+The file `"monitor.h"` let you know about the monitor structure, and gives you access to the machine topology.
+Their are to way to find monitors: 
+* by walking the topology and dereferencing topology node's with non NULL userdata, 
+* or by iterating over the `monitors` array using the array API in `"utils.h"`.
 
 * Using the monitor utility:
   * display help: `monitor --help`
