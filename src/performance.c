@@ -3,30 +3,27 @@
 #include <dirent.h>
 #include <dlfcn.h>
 
-static int n_libs = 0;
-static struct monitor_perf_lib ** libs = NULL;
+static struct array * libs = NULL;
 
 static void __attribute__((destructor)) performance_at_exit(){
-    while(n_libs--){
-	dlclose(libs[n_libs]->dlhandle);
-	free(libs[n_libs]->id);
-	free(libs[n_libs]);
-    }
-    free(libs);
+    if(libs != NULL){delete_array(libs);}
+}
+
+static void delete_perf_lib(void * lib){
+    struct monitor_perf_lib * perf_lib = (struct monitor_perf_lib *)lib;
+    free(perf_lib->id);
+    free(perf_lib);
 }
 
 struct monitor_perf_lib * 
 monitor_load_perf_lib(char * name){
     struct monitor_perf_lib * lib = NULL;
-    int n;
     char * prefix_name;
     char path[256];
 
     /* Search if library already exists */
-    for(n=0;n<n_libs;n++){
-	if(!strcmp(libs[n]->id,name))
-	    return libs[n];
-    }
+    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_perf_lib);}
+    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
     
     prefix_name = strtok(name,".");
     snprintf(path, 256 ,"%s.monitor_plugin.so", prefix_name);
@@ -50,9 +47,7 @@ monitor_load_perf_lib(char * name){
     load_fun(lib,lib->dlhandle,monitor_eventset_stop);
     load_fun(lib,lib->dlhandle,monitor_eventset_reset);
     load_fun(lib,lib->dlhandle,monitor_eventset_read);
-    libs = realloc(libs, sizeof(*libs)*(n_libs+1));
-    libs[n_libs++] = lib;
-
+    array_push(libs, lib);
     return lib;
 }
 

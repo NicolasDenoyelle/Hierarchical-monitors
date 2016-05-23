@@ -54,33 +54,39 @@ static double (* stats_plugin_name_to_function(const char * name))(struct monito
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const  char * plugin_suffix = ".stats_monitor.so" ;
-static int n_libs = 0;
-static struct monitor_stats_lib ** libs = NULL;
+static struct array * libs = NULL;
 
 static void __attribute__((destructor)) stats_at_exit(){
-    while(n_libs--){
-	dlclose(libs[n_libs]->dlhandle);
-	free(libs[n_libs]->id);
-	free(libs[n_libs]);
-    }
-    free(libs);
+    if(libs != NULL){delete_array(libs);}
+}
+
+static void delete_stats_lib(void * lib){
+    struct monitor_stats_lib * stats_lib = (struct monitor_stats_lib *)lib;
+    free(stats_lib->id);
+    free(stats_lib);
 }
 
 struct monitor_stats_lib * monitor_build_custom_stats_lib(const char * name, const char * code){
-    int n;
+    struct monitor_stats_lib * lib;
+    char prefix[1024];
+    char input_file_path [1024];
+    char output_file_path[1024];
+    char command[1024];
+    void * dlhandle;
+    int fd_out;
+    double (*fun)(struct monitor*);
+
     /* Search if library already exists */
-    for(n=0;n<n_libs;n++){
-	if(!strcmp(libs[n]->id,name))
-	    return libs[n];
-    }
+    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
+    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
 
     /* prepare file for functions copy, and dynamic library creation */
-    char prefix[1024]; memset(prefix,0,sizeof(prefix));
+    memset(prefix,0,sizeof(prefix));
+    memset(input_file_path,0,sizeof(input_file_path));
+    memset(output_file_path,0,sizeof(output_file_path));
     snprintf(prefix, sizeof(prefix), "%s.XXXXXX", name);
-    char input_file_path [strlen(prefix)+3]; memset( input_file_path,0,sizeof( input_file_path));
-    char output_file_path[strlen(prefix)+4]; memset(output_file_path,0,sizeof(output_file_path));
     sprintf( input_file_path, "%s.c",  prefix);
-    int fd_out = mkstemps(input_file_path,2);
+    fd_out = mkstemps(input_file_path,2);
     if(fd_out == -1){
 	perror("mkstemps");
 	monitor_print_err("failed to create a temporary file %s\n",input_file_path);
@@ -95,31 +101,29 @@ struct monitor_stats_lib * monitor_build_custom_stats_lib(const char * name, con
     close(fd_out);
     
     /* compile aggregation code */
-    char command[1024]; memset(command,0,sizeof(command));
+    memset(command,0,sizeof(command));
     snprintf(command ,sizeof(command),"gcc %s -shared -fpic -rdynamic -o %s",input_file_path, output_file_path);
     system(command);
 
     /* load library */
-    void * dlhandle = dlopen(output_file_path,RTLD_NOW);
+    dlhandle = dlopen(output_file_path,RTLD_NOW);
     if(dlhandle==NULL){
 	monitor_print_err("Dynamic library %s load error:%s\n", output_file_path,dlerror());
 	exit(EXIT_FAILURE);
     }
     dlerror();
-    double (*fun)(struct monitor*) = (double (*)(struct monitor*)) dlsym(dlhandle,name);
+    fun = (double (*)(struct monitor*)) dlsym(dlhandle,name);
     if(fun == NULL){
 	monitor_print_err("Cannot load aggregation function %s\n", name); 
 	exit(EXIT_FAILURE);
     }
     
     /* allocate lib */
-    struct monitor_stats_lib * lib;
     malloc_chk(lib, sizeof(*lib));
     lib->dlhandle = dlhandle;
     lib->call = fun;
     lib->id = strdup(name);
-    libs = realloc(libs, sizeof(*libs)*(n_libs+1));
-    libs[n_libs++] = lib;
+    array_push(libs, lib);
 
     /* Cleanup */ 
     unlink(input_file_path);
@@ -132,21 +136,17 @@ struct monitor_stats_lib * monitor_load_stats_lib(char * name){
     char * prefix_name;
     char path[256];
     struct monitor_stats_lib * lib;
-    int n;
 
     /* Search if library already exists */
-    for(n=0;n<n_libs;n++){
-	if(!strcmp(libs[n]->id,name))
-	    return libs[n];
-    }
+    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
+    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
 
     malloc_chk(lib, sizeof *lib);
     lib->dlhandle = NULL;
     
     /* If name matches a native plugin, then return it */
     lib->call = stats_plugin_name_to_function(name);
-    if(lib->call)
-	return lib;
+    if(lib->call){return lib;}
 
     prefix_name = strtok(name,".");
     snprintf(path, 256 ,"%s.monitor_plugin.so", prefix_name);
@@ -158,30 +158,18 @@ struct monitor_stats_lib * monitor_load_stats_lib(char * name){
     if(lib->dlhandle==NULL){
 	monitor_print_err("Dynamic library %s load error:%s\n",path,dlerror());
 	exit(EXIT_FAILURE);
-    }  
+    }
 
     load_fun(lib,lib->dlhandle,call);
     if(lib->call == NULL){
 	monitor_print_err("Library %s exists but does not contain required call() function. See stats_interface.h\n",name);
 	dlclose(lib->dlhandle);
+	free(lib);
 	return NULL;
     }
 
     lib->id = strdup(name);
-    libs = realloc(libs, sizeof(*libs)*(n_libs+1));
-    libs[n_libs++] = lib;
+    array_push(libs, lib);
     return lib;
 }
-
-
-void
-monitor_unload_stats_lib(struct monitor_stats_lib * lib)
-{
-    if(lib->dlhandle)
-	dlclose(lib->dlhandle);
-    free(lib);
-}
-
-
-
 
