@@ -61,12 +61,12 @@ ins_cyc_pu{
 	EVSET:=PAPI_TOT_INS, PAPI_TOT_CYC;    #Compulsory.
 	EVSET_REDUCE:=$0/$1;                  #Default to sum.
 #other optional fields
-       	N_SAMPLES:=4;	                      #Default to 32. (history of samples length)
-       	ACCUMULATE:=1;                        #Default to 0.  (accumulate if > 0)
-	SILENT:=1;                            #Default to 0.  (print if == 0)
-	MAX:=0;                               #Default to 0.  (Preset maximum value of sample)
-	MIN:=0;                               #Default to 0.  (Preset minimum value of sample)
-	SAMPLES_REDUCE:=MONITOR_SAMPLES_LAST; #Default to this value. (Computes a value based on the monitor values)
+       N_SAMPLES:=4;	                      #Default to 32. (history of samples length)
+       ACCUMULATE:=1;                        #Default to 0.  (accumulate if > 0)
+       SILENT:=1;                            #Default to 0.  (print if == 0)
+       MAX:=0;                               #Default to 0.  (Preset maximum value of sample)
+       MIN:=0;                               #Default to 0.  (Preset minimum value of sample)
+       SAMPLES_REDUCE:=MONITOR_SAMPLES_LAST; #Default to this value. (Computes a value based on the monitor values)
 }
 
 ins_cyc{
