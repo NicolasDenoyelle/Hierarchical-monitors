@@ -63,7 +63,7 @@ Everything is set up in Makefile.
 
 ## Usage
 
-### defining monitors:
+### Defining monitors:
 
 You have to describe the monitors into a single parsable file with this syntax:
 ```
