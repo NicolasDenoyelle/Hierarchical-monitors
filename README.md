@@ -30,14 +30,14 @@ This information is necessary to caracterize applications with respect to the un
 
 ## Requirements:
 
-*hwloc with defined values or above: 
+* hwloc with defined values or above: 
   * `HWLOC_API_VERSION     0x00020000`
   * `HWLOC_COMPONENT_ABI   5`
 
-*papi, or maqao(lprof) to build default plugins ABI implementation.
+* papi, or maqao(lprof) to build default plugins ABI implementation.
 If you don't have one of them you will have to remove them from line `PERF_PLUGINS` in Makefile.
 
-*monitors using papi and maqao are system wide.
+* monitors using papi and maqao are system wide.
 You must ave permission to read performance counters system wide. 
 It can be achieved by running the command: `echo "-1" > /proc/sys/kernel/perf_event_paranoid` as root.
 
