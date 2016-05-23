@@ -9,6 +9,9 @@ MONITOR_LIB_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
+# performance plugins to compile
+PERF_PLUGINS=fake hierarchical papi trace maqao 
+
 # Not a filename targets
 .PHONY: default all install clean uninstall
 
@@ -36,25 +39,30 @@ $(LIB): $(OBJ)
 	$(CC) $(CFLAGS) --shared $^ -o $@ $(LDFLAGS) -fPIC -lm -lpthread
 
 $(BIN): main.c $(LIB)
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lmonitor -lrt -lhwloc
-
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lmonitor -lrt
 
 ################################################################################################################
 #                                                Performance plugins                                           #
 ################################################################################################################
-PERF_PLUGINS=fake hierarchical PAPI trace maqao 
 PERF_PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PERF_PLUGINS))
+PERF_PLUGINS_LDFLAGS=-lmonitor
+
+ifeq (papi, $(findstring papi,$(PERF_PLUGINS))) 
+PERF_PLUGINS_LDFLAGS+= -lpapi
+endif
+
+ifeq (maqao, $(findstring maqao,$(PERF_PLUGINS))) 
+PERF_PLUGINS_LDFLAGS+= -llprof
+endif
 
 %.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) -lpapi -llprof -lmonitor
+	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LD_FLAGS)
 
 ###############################################################################################################
 #                                                      demo                                                   #
 ###############################################################################################################
-DEMO_DIR=demo
-$(DEMO_DIR)/demo: $(DEMO_DIR)/*.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -fopenmp -lncurses -lm
-
+demo:
+	make -C ../demo/ demo
 
 ###############################################################################################################
 #                                             PHONY: Clean, Install ...                                       #
@@ -82,5 +90,4 @@ uninstall: clean
 	rm -f $(MONITOR_INCLUDE_INSTALL_DIR)/monitor.h
 	rm -f $(MONITOR_BIN_INSTALL_DIR)/$(BIN)
 	rm -f $(MONITOR_LIB_INSTALL_DIR)/$(LIB) 
-
 
