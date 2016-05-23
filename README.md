@@ -28,6 +28,19 @@ The configuration of a monitor let you choose:
 
 This information is necessary to caracterize applications with respect to the underlying hardware.
 
+### Plugins description:
+
+The file `plugins/performance_utils.h` document the ABI to implement a library usable in a monitor.
+Several implementations are already available:
+
+* papi: use papi hardware events in monitors. This implementation assumes that you define a monitor for a leaf
+  of the topology, or for the root of the topology. Defining a monitor with this plugin on another location can
+  be misleading if you are not aware that it will record events with default papi options.
+* maqao: use maqao hardware events in monitors. It also assumes that monitor will be located on a leaf
+  or on the root of the topology, otherwise events are system wide events.
+* hierarchical: accumulates eventsets of closest children monitors. Event names are defines as topology depth.
+* trace: read events from a monitor trace. Events are field index to read.
+
 ## Requirements:
 
 * hwloc with defined values or above: 
