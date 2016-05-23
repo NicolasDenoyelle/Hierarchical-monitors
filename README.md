@@ -114,6 +114,7 @@ int main(){
 It is really easy to access information into monitors.
 The file `"monitor.h"` let you know about the monitor structure, and gives you access to the machine topology.
 Their are to way to find monitors: 
+
   * by walking the topology and dereferencing topology node's with non NULL userdata, 
   * or by iterating over the `monitors` array using the array API in `"utils.h"`.
 
