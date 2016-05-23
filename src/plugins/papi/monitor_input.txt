@@ -1,0 +1,20 @@
+PU_MISS
+{
+	OBJ:= PU;
+	PERF_LIB:=PAPI;
+	EVSET:=PAPI_L1_DCM, PAPI_L2_DCM, PAPI_L3_TCM;
+	EVSET_REDUCE:=$0;
+	SILENT:=1;
+}
+
+TOT_MISS
+{
+	PERF_LIB:=hierarchical;
+	EVSET:=PU;
+	EVSET_REDUCE:=$2;
+}
+
+
+#EVSET can contain any event accepted by "PAPI_add_named_event()" function,
+#or any event output by "PAPI_avail -a" or "PAPI_native_avail -a" 
+

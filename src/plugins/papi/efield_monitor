@@ -1,0 +1,22 @@
+L3_PAPI
+{
+	OBJ:=PU;
+	PERF_LIB:=PAPI_perf_monitor;
+	EVSET:=PAPI_L3_TCA, PAPI_L3_TCM, PAPI_TOT_CYC;	
+#	SILENT:=1;
+}
+
+ACCUMULATION_NODE
+{
+	OBJ:=Node;
+	PERF_LIB:=hierarchical_perf_monitor;
+	EVSET:=PU;
+}
+
+ACCUMULATION_NODE
+{
+	OBJ:=Machine;
+	PERF_LIB:=hierarchical_perf_monitor;
+	EVSET:=Node;
+}
+
