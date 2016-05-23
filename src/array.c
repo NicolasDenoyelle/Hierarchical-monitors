@@ -157,7 +157,10 @@ inline void array_sort(struct array * array, int (* compare)(void*, void*)){
 
 void * array_iterate(struct array * array){
     void * ret;
+    if(array == NULL || array->length == 0)
+	return NULL;
     if(array->iterator == array->length){array->iterator = 0; return NULL;}
+
     ret = array->cell[array->iterator];
     array->iterator++;
     return ret;
