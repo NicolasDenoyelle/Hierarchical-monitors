@@ -118,5 +118,5 @@ int main(){
 
 * Coding the library
 
-![](sofware_view.png?raw=true)
+![](software_view.png?raw=true)
 
