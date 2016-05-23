@@ -54,6 +54,8 @@ If you don't have one of them you will have to remove them from line `PERF_PLUGI
 You must ave permission to read performance counters system wide. 
 It can be achieved by running the command: `echo "-1" > /proc/sys/kernel/perf_event_paranoid` as root.
 
+* bison and lex for monitor importer.
+
 ## Set up:
 
 Everything is set up in Makefile.
