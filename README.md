@@ -116,7 +116,7 @@ int main(){
   * display help: `monitor --help`
   * `monitor --input monitor_configuration_file`
 
-* Coding the library
+## Coding the library
 
 ![](software_view.png?raw=true)
 
