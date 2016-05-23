@@ -1,0 +1,10 @@
+TRACE_MONITOR
+{
+	OBJ:=PU:0;
+	LIB:=monitor_trace_monitor;
+	EVSET:=1;
+}
+
+#EVSET can be one of the fields of a trace output by the monitor library. 
+#The first field has index one and i the first value read after the location field.
+

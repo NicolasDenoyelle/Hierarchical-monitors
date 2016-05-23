@@ -1,0 +1,24 @@
+MONITOR_TEST_PU
+{
+	OBJ:=PU:0;
+	LIB:=monitor_trace_monitor;
+	EVSET:=1,2,3;
+	ACCUMULATE:=0;
+}
+
+MONITOR_TEST_L3
+{
+	OBJ:=L3:0;
+	LIB:=monitor_trace_monitor;
+	EVSET:=1,2,3;
+	ACCUMULATE:=0;
+}
+
+MONITOR_ACCUM
+{
+	OBJ:=Node:0;
+	LIB:=hierarchical_monitor;
+	EVSET:=MONITOR_TEST_L3, MONITOR_TEST_PU;
+	REDUCE:=$1-$2;
+}
+
