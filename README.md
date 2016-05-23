@@ -63,7 +63,7 @@ Everything is set up in Makefile.
 
 ## Usage
 
-* defining monitors:
+### defining monitors:
 
 You have to describe the monitors into a single parsable file with this syntax:
 ```
@@ -89,10 +89,10 @@ ins_cyc{
 }
 ```
 
-* Embeding the library:
-  * Include `"monitor.h"` into the files calling the monitor library.
-  * Compile your code with -lmonitor ldflag.
-  * Code sample:
+### Embeding the library:
+* Include `"monitor.h"` into the files calling the monitor library.
+* Compile your code with -lmonitor ldflag.
+* Code sample:
 
 ```
 #include "monitor.h"
@@ -114,13 +114,12 @@ int main(){
 It is really easy to access information into monitors.
 The file `"monitor.h"` let you know about the monitor structure, and gives you access to the machine topology.
 Their are to way to find monitors: 
+* by walking the topology and dereferencing topology node's with non NULL userdata, 
+* or by iterating over the `monitors` array using the array API in `"utils.h"`.
 
-  * by walking the topology and dereferencing topology node's with non NULL userdata, 
-  * or by iterating over the `monitors` array using the array API in `"utils.h"`.
-
-* Using the monitor utility:
-  * display help: `monitor --help`
-  * `monitor --input monitor_configuration_file`
+### Using the monitor utility:
+* display help: `monitor --help`
+* `monitor --input monitor_configuration_file`
 
 ## Coding the library
 
