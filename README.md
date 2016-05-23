@@ -38,7 +38,7 @@ Several implementations are already available:
   be misleading if you are not aware that it will record events with default papi options.
 * maqao: use maqao hardware events in monitors. It also assumes that monitor will be located on a leaf
   or on the root of the topology, otherwise events are system wide events.
-* hierarchical: accumulates eventsets of closest children monitors. Event names are defines as topology depth.
+* hierarchical: accumulates eventsets of closest children monitors. Event names are defined as topology depths name.
 * trace: read events from a monitor trace. Events are field index to read.
 
 ## Requirements:
