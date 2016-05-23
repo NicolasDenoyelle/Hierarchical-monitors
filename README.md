@@ -31,8 +31,8 @@ This information is necessary to caracterize applications with respect to the un
 ## Requirements:
 
 *hwloc with defined values or above: 
-** `HWLOC_API_VERSION     0x00020000`
-** `HWLOC_COMPONENT_ABI   5`
+  * `HWLOC_API_VERSION     0x00020000`
+  * `HWLOC_COMPONENT_ABI   5`
 
 *papi, or maqao(lprof) to build default plugins ABI implementation.
 If you don't have one of them you will have to remove them from line `PERF_PLUGINS` in Makefile.
@@ -42,12 +42,16 @@ You must ave permission to read performance counters system wide.
 It can be achieved by running the command: `echo "-1" > /proc/sys/kernel/perf_event_paranoid` as root.
 
 ## Set up:
+
 Everything is set up in Makefile.
+
 * `make` will compile the library, the plugins and the utility
 * `make install` will do `make` and copy targets in (bin,lib,include...) directories located in `PREFIX` directory.
 
 ## Usage
+
 * defining monitors:
+
 You have to describe the monitors into a single parsable file with this syntax:
 ```
 #This monitor measure the total of instruction per cycle performed on each processing unit.
@@ -72,11 +76,10 @@ ins_cyc{
 }
 ```
 
-* Embeding the library
-
-** Include `"monitor.h"` into the files calling the monitor library.
-** Compile your code with -lmonitor ldflag.
-** Code sample:
+* Embeding the library:
+  * Include `"monitor.h"` into the files calling the monitor library.
+  * Compile your code with -lmonitor ldflag.
+  * Code sample:
 
 ```
 #include "monitor.h"
@@ -97,8 +100,8 @@ int main(){
 ```
 
 * Using the monitor utility:
-** display help: `monitor --help`
-** `monitor --input monitor_configuration_file`
+  * display help: `monitor --help`
+  * `monitor --input monitor_configuration_file`
 
 * Coding the library
 
