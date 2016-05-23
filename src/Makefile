@@ -3,7 +3,7 @@ CFLAGS=-Wall -Wextra -Wno-unused-function -Wno-implicit-function-declaration -g
 LDFLAGS=-L. -lhwloc 
 
 # Installation directories
-PREFIX=$(HOME)/local
+PREFIX=/usr
 MONITOR_INCLUDE_INSTALL_DIR=$(PREFIX)/include
 MONITOR_LIB_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
