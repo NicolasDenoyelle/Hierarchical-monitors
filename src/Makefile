@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -Wno-unused-function -Wno-implicit-function-declaration -g
+CFLAGS=-Wall -Wextra
 LDFLAGS=-L. -lhwloc 
 
 # Installation directories

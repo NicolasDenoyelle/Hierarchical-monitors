@@ -164,6 +164,7 @@
 		err = perf_lib->monitor_eventset_add_named_event(eventset,(char*)array_get(monitor_evset,j));
 		if(err == -1){
 		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)array_get(monitor_evset,j), name);
+		    print_avail_events(perf_lib);
 		    exit(EXIT_FAILURE);
 		}
 		added_events += err;
@@ -210,6 +211,7 @@ static char * concat_expr(int n, ...){
 	exit(EXIT_FAILURE);
     }
 
+    extern int yylex();
     %}
 
 %error-verbose

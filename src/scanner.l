@@ -3,7 +3,10 @@
 #include "parser.h"
 void count();
 %}
+
 %option yylineno
+%option nounput
+%option noinput
 
 integer           [[:digit:]]+
 hexa              "0x"[0-9A-Fa-f]+
