@@ -120,8 +120,9 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
 	free(line);
 	return;
     }
-
-    hwloc_bitmap_sscanf(cpuset, line+token_length);
+    
+    line[strlen(line)-1] = '\0';
+    hwloc_bitmap_sscanf(cpuset, line+token_length+1);
     free(line);
 }
 
