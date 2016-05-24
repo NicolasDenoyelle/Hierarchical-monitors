@@ -1,0 +1,24 @@
+L1_miss_per_cycle{
+	OBJ:=PU;
+	PERF_LIB:=papi;
+	EVSET:=PAPI_L1_DCM, PAPI_TOT_CYC;
+	EVSET_REDUCE:=$0/$1;
+	SAMPLES_REDUCE:=MONITOR_SAMPLES_LAST;
+	N_SAMPLES:=4;
+	SILENT:=0;
+	MAX:=0;
+	MIN:=0;
+}
+	
+L1_miss_per_cycle{
+	OBJ:=Core;
+	PERF_LIB:=hierarchical;
+	EVSET:=PU;
+	EVSET_REDUCE:=$0/$1;
+	SAMPLES_REDUCE:=MONITOR_SAMPLES_LAST;
+	N_SAMPLES:=4;
+	SILENT:=0;
+	MAX:=0;
+	MIN:=0;
+}
+
