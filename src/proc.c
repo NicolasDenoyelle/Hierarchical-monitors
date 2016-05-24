@@ -99,15 +99,14 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
     const char * token = "Cpus_allowed:";
     char * line = NULL;
     ssize_t err;
-    size_t read;
+    size_t read, token_length;
 
     memset(path, 0, sizeof(path));
-    snprintf(path, sizeof(path), "/proc/%lu/status", pid);
-
+    snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
+    token_length = strlen(token);
     status_file = fopen(path,"r");
     if(status_file == NULL){
 	perror("fopen");
-	hwloc_bitmap_copy(cpuset, hwloc_get_root_obj(monitor_topology)->cpuset);
 	return;
     }
     
@@ -115,15 +114,14 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
     do{
 	free(line); line = NULL;
 	err = getline(&line, &read, status_file);
-    } while(err!=-1 && strncmp(line, token, sizeof(token)));
+    } while(err!=-1 && strncmp(line, token, token_length));
     
     if(err == -1){
-	hwloc_bitmap_copy(cpuset, hwloc_get_root_obj(monitor_topology)->cpuset);
 	free(line);
 	return;
     }
 
-    hwloc_bitmap_sscanf(cpuset, line+sizeof(token));
+    hwloc_bitmap_sscanf(cpuset, line+token_length);
     free(line);
 }
 
