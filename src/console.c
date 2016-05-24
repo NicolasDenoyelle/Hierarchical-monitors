@@ -49,7 +49,7 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
 	obj = hwloc_get_obj_by_depth(monitor_topology,depth, i);	
 	monitor = obj->userdata;
 	memset(obj_content,0,width+1);
-	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,running_tasks)){
+	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,running_cpuset)){
 	    if(monitor->max_value == monitor->min_value){
 		fill=width;
 	    }
