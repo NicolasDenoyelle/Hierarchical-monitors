@@ -4,7 +4,7 @@
 #include <hwloc.h>
 #include <stdio.h>
 
-/****************************************************** Array utils *************************************************************/
+/************************************************ Array utils **************************************************/
 
 struct array * new_array          (size_t elem_size, unsigned max_elem, void (*delete_element)(void*));
 struct array * array_dup          (struct array *);
@@ -22,7 +22,7 @@ void           array_sort         (struct array * array, int (* compare)(void*, 
 int            array_find         (struct array * array, void * key, int (* compare)(void*, void*));
 void *         array_iterate      (struct array *);
 
-/****************************************************** hwloc utils *************************************************************/
+/*********************************************** hwloc utils ***************************************************/
 
 int          location_cpubind(hwloc_obj_t);
 int          location_membind(hwloc_obj_t);
@@ -31,13 +31,14 @@ hwloc_obj_t  location_parse  (char *);
 char **      location_avail  (unsigned *);
 int          location_compare(void *, void *); /* void * must be: hwloc_obj_t */
 
-/******************************************************* proc utils *************************************************************/
+/*********************************************** proc utils ****************************************************/
 
+void  proc_get_allowed_cpuset(pid_t, hwloc_cpuset_t);
 void  proc_get_running_cpuset(pid_t, hwloc_cpuset_t out, int recurse);
 void  proc_move_tasks        (pid_t, hwloc_obj_t to, hwloc_obj_t from, int recurse);
 pid_t start_executable       (char * exe, char * args[]);
 
-/******************************************************* misc utils *************************************************************/
+/*********************************************** misc utils ****************************************************/
 
 #define perror_EXIT(msg) do{perror(msg); exit(EXIT_FAILURE);} while(0)
 #define malloc_chk(ptr, size) do{ptr = malloc(size); if(ptr == NULL){perror_EXIT("malloc");}} while(0)

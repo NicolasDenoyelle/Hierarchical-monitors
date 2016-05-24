@@ -93,6 +93,40 @@ proc_get_running_cpuset(pid_t pid, hwloc_cpuset_t cpuset, int recurse)
     running_cpuset_and(proc_path,128,cpuset, recurse);
 }
 
+void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
+    FILE * status_file = NULL;
+    char path[1024];
+    const char * token = "Cpus_allowed:";
+    char * line = NULL;
+    ssize_t err;
+    size_t read;
+
+    memset(path, 0, sizeof(path));
+    snprintf(path, sizeof(path), "/proc/%lu/status", pid);
+
+    status_file = fopen(path,"r");
+    if(status_file == NULL){
+	perror("fopen");
+	hwloc_bitmap_copy(cpuset, hwloc_get_root_obj(monitor_topology)->cpuset);
+	return;
+    }
+    
+    line = malloc(8);
+    do{
+	free(line); line = NULL;
+	err = getline(&line, &read, status_file);
+    } while(err!=-1 && strncmp(line, token, sizeof(token)));
+    
+    if(err == -1){
+	hwloc_bitmap_copy(cpuset, hwloc_get_root_obj(monitor_topology)->cpuset);
+	free(line);
+	return;
+    }
+
+    hwloc_bitmap_sscanf(cpuset, line+sizeof(token));
+    free(line);
+}
+
 /***************************************************************************************************************/
 /*                                             Setting tasks placement                                         */
 /***************************************************************************************************************/
