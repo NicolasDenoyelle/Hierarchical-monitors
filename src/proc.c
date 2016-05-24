@@ -136,7 +136,7 @@ extern hwloc_topology_t monitor_topology;
  * Check whether linux cpuset filesystem can be used.
  * If so, create a hierarchy filesystem of topology cpusets.
  **/
-static const char * proc_cpuset_root = "/dev/cpuset/monitor";
+/* static const char * proc_cpuset_root = "/dev/cpuset/monitor"; */
 
 /* static int proc_cpuset_init(){ */
 /*     char        cpuset_path[2048]; */
