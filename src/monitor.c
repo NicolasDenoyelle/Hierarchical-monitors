@@ -8,9 +8,8 @@
 struct array *             monitors;
 hwloc_topology_t           monitor_topology;
 unsigned                   monitor_topology_depth;
-hwloc_cpuset_t             running_tasks = NULL;
+hwloc_cpuset_t             running_cpuset = NULL;
 
-static int                 tasks_recurse;
 static struct array *      print_monitors;
 static unsigned            monitor_thread_count;
 static pthread_t *         monitor_threads;
@@ -29,6 +28,7 @@ static int    _monitors_start(struct array*);
 static int    _monitors_stop (struct array*);
 static void   _monitors_read (struct array*);
 static void   _monitors_print(int);
+static int    _monitor_location_compare(void*, void*);
 
 void monitor_reset(struct monitor * monitor){
 unsigned i, j;
@@ -96,14 +96,30 @@ new_monitor(hwloc_obj_t location,
     return monitor;
 }
 
-int monitors_attach(unsigned long pid, int recurse){
+int monitors_restrict(pid_t pid){
+    struct monitor * m;
     /* If the process is not running, return 0 */
     if(kill(pid,0)!=0){
 	return 0;
     }
+
     monitors_pid = pid;
-    tasks_recurse = recurse;
+    proc_get_allowed_cpuset(pid, running_cpuset);
+    while((m = array_iterate(monitors)) != NULL){
+	if(!hwloc_bitmap_intersects(m->location->cpuset, running_cpuset)){
+	    array_remove(print_monitors, array_find(print_monitors, m, _monitor_location_compare));
+	    array_remove(monitors,       array_find(monitors, m, _monitor_location_compare));
+	}
+    }
     return 1;
+}
+
+void monitors_register_threads(int recurse){
+    if(monitors_pid == 0){
+	monitors_pid = getpid();
+	monitors_restrict(monitors_pid);
+    }
+    proc_get_running_cpuset(monitors_pid, running_cpuset, recurse);
 }
 
 int monitor_lib_init(hwloc_topology_t topo, char * output){
@@ -131,11 +147,12 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
     else
 	monitor_output = stdout;
 
-    if((running_tasks = hwloc_bitmap_alloc()) == NULL){
+
+    if((running_cpuset = hwloc_bitmap_alloc()) == NULL){
 	fprintf(stderr,"Allocation failed\n");
 	exit(EXIT_FAILURE);
     }
-    running_tasks = hwloc_bitmap_dup(hwloc_get_root_obj(monitor_topology)->cpuset);
+    running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitor_topology)->cpuset);
 
     /* create or monitor list */ 
     monitors = new_array(sizeof(struct monitor *), 32, (void (*)(void*))_monitor_delete);
@@ -147,7 +164,7 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
     return 0;
 }
 
-static int monitor_location_compare(void* a, void* b){
+static int _monitor_location_compare(void* a, void* b){
     struct monitor * monitor_a = *((struct monitor **) a);
     struct monitor * monitor_b = *((struct monitor **) b);
     return location_compare(&(monitor_a->location),&(monitor_b->location));
@@ -169,8 +186,8 @@ void monitors_start(){
     struct monitor * m;
 
     /* Sort monitors per location for update from leaves to root */
-    array_sort(monitors, monitor_location_compare);
-    array_sort(print_monitors, monitor_location_compare);
+    array_sort(monitors, _monitor_location_compare);
+    array_sort(print_monitors, _monitor_location_compare);
 
     /* Clear leaves */
     for(i=0;i<n_leaves; i++){
@@ -224,15 +241,12 @@ void monitors_start(){
 }
 
 static void _monitor_remove(struct monitor * monitor){
-    array_remove(monitors, array_find(monitors, monitor, monitor_location_compare));
+    array_remove(monitors, array_find(monitors, monitor, _monitor_location_compare));
     _monitor_delete(monitor);
 }
 
 void monitors_update(int mark){
     struct monitor * m;
-    /* Update tasks tracking */
-    if(monitors_pid)
-	proc_get_running_cpuset(monitors_pid, running_tasks, tasks_recurse);
     /* Make all monitors unavailable */
     while((m = array_iterate(monitors)) != NULL)
 	pthread_mutex_lock(&(m->available));
@@ -259,7 +273,7 @@ void monitor_lib_finalize(){
     delete_array(monitors);
     delete_array(print_monitors);
     free(monitor_threads);
-    hwloc_bitmap_free(running_tasks);
+    hwloc_bitmap_free(running_cpuset);
     hwloc_topology_destroy(monitor_topology);
 }
 
@@ -292,7 +306,7 @@ static void _monitors_print(int mark){
 static int _monitors_start(struct array * _monitors){
     struct monitor * m;
     while((m = array_iterate(_monitors)) != NULL){
-	if(m->stopped && hwloc_bitmap_intersects(running_tasks, m->location->cpuset)){
+	if(m->stopped && hwloc_bitmap_intersects(running_cpuset, m->location->cpuset)){
 	    m->perf_lib->monitor_eventset_start(m->eventset);
 	    m->stopped = 0;
 	}
@@ -318,7 +332,7 @@ static void _monitor_read(struct monitor * m){
 	return;
     }
     /* Check whether we have to update */
-    if(hwloc_bitmap_intersects(running_tasks, m->location->cpuset)){
+    if(hwloc_bitmap_intersects(running_cpuset, m->location->cpuset)){
 	c = m->current = (m->current+1)%(m->n_samples);
 	if((m->perf_lib->monitor_eventset_read(m->eventset,m->events[c])) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",

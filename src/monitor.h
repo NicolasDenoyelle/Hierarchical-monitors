@@ -9,7 +9,7 @@ extern struct array *   monitors;
 extern hwloc_topology_t monitor_topology;
 extern unsigned         monitor_topology_depth;
 extern char *           monitor_plugin_dir;
-extern hwloc_cpuset_t   running_tasks;
+extern hwloc_cpuset_t   running_cpuset;
 /**
  * A monitor is an object recording performance values for a certain topology node.
  * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
@@ -26,14 +26,21 @@ extern hwloc_cpuset_t   running_tasks;
 int monitor_lib_init(hwloc_topology_t topo, char * output);
 
 /**
- * Snoop specific pid. 
- * The sytsem still record the whole system; And look into /proc file system to get tasks state and location, and
- * stop or start monitors according to this information.
- * @param pid, the pid to attach to.
- * @param recurse, the number of recursion int /proc/task looking for child tasks. Negative value recurses to the leaves.
- * @return true if successfull, false if not,  because process does not exists.
+ * Destroy monitors outside of pid allowed cpuset.
+ * Must be called before monitors_start.
+ * @param pid, the pid of the process to look at.
+ * @return true if successfull, false if not (because process does not exists).
  **/
-int monitors_attach(unsigned long pid, int recurse);
+int monitors_restrict(pid_t pid);
+
+/**
+ * Call monitors_restrict(<pid>).
+ * If monitors_restrict(<pid>) was previously called, then <pid> is the argument passed to the latest call,
+ * else it is getpid().
+ * Look into /proc/<pid>/task for tasks states.
+ * @param recurse, the number of recursive look into child tasks. If negative, traverse children till the leaves.
+ **/
+void monitors_register_threads(int recurse);
 
 /**
  * Import monitors from a configuration file. Imported monitors are stored in global list of monitors: monitors,
@@ -96,7 +103,7 @@ struct monitor{
     int stopped;
     /** Not available while reading events **/
     pthread_mutex_t available;
-    void * userdata
+    void * userdata;
 };
 
 struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
