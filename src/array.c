@@ -121,7 +121,7 @@ void * array_remove(struct array * array, int i){
     if(array->length){
 	memmove(&array->cell[i], &array->cell[i+1], (array->length-i-1)*sizeof(*array->cell));
 	array->length--;
-	if(array->iterator == i+1){array->iterator--;}
+	if(array->iterator == (unsigned)(i+1)){array->iterator--;}
     }	
     return ret;
 }
