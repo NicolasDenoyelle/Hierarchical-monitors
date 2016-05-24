@@ -137,53 +137,54 @@ extern hwloc_topology_t monitor_topology;
  * If so, create a hierarchy filesystem of topology cpusets.
  **/
 static const char * proc_cpuset_root = "/dev/cpuset/monitor";
-static int proc_cpuset_init(){
-    char        cpuset_path[2048];
-    char        cpuset_str[64];
-    hwloc_obj_t cpuset_obj = hwloc_get_root_obj(monitor_topology);
+
+/* static int proc_cpuset_init(){ */
+/*     char        cpuset_path[2048]; */
+/*     char        cpuset_str[64]; */
+/*     hwloc_obj_t cpuset_obj = hwloc_get_root_obj(monitor_topology); */
     
-    memset(cpuset_path, 0, sizeof(cpuset_path));
-    snprintf(cpuset_path, sizeof(cpuset_path), "%s", proc_cpuset_root); 
-    if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){
-	perror("mkdir in /dev/cpuset/monitor");
-	return -1;
-    }
-    /* Walk the topology and create a cpuset hierarchy of the topology restricted to monitors */
- proc_cpuset_create:
-    memset(cpuset_str,0,sizeof(cpuset_str));
-    hwloc_bitmap_snprintf(cpuset_str, sizeof(cpuset_str), cpuset_obj->cpuset);
-    strcat(cpuset_path,"/"); strcat(cpuset_path,cpuset_str);
-    if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){
-	perror("mkdir in /dev/cpuset/monitor");
-	return -1;
-    }
- proc_topo_walk:
-    if(cpuset_obj->first_child != NULL)
-	cpuset_obj = cpuset_obj->first_child;
-    else if(cpuset_obj->next_sibling != NULL){
-	cpuset_obj =  cpuset_obj->next_sibling;
-	if(cpuset_obj->userdata!=NULL)
-	    memset(cpuset_path+strlen(cpuset_path)-strlen(cpuset_str)-1, 0, strlen(cpuset_str));
-    }
-    else{
-	size_t len = strlen(cpuset_path);
-	char * c = &(cpuset_path[len]);
-	while(cpuset_obj != NULL && cpuset_obj->next_sibling == NULL){
-	    cpuset_obj = cpuset_obj->parent;
-	    if(cpuset_obj->userdata==NULL)
-		continue;
-	    do{*c = *c-1;} while(*c!='/' || c!=cpuset_path);
-	}
-	memset(c , 0, len - (c - cpuset_path));
-    }
-    if(cpuset_obj == NULL)
-	return 0;
-    if(cpuset_obj->userdata == NULL)
-	goto proc_topo_walk;
+/*     memset(cpuset_path, 0, sizeof(cpuset_path)); */
+/*     snprintf(cpuset_path, sizeof(cpuset_path), "%s", proc_cpuset_root);  */
+/*     if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){ */
+/* 	perror("mkdir in /dev/cpuset/monitor"); */
+/* 	return -1; */
+/*     } */
+/*     /\* Walk the topology and create a cpuset hierarchy of the topology restricted to monitors *\/ */
+/*  proc_cpuset_create: */
+/*     memset(cpuset_str,0,sizeof(cpuset_str)); */
+/*     hwloc_bitmap_snprintf(cpuset_str, sizeof(cpuset_str), cpuset_obj->cpuset); */
+/*     strcat(cpuset_path,"/"); strcat(cpuset_path,cpuset_str); */
+/*     if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){ */
+/* 	perror("mkdir in /dev/cpuset/monitor"); */
+/* 	return -1; */
+/*     } */
+/*  proc_topo_walk: */
+/*     if(cpuset_obj->first_child != NULL) */
+/* 	cpuset_obj = cpuset_obj->first_child; */
+/*     else if(cpuset_obj->next_sibling != NULL){ */
+/* 	cpuset_obj =  cpuset_obj->next_sibling; */
+/* 	if(cpuset_obj->userdata!=NULL) */
+/* 	    memset(cpuset_path+strlen(cpuset_path)-strlen(cpuset_str)-1, 0, strlen(cpuset_str)); */
+/*     } */
+/*     else{ */
+/* 	size_t len = strlen(cpuset_path); */
+/* 	char * c = &(cpuset_path[len]); */
+/* 	while(cpuset_obj != NULL && cpuset_obj->next_sibling == NULL){ */
+/* 	    cpuset_obj = cpuset_obj->parent; */
+/* 	    if(cpuset_obj->userdata==NULL) */
+/* 		continue; */
+/* 	    do{*c = *c-1;} while(*c!='/' || c!=cpuset_path); */
+/* 	} */
+/* 	memset(c , 0, len - (c - cpuset_path)); */
+/*     } */
+/*     if(cpuset_obj == NULL) */
+/* 	return 0; */
+/*     if(cpuset_obj->userdata == NULL) */
+/* 	goto proc_topo_walk; */
     
-    cpuset_obj =  cpuset_obj->next_sibling;
-    goto proc_cpuset_create;
-}
+/*     cpuset_obj =  cpuset_obj->next_sibling; */
+/*     goto proc_cpuset_create; */
+/* } */
 
 
 pid_t
