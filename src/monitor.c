@@ -78,6 +78,7 @@ new_monitor(hwloc_obj_t location,
     monitor->events_stat_lib = stat_evset_lib;
     monitor->samples_stat_lib = stat_samples_lib;
     monitor->events = NULL;
+    monitor->userdata = NULL;
     pthread_mutex_init(&(monitor->available), NULL);
     
     /* allocate arrays */

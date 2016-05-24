@@ -96,6 +96,7 @@ struct monitor{
     int stopped;
     /** Not available while reading events **/
     pthread_mutex_t available;
+    void * userdata
 };
 
 struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
