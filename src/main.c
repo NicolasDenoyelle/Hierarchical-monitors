@@ -222,7 +222,7 @@ main (int argc, char *argv[])
     if(pid>0){
 	int err;
 	int status;
-	monitors_attach(pid,-1);
+	monitors_restrict(pid);
 	if(!refresh_opt.set){
 	    monitors_update(-1);
 	    waitpid(pid, &status, 0);
