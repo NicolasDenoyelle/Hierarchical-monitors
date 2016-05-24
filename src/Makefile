@@ -3,7 +3,7 @@ CFLAGS=-Wall -Wextra
 LDFLAGS=-L. -lhwloc 
 
 # Installation directories
-PREFIX=/usr
+PREFIX=$(HOME)/local
 MONITOR_INCLUDE_INSTALL_DIR=$(PREFIX)/include
 MONITOR_LIB_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
@@ -45,18 +45,15 @@ $(BIN): main.c $(LIB)
 #                                                Performance plugins                                           #
 ################################################################################################################
 PERF_PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PERF_PLUGINS))
-PERF_PLUGINS_LDFLAGS=-lmonitor
-
-ifeq (papi, $(findstring papi,$(PERF_PLUGINS))) 
-PERF_PLUGINS_LDFLAGS+= -lpapi
+ifneq (,$(findstring papi, $(PERF_PLUGINS)))
+	PERF_PLUGINS_LDFLAGS=-lpapi 
 endif
-
-ifeq (maqao, $(findstring maqao,$(PERF_PLUGINS))) 
-PERF_PLUGINS_LDFLAGS+= -llprof
+ifneq (,$(findstring maqao, $(PERF_PLUGINS)))
+	PERF_PLUGINS_LDFLAGS+=-llprof
 endif
 
 %.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LD_FLAGS)
+	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lmonitor
 
 
 ###############################################################################################################
@@ -66,13 +63,12 @@ endif
 all: $(LIB) $(BIN) $(PERF_PLUGINS_LIB)
 
 install: all
-	mv $(LIB) $(MONITOR_LIB_INSTALL_DIR)
-	mv $(BIN) $(MONITOR_BIN_INSTALL_DIR)
-	@for file in $(PERF_PLUGINS_LIB); do\
-		cp $$file $(MONITOR_LIB_INSTALL_DIR); \
+	cp $(LIB) $(MONITOR_LIB_INSTALL_DIR)
+	cp $(BIN) $(MONITOR_BIN_INSTALL_DIR)
+	@for plugin in $(PERF_PLUGINS_LIB); do\
+		cp $$plugin $(MONITOR_LIB_INSTALL_DIR); \
 	done
 	cp monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)
-	cp $(MONITOR_BIN) $(MONITOR_BIN_INSTALL_DIR)
 
 clean: 
 	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PERF_PLUGINS_LIB)
