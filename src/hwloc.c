@@ -3,13 +3,13 @@
 static int chk_cpu_bind(hwloc_cpuset_t cpuset, int print)
 {
     hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
-    if(hwloc_get_cpubind(monitor_topology, checkset, HWLOC_CPUBIND_THREAD) == -1){
+    if(hwloc_get_cpubind(monitors_topology, checkset, HWLOC_CPUBIND_THREAD) == -1){
 	perror("get_cpubind");
 	hwloc_bitmap_free(checkset);  
 	return -1; 
     }
     if(print){
-	hwloc_obj_t cpu_obj = hwloc_get_first_largest_obj_inside_cpuset(monitor_topology, checkset);
+	hwloc_obj_t cpu_obj = hwloc_get_first_largest_obj_inside_cpuset(monitors_topology, checkset);
 	printf("cpubind=%s:%d\n",hwloc_obj_type_string(cpu_obj->type),cpu_obj->logical_index);
     }
 
@@ -24,7 +24,7 @@ static int chk_mem_bind(hwloc_nodeset_t nodeset, int print)
 {
     hwloc_membind_policy_t policy;
     hwloc_bitmap_t checkset = hwloc_bitmap_alloc();
-    if(hwloc_get_membind(monitor_topology, checkset, &policy, HWLOC_MEMBIND_THREAD|HWLOC_MEMBIND_BYNODESET) == -1){
+    if(hwloc_get_membind(monitors_topology, checkset, &policy, HWLOC_MEMBIND_THREAD|HWLOC_MEMBIND_BYNODESET) == -1){
 	perror("get_membind");
 	hwloc_bitmap_free(checkset);  
 	return -1; 
@@ -54,7 +54,7 @@ static int chk_mem_bind(hwloc_nodeset_t nodeset, int print)
 	    policy_name=NULL;
 	    break;
 	}
-	hwloc_obj_t mem_obj = hwloc_get_first_largest_obj_inside_cpuset(monitor_topology, checkset);
+	hwloc_obj_t mem_obj = hwloc_get_first_largest_obj_inside_cpuset(monitors_topology, checkset);
 	printf("membind(%s)=%s:%d\n",policy_name,hwloc_obj_type_string(mem_obj->type),mem_obj->logical_index);
     }
 
@@ -81,7 +81,7 @@ hwloc_obj_t location_parse(char* location){
 
     name = strtok(location,":");
     if(name==NULL){return NULL;}
-    err = hwloc_type_sscanf_as_depth(name, &type, monitor_topology, &depth);
+    err = hwloc_type_sscanf_as_depth(name, &type, monitors_topology, &depth);
     if(err == HWLOC_TYPE_DEPTH_UNKNOWN){
 	fprintf(stderr,"type %s cannot be found, level=%d\n",name,depth);
 	return NULL;
@@ -93,12 +93,12 @@ hwloc_obj_t location_parse(char* location){
     logical_index = 0;
     idx = strtok(NULL,":");
     if(idx!=NULL){logical_index = atoi(idx);}
-    return hwloc_get_obj_by_depth(monitor_topology,depth,logical_index);
+    return hwloc_get_obj_by_depth(monitors_topology,depth,logical_index);
 }
 
 int location_cpubind(hwloc_obj_t location)
 {
-    if(hwloc_set_cpubind(monitor_topology,location->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
+    if(hwloc_set_cpubind(monitors_topology,location->cpuset, HWLOC_CPUBIND_THREAD|HWLOC_CPUBIND_STRICT|HWLOC_CPUBIND_NOMEMBIND) == -1){
 	perror("cpubind");
 	return -1;
     }
@@ -116,7 +116,7 @@ int location_membind(hwloc_obj_t location)
 	return -1;
     }
 
-    if(hwloc_set_membind(monitor_topology, location->nodeset, HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_BYNODESET) == -1){
+    if(hwloc_set_membind(monitors_topology, location->nodeset, HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_BYNODESET) == -1){
 	perror("membind");
 	return -1;
     }
@@ -130,11 +130,11 @@ char ** location_avail(unsigned * nobjs){
     char ** obj_types;
     char obj_type[128]; 
   
-    depth = hwloc_topology_get_depth(monitor_topology);
+    depth = hwloc_topology_get_depth(monitors_topology);
     obj_types=malloc(sizeof(char*)*depth);
     int i,index=0;
   
-    obj = hwloc_get_root_obj(monitor_topology);
+    obj = hwloc_get_root_obj(monitors_topology);
     do{
 	memset(obj_type,0,128);
 	hwloc_obj_type_snprintf(obj_type, 128, obj, 0);
@@ -148,10 +148,10 @@ char ** location_avail(unsigned * nobjs){
 	    obj_types[index] = strdup(obj_type);
 	    index++;
 	}
-    } while((obj=hwloc_get_next_child(monitor_topology,obj,NULL))!=NULL);
+    } while((obj=hwloc_get_next_child(monitors_topology,obj,NULL))!=NULL);
 
     *nobjs=index;
-    hwloc_topology_destroy(monitor_topology);
+    hwloc_topology_destroy(monitors_topology);
     return obj_types;
 }
 

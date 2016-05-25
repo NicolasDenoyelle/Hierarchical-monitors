@@ -43,7 +43,7 @@
      *
      **/
 
-    extern hwloc_topology_t monitor_topology;  /* The lib topology */
+    extern hwloc_topology_t monitors_topology;  /* The lib topology */
     extern struct array * monitors;    /* The lib list of monitors to be completed */
 
     /* Default fields */
@@ -125,7 +125,7 @@
 	/* Monitor default on root */
 	if(n_siblings == 0){
 	    n_siblings = 1;
-	    array_push(monitor_location, hwloc_get_root_obj(monitor_topology));
+	    array_push(monitor_location, hwloc_get_root_obj(monitors_topology));
 	}
 
 	/* Load dynamic library */
@@ -244,9 +244,9 @@ field
 : OBJ_FIELD NAME ';'{
     hwloc_obj_t obj = location_parse($2);
     if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
-    unsigned nbobjs = hwloc_get_nbobjs_by_type(monitor_topology, obj->type);
+    unsigned nbobjs = hwloc_get_nbobjs_by_type(monitors_topology, obj->type);
     while(nbobjs --){
-	obj = hwloc_get_obj_by_type(monitor_topology, obj->type, nbobjs);
+	obj = hwloc_get_obj_by_type(monitors_topology, obj->type, nbobjs);
 	array_push(monitor_location, obj);
     }
     free($2);

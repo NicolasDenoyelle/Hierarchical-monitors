@@ -35,8 +35,8 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     unsigned i, n_obj;
     double val, scale;
 
-    obj = hwloc_get_obj_by_depth(monitor_topology, depth, 0);
-    n_obj = hwloc_get_nbobjs_by_depth(monitor_topology, depth);
+    obj = hwloc_get_obj_by_depth(monitors_topology, depth, 0);
+    n_obj = hwloc_get_nbobjs_by_depth(monitors_topology, depth);
     if(obj==NULL)
 	return;
 
@@ -46,10 +46,10 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     obj_content = malloc(width+1);
 
     for(i=0;i<n_obj;i++){
-	obj = hwloc_get_obj_by_depth(monitor_topology,depth, i);	
+	obj = hwloc_get_obj_by_depth(monitors_topology,depth, i);	
 	monitor = obj->userdata;
 	memset(obj_content,0,width+1);
-	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,running_cpuset)){
+	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,monitors_running_cpuset)){
 	    if(monitor->max_value == monitor->min_value){
 		fill=width;
 	    }
@@ -85,7 +85,7 @@ void monitor_display_all(int verbose){
     unsigned term_width;
     
     term_width = get_term_width();
-    depth = hwloc_topology_get_depth(monitor_topology);
+    depth = hwloc_topology_get_depth(monitors_topology);
     clear_term();
 fflush(stdout);
 printf("%.*s\n", term_width, UNDERLINE_STR);

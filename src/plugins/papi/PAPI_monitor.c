@@ -4,7 +4,7 @@
 #include <papi.h>
 #include "../../utils.h"
 
-extern hwloc_topology_t monitor_topology;
+extern hwloc_topology_t monitors_topology;
 
 struct PAPI_eventset{
     int (*PAPI_stop_counting)(int, long long *);

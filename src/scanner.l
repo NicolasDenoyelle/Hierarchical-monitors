@@ -42,7 +42,7 @@ void count();
 "PERF_LIB:="       { count(); return(PERF_LIB_FIELD);   };
 "EVSET_REDUCE:="   { count(); return(EVSET_REDUCE_FIELD);   };
 "SAMPLES_REDUCE:=" { count(); return(SAMPLES_REDUCE_FIELD); };
-"N_SAMPLE:="       { count(); return(N_SAMPLE_FIELD);   };
+"N_SAMPLES:="       { count(); return(N_SAMPLE_FIELD);   };
 "ACCUMULATE:="     { count(); return(ACCUMULATE_FIELD); };
 "SILENT:="         { count(); return(SILENT_FIELD); };
 {integer}          { count(); yylval.str = strdup(yytext); return(INTEGER);  };

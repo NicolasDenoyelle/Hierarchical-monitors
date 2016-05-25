@@ -6,28 +6,28 @@
 #include "stats.h"
 
 struct array *             monitors;
-hwloc_topology_t           monitor_topology;
-unsigned                   monitor_topology_depth;
-hwloc_cpuset_t             running_cpuset = NULL;
+static struct array *      monitors_to_print;
+hwloc_topology_t           monitors_topology;
+unsigned                   monitors_topology_depth;
+static unsigned long       monitors_pid;
+static FILE *              monitors_output;
+static struct timespec     monitors_start_time, monitors_current_time;
+hwloc_cpuset_t             monitors_running_cpuset;
 
-static struct array *      print_monitors;
 static unsigned            monitor_thread_count;
 static pthread_t *         monitor_threads;
-static pthread_barrier_t   monitor_barrier;
-static volatile int        monitor_stop = 0;
-static unsigned long       monitors_pid = 0;
-static FILE *              monitor_output = NULL;
-static struct timespec     start_time, current_time;
+static pthread_barrier_t   monitor_threads_barrier;
+static volatile int        monitor_threads_stop = 0;
 
 static void   _monitor_delete(struct monitor*);
 static void * _monitor_thread(void*);
 static void   _monitor_remove(struct monitor*);
 static void   _monitor_read  (struct monitor*);
-static void   _monitor_print (struct monitor*, int);
+static void   _monitor_output (struct monitor*, int);
 static int    _monitors_start(struct array*);
 static int    _monitors_stop (struct array*);
 static void   _monitors_read (struct array*);
-static void   _monitors_print(int);
+static void   _monitors_output(int);
 static int    _monitor_location_compare(void*, void*);
 
 void monitor_reset(struct monitor * monitor){
@@ -36,7 +36,6 @@ unsigned i, j;
    monitor->min_value = 0;
    monitor->max_value = 0;
    monitor->current = monitor->n_samples-1;
-   monitor->balance = 0;
    monitor->stopped = 1;
    for(i=0;i<monitor->n_samples;i++){
        monitor->samples[i] = 0;
@@ -92,9 +91,17 @@ new_monitor(hwloc_obj_t location,
 
     /* Add monitor to existing monitors*/
     array_push(monitors, monitor);
-    if(!silent){array_push(print_monitors, monitor);}
+    if(!silent){array_push(monitors_to_print, monitor);}
     return monitor;
 }
+
+/* static void cpuset_print(hwloc_cpuset_t c){ */
+/*     int i; */
+/*     for(i=0; i<hwloc_bitmap_weight(c); i ++){ */
+/* 	printf("%d", hwloc_bitmap_isset(c,i)); */
+/*     } */
+/*     printf("\n"); */
+/* } */
 
 int monitors_restrict(pid_t pid){
     struct monitor * m;
@@ -102,12 +109,14 @@ int monitors_restrict(pid_t pid){
     if(kill(pid,0)!=0){
 	return 0;
     }
-
     monitors_pid = pid;
-    proc_get_allowed_cpuset(pid, running_cpuset);
+    proc_get_allowed_cpuset(pid, monitors_running_cpuset);
     while((m = array_iterate(monitors)) != NULL){
-	if(!hwloc_bitmap_intersects(m->location->cpuset, running_cpuset)){
-	    array_remove(print_monitors, array_find(print_monitors, m, _monitor_location_compare));
+	/* cpuset_print(m->location->cpuset); */
+	/* cpuset_print(monitors_running_cpuset); */
+	/* printf("\n"); */
+	if(!hwloc_bitmap_intersects(m->location->cpuset, monitors_running_cpuset)){
+	    array_remove(monitors_to_print, array_find(monitors_to_print, m, _monitor_location_compare));
 	    array_remove(monitors,       array_find(monitors, m, _monitor_location_compare));
 	}
     }
@@ -119,46 +128,46 @@ void monitors_register_threads(int recurse){
 	monitors_pid = getpid();
 	monitors_restrict(monitors_pid);
     }
-    proc_get_running_cpuset(monitors_pid, running_cpuset, recurse);
+    proc_get_running_cpuset(monitors_pid, monitors_running_cpuset, recurse);
 }
 
 int monitor_lib_init(hwloc_topology_t topo, char * output){
     /* initialize topology */
     if(topo == NULL){
-	hwloc_topology_init(&monitor_topology); 
-	hwloc_topology_set_icache_types_filter(monitor_topology, HWLOC_TYPE_FILTER_KEEP_ALL);
-	hwloc_topology_load(monitor_topology);
+	hwloc_topology_init(&monitors_topology); 
+	hwloc_topology_set_icache_types_filter(monitors_topology, HWLOC_TYPE_FILTER_KEEP_ALL);
+	hwloc_topology_load(monitors_topology);
     }
     else
-	hwloc_topology_dup(&monitor_topology,topo);
+	hwloc_topology_dup(&monitors_topology,topo);
 
-    if(monitor_topology==NULL){
+    if(monitors_topology==NULL){
 	return 1;
     }
-    monitor_topology_depth = hwloc_topology_get_depth(monitor_topology);
+    monitors_topology_depth = hwloc_topology_get_depth(monitors_topology);
     
     if(output){
-	monitor_output = fopen(output, "w");
-	if(monitor_output == NULL){
+	monitors_output = fopen(output, "w");
+	if(monitors_output == NULL){
 	    perror("fopen");
-	    monitor_output = stdout;
+	    monitors_output = stdout;
 	}
     }
     else
-	monitor_output = stdout;
+	monitors_output = stdout;
 
 
-    if((running_cpuset = hwloc_bitmap_alloc()) == NULL){
+    if((monitors_running_cpuset = hwloc_bitmap_alloc()) == NULL){
 	fprintf(stderr,"Allocation failed\n");
 	exit(EXIT_FAILURE);
     }
-    running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitor_topology)->cpuset);
+    monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset);
 
     /* create or monitor list */ 
     monitors = new_array(sizeof(struct monitor *), 32, (void (*)(void*))_monitor_delete);
-    print_monitors = new_array(sizeof(struct monitor *), 32, NULL);
+    monitors_to_print = new_array(sizeof(struct monitor *), 32, NULL);
 
-    monitor_stop = 0;
+    monitor_threads_stop = 0;
     monitor_thread_count = 0;
     monitor_threads = NULL;
     return 0;
@@ -181,26 +190,26 @@ static void _monitor_delete(struct monitor * monitor){
 }
 
 void monitors_start(){
-    unsigned i, n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitor_topology, HWLOC_OBJ_PU);
+    unsigned i, n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_PU);
     hwloc_obj_t obj, leaf;
     struct monitor * m;
 
     /* Sort monitors per location for update from leaves to root */
     array_sort(monitors, _monitor_location_compare);
-    array_sort(print_monitors, _monitor_location_compare);
+    array_sort(monitors_to_print, _monitor_location_compare);
 
     /* Clear leaves */
     for(i=0;i<n_leaves; i++){
-	hwloc_get_obj_by_type(monitor_topology, HWLOC_OBJ_PU, i)->userdata = NULL;
+	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU, i)->userdata = NULL;
     }
 	
     /* Count required threads and balance monitors on their child leaves */
     while((m = array_iterate(monitors)) != NULL){
-	obj = hwloc_get_obj_inside_cpuset_by_type(monitor_topology, m->location->cpuset, HWLOC_OBJ_PU, 0);
+	obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_PU, 0);
 	leaf = NULL;
-	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitor_topology, m->location->cpuset, HWLOC_OBJ_PU, leaf)) != NULL){
+	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_PU, leaf)) != NULL){
 	    if(leaf->userdata == NULL){
-		leaf->userdata = new_array(sizeof(m), monitor_topology_depth, NULL);
+		leaf->userdata = new_array(sizeof(m), monitors_topology_depth, NULL);
 		monitor_thread_count++;
 		break;
 	    }
@@ -211,12 +220,12 @@ void monitors_start(){
     }
 
     /* Now we know the number of threads, we can initialize a barrier and an array of threads */
-    pthread_barrier_init(&monitor_barrier, NULL, monitor_thread_count+1);
+    pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
     monitor_threads = malloc(sizeof(*monitor_threads) * monitor_thread_count);
 
     /* Then spawn threads on non NULL leaves userdata */
     for(i=0; i<n_leaves; i++){
-	obj = hwloc_get_obj_by_type(monitor_topology, HWLOC_OBJ_PU, i);
+	obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU, i);
 	if(obj->userdata != NULL){
 	    hwloc_obj_t t_obj = obj;  
 	    pthread_create(&(monitor_threads[n]),NULL,_monitor_thread, (void*)(t_obj));
@@ -225,7 +234,7 @@ void monitors_start(){
     }
 
     /* Wait threads initialization */
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
 
     /* reset userdata at leaves with monitor */
     while((m = array_iterate(monitors)) != NULL){
@@ -237,7 +246,7 @@ void monitors_start(){
 
 
     /* Finally start the timer */
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
+    clock_gettime(CLOCK_MONOTONIC, &monitors_start_time);
 }
 
 static void _monitor_remove(struct monitor * monitor){
@@ -251,19 +260,19 @@ void monitors_update(int mark){
     while((m = array_iterate(monitors)) != NULL)
 	pthread_mutex_lock(&(m->available));
     /* Trigger monitors */
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
     /* Syna and fetch stop flag */
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
     /* Print */
-    clock_gettime(CLOCK_MONOTONIC, &current_time);
-    _monitors_print(mark);
+    clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
+    _monitors_output(mark);
 }
 
 void monitor_lib_finalize(){
     unsigned i;
     /* Stop monitors */
-    __sync_or_and_fetch(&monitor_stop , 1);
-    pthread_barrier_wait(&monitor_barrier);
+    __sync_or_and_fetch(&monitor_threads_stop , 1);
+    pthread_barrier_wait(&monitor_threads_barrier);
 	
     for(i=0;i<monitor_thread_count;i++){
 	pthread_join(monitor_threads[i],NULL);
@@ -271,42 +280,42 @@ void monitor_lib_finalize(){
 
     /* Cleanup */
     delete_array(monitors);
-    delete_array(print_monitors);
+    delete_array(monitors_to_print);
     free(monitor_threads);
-    hwloc_bitmap_free(running_cpuset);
-    hwloc_topology_destroy(monitor_topology);
+    hwloc_bitmap_free(monitors_running_cpuset);
+    hwloc_topology_destroy(monitors_topology);
 }
 
-static void _monitor_print(struct monitor * m, int mark){
+static void _monitor_output(struct monitor * m, int mark){
     unsigned j, c;
     c = m->current;
-    fprintf(monitor_output,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitor_output,"%ld ", tspec_diff((&start_time), (&current_time)));
+    fprintf(monitors_output,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(monitors_output,"%ld ", tspec_diff((&monitors_start_time), (&monitors_current_time)));
     pthread_mutex_lock(&(m->available));
     for(j=0;j<m->n_events;j++)
-	fprintf(monitor_output,"%lf ", m->events[c][j]);
+	fprintf(monitors_output,"%lf ", m->events[c][j]);
     if(m->events_stat_lib){
-	fprintf(monitor_output,"%lf ", m->samples[c]);
-	fprintf(monitor_output,"%lf ", m->min_value);
-	fprintf(monitor_output,"%lf ", m->value);
-	fprintf(monitor_output,"%lf ", m->max_value);
+	fprintf(monitors_output,"%lf ", m->samples[c]);
+	fprintf(monitors_output,"%lf ", m->min_value);
+	fprintf(monitors_output,"%lf ", m->value);
+	fprintf(monitors_output,"%lf ", m->max_value);
     }
     pthread_mutex_unlock(&(m->available));
     if(mark>=0)
-	fprintf(monitor_output,"%d ",mark);
-    fprintf(monitor_output,"\n");
+	fprintf(monitors_output,"%d ",mark);
+    fprintf(monitors_output,"\n");
 }
 
-static void _monitors_print(int mark){
+static void _monitors_output(int mark){
     struct monitor * m;
-    while((m = array_iterate(print_monitors)) != NULL)
-	_monitor_print(m, mark);
+    while((m = array_iterate(monitors_to_print)) != NULL)
+	_monitor_output(m, mark);
 }
 
 static int _monitors_start(struct array * _monitors){
     struct monitor * m;
     while((m = array_iterate(_monitors)) != NULL){
-	if(m->stopped && hwloc_bitmap_intersects(running_cpuset, m->location->cpuset)){
+	if(m->stopped && hwloc_bitmap_intersects(monitors_running_cpuset, m->location->cpuset)){
 	    m->perf_lib->monitor_eventset_start(m->eventset);
 	    m->stopped = 0;
 	}
@@ -332,7 +341,7 @@ static void _monitor_read(struct monitor * m){
 	return;
     }
     /* Check whether we have to update */
-    if(hwloc_bitmap_intersects(running_cpuset, m->location->cpuset)){
+    if(hwloc_bitmap_intersects(monitors_running_cpuset, m->location->cpuset)){
 	c = m->current = (m->current+1)%(m->n_samples);
 	if((m->perf_lib->monitor_eventset_read(m->eventset,m->events[c])) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
@@ -369,18 +378,18 @@ void * _monitor_thread(void * arg)
     struct array * _monitors = PU->userdata;
 
     /* Wait other threads initialization */
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
     /* Collect events */
  monitor_start:
     _monitors_start(_monitors);
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
     /* Check whether we have to finnish */
-    if(__sync_fetch_and_and(&monitor_stop,1)){
+    if(__sync_fetch_and_and(&monitor_threads_stop,1)){
 	_monitors_stop(_monitors);
 	delete_array(_monitors);
 	pthread_exit(NULL);
     }
-    pthread_barrier_wait(&monitor_barrier);
+    pthread_barrier_wait(&monitor_threads_barrier);
     _monitors_stop(_monitors);
     _monitors_read(_monitors);
     goto monitor_start;

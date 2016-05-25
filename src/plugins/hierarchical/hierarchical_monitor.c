@@ -13,7 +13,7 @@ struct hierarchical_eventset{
 
 char ** monitor_events_list(int * n_events){
     struct monitor * m;
-    unsigned n = 0, depth = monitor_topology_depth;
+    unsigned n = 0, depth = monitors_topology_depth;
     char ** names = malloc(sizeof(*names) * depth); 
     *n_events=0;
 
@@ -69,7 +69,7 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 	    return -1;
     }
     
-    while((obj = hwloc_get_next_obj_inside_cpuset_by_type(monitor_topology, set->location->cpuset, type, obj)) != NULL){
+    while((obj = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type, obj)) != NULL){
 	m = (struct monitor *)obj->userdata;
 	if(m != NULL){
 	    array_push(set->child_events,m);

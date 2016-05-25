@@ -6,10 +6,9 @@
 #define MONITOR_STRLEN_MAX 128
 
 extern struct array *   monitors;
-extern hwloc_topology_t monitor_topology;
-extern unsigned         monitor_topology_depth;
-extern char *           monitor_plugin_dir;
-extern hwloc_cpuset_t   running_cpuset;
+extern hwloc_topology_t monitors_topology;
+extern unsigned         monitors_topology_depth;
+extern hwloc_cpuset_t   monitors_running_cpuset;
 /**
  * A monitor is an object recording performance values for a certain topology node.
  * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
@@ -97,8 +96,6 @@ struct monitor{
     unsigned n_samples, current, total;
     /** The functions to aggregate events: The first on aggregates events into  **/
     struct monitor_stats_lib * events_stat_lib, * samples_stat_lib;
-    /** library value to balance monitors accross leaves **/
-    int balance;
     /** If stopped do not stop twice **/
     int stopped;
     /** Not available while reading events **/
