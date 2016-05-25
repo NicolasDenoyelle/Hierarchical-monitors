@@ -2,8 +2,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <cpuset.h>
-#include <bitmask.h>
 
 static DIR * proc_open_dir(char * path){
     DIR * dir = NULL;
