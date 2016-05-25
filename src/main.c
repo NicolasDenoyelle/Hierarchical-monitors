@@ -224,9 +224,11 @@ main (int argc, char *argv[])
 	int status;
 	monitors_restrict(pid);
 	if(!refresh_opt.set){
-	    monitors_update(-1);
+	    monitors_update();
+	    monitors_output(monitor_output, 1);
 	    waitpid(pid, &status, 0);
-	    monitors_update(-1);
+	    monitors_update();
+	    monitors_output(monitor_output, 1);
 	    if(display_opt.set)
 		monitor_display_all(1);
 	}
@@ -240,7 +242,8 @@ main (int argc, char *argv[])
 		    if(read(timerfd,&buf,sizeof(uint64_t))==-1){
 			perror("read");
 		    } 
-		    monitors_update(-1);
+		    monitors_update();
+		    monitors_output(monitor_buffered_output, 0);
 		    if(display_opt.set)
 			monitor_display_all(1);
 		}
@@ -248,6 +251,7 @@ main (int argc, char *argv[])
 	    if(err < 0){
 		perror("waitpid");
 	    }
+	    monitors_output(monitor_buffered_output, 1);
 	}
     }
     else while(1){
@@ -259,7 +263,8 @@ main (int argc, char *argv[])
 	    if(read(timerfd,&buf,sizeof(uint64_t))==-1){
 		perror("read");
 	    } 
-	    monitors_update(-1);
+	    monitors_update();
+	    monitors_output(monitor_output, 1);
 	    if(display_opt.set){
  	      monitor_display_all(1);
 	    }

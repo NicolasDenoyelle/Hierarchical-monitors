@@ -9,6 +9,36 @@ extern struct array *   monitors;
 extern hwloc_topology_t monitors_topology;
 extern unsigned         monitors_topology_depth;
 extern hwloc_cpuset_t   monitors_running_cpuset;
+
+/**
+ * @brief Struct to hold hardware events value.
+ **/
+struct monitor{
+    /** node where values are recorded **/
+    hwloc_obj_t location;
+    /** eventsets at this location **/
+    void * eventset;
+    /** pointers to performance library handling event collection **/
+    struct monitor_perf_lib * perf_lib;
+    /** 
+     * events: n_samples * eventset_size.
+     * samples: n_samples (aggregated events).
+     * value: aggregated samples, maximum and minimum.
+     **/
+    double ** events, * samples, value, min_value, max_value;
+    /** The number of events per eventset **/
+    unsigned n_events;
+    /** The number of samples kept, the current sample index and the total amount of recorded samples **/
+    unsigned n_samples, current, total;
+    /** The functions to aggregate events: The first on aggregates events into  **/
+    struct monitor_stats_lib * events_stat_lib, * samples_stat_lib;
+    /** If stopped do not stop twice **/
+    int stopped;
+    /** Not available while reading events **/
+    pthread_mutex_t available;
+    void * userdata;
+};
+
 /**
  * A monitor is an object recording performance values for a certain topology node.
  * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
@@ -20,6 +50,7 @@ extern hwloc_cpuset_t   monitors_running_cpuset;
 /**
  * Initialize the library.
  * @param topo, an topology to map monitor on. If topo is NULL the current machine topology is used.
+ * @param output, the path where to print the trace.
  * @return 0 on error, 1 on success;
  **/
 int monitor_lib_init(hwloc_topology_t topo, char * output);
@@ -60,9 +91,30 @@ void monitors_start();
  * Update and print every created monitor. If attached to a pid, also updates the set of active monitors.
  * Print format:
  * Obj timestamp events... sample min value max
- * @param mark: print an identifier to get feedback on the code beeing executed. Negative values are not print.
  **/
-void monitors_update(int mark);
+void monitors_update();
+
+/**
+ * Check if monitor buffer is full, then print the full buffer, else do nothing.
+ * If force flag is true, then print all previous samples untill the current.
+ * @param m, the monitor to print.
+ * @param force, a flag to tell whether we have to print the buffer content even if it is not full.
+ **/
+void monitor_buffered_output(struct monitor * m, int force);
+
+/**
+ * print monitor current: location, timestamp, events, min_value, value, max_value.
+ * @param m, the monitor to print.
+ * @param wait_availability, wait monitor availibility
+ **/
+void monitor_output(struct monitor * m, int wait_availability);
+
+/**
+ * print all printable monitors using a one of the method to print a single monitor.
+ * @param monitor_output_method, the method to print monitors among the method to print a single monitor.
+ * @param flag, the flag to pass to the monitor_output_method.
+ **/
+void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag);
 
 /**
  * Additionnaly to print text file using update, one can display monitors on topology.
@@ -74,34 +126,6 @@ void monitor_display_all(int verbose);
  **/
 void monitor_lib_finalize();
 
-/**
- * @brief Struct to hold hardware events value.
- **/
-struct monitor{
-    /** node where values are recorded **/
-    hwloc_obj_t location;
-    /** eventsets at this location **/
-    void * eventset;
-    /** pointers to performance library handling event collection **/
-    struct monitor_perf_lib * perf_lib;
-    /** 
-     * events: n_samples * eventset_size.
-     * samples: n_samples (aggregated events).
-     * value: aggregated samples, maximum and minimum.
-     **/
-    double ** events, * samples, value, min_value, max_value;
-    /** The number of events per eventset **/
-    unsigned n_events;
-    /** The number of samples kept, the current sample index and the total amount of recorded samples **/
-    unsigned n_samples, current, total;
-    /** The functions to aggregate events: The first on aggregates events into  **/
-    struct monitor_stats_lib * events_stat_lib, * samples_stat_lib;
-    /** If stopped do not stop twice **/
-    int stopped;
-    /** Not available while reading events **/
-    pthread_mutex_t available;
-    void * userdata;
-};
 
 struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
 

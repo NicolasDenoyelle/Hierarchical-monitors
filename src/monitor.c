@@ -10,7 +10,7 @@ static struct array *      monitors_to_print;
 hwloc_topology_t           monitors_topology;
 unsigned                   monitors_topology_depth;
 static unsigned long       monitors_pid;
-static FILE *              monitors_output;
+static FILE *              monitors_output_file;
 static struct timespec     monitors_start_time, monitors_current_time;
 hwloc_cpuset_t             monitors_running_cpuset;
 
@@ -23,11 +23,10 @@ static void   _monitor_delete(struct monitor*);
 static void * _monitor_thread(void*);
 static void   _monitor_remove(struct monitor*);
 static void   _monitor_read  (struct monitor*);
-static void   _monitor_output (struct monitor*, int);
 static int    _monitors_start(struct array*);
 static int    _monitors_stop (struct array*);
 static void   _monitors_read (struct array*);
-static void   _monitors_output(int);
+static void   _monitor_output_sample  (struct monitor* , unsigned);
 static int    _monitor_location_compare(void*, void*);
 
 void monitor_reset(struct monitor * monitor){
@@ -147,14 +146,14 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
     monitors_topology_depth = hwloc_topology_get_depth(monitors_topology);
     
     if(output){
-	monitors_output = fopen(output, "w");
-	if(monitors_output == NULL){
+	monitors_output_file = fopen(output, "w");
+	if(monitors_output_file == NULL){
 	    perror("fopen");
-	    monitors_output = stdout;
+	    monitors_output_file = stdout;
 	}
     }
     else
-	monitors_output = stdout;
+	monitors_output_file = stdout;
 
 
     if((monitors_running_cpuset = hwloc_bitmap_alloc()) == NULL){
@@ -250,22 +249,23 @@ void monitors_start(){
 }
 
 static void _monitor_remove(struct monitor * monitor){
+    /* print remaining events */
+    
     array_remove(monitors, array_find(monitors, monitor, _monitor_location_compare));
     _monitor_delete(monitor);
 }
 
-void monitors_update(int mark){
+void monitors_update(){
     struct monitor * m;
     /* Make all monitors unavailable */
     while((m = array_iterate(monitors)) != NULL)
 	pthread_mutex_lock(&(m->available));
     /* Trigger monitors */
     pthread_barrier_wait(&monitor_threads_barrier);
-    /* Syna and fetch stop flag */
+    /* Sync and fetch stop flag */
     pthread_barrier_wait(&monitor_threads_barrier);
     /* Print */
     clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
-    _monitors_output(mark);
 }
 
 void monitor_lib_finalize(){
@@ -286,30 +286,52 @@ void monitor_lib_finalize(){
     hwloc_topology_destroy(monitors_topology);
 }
 
-static void _monitor_output(struct monitor * m, int mark){
-    unsigned j, c;
-    c = m->current;
-    fprintf(monitors_output,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output,"%ld ", tspec_diff((&monitors_start_time), (&monitors_current_time)));
-    pthread_mutex_lock(&(m->available));
+static void _monitor_output_sample(struct monitor * m, unsigned i){
+    unsigned j;
+    fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(monitors_output_file,"%ld ", tspec_diff((&monitors_start_time), (&monitors_current_time)));
     for(j=0;j<m->n_events;j++)
-	fprintf(monitors_output,"%lf ", m->events[c][j]);
+	fprintf(monitors_output_file,"%lf ", m->events[i][j]);
     if(m->events_stat_lib){
-	fprintf(monitors_output,"%lf ", m->samples[c]);
-	fprintf(monitors_output,"%lf ", m->min_value);
-	fprintf(monitors_output,"%lf ", m->value);
-	fprintf(monitors_output,"%lf ", m->max_value);
+	fprintf(monitors_output_file,"%lf ", m->samples[i]);
+	fprintf(monitors_output_file,"%lf ", m->min_value);
+	fprintf(monitors_output_file,"%lf ", m->value);
+	fprintf(monitors_output_file,"%lf ", m->max_value);
     }
-    pthread_mutex_unlock(&(m->available));
-    if(mark>=0)
-	fprintf(monitors_output,"%d ",mark);
-    fprintf(monitors_output,"\n");
+    fprintf(monitors_output_file,"\n");
 }
 
-static void _monitors_output(int mark){
+void monitor_buffered_output(struct monitor * m, int force){
+    unsigned i;
+    pthread_mutex_lock(&(m->available));
+    /* Really output when buffer is full to avoid IO */
+    if(m->current+1 == m->n_samples){
+	for(i=0;i<m->n_samples;i++){
+	    _monitor_output_sample(m,i);
+	}
+    }
+    else if(force){
+	for(i=0;i<=m->current;i++){
+	    _monitor_output_sample(m,i);
+	}
+    }
+    pthread_mutex_unlock(&(m->available));
+}
+
+void monitor_output(struct monitor * m, int wait){
+    if(wait){
+	pthread_mutex_lock(&(m->available));
+	_monitor_output_sample(m, m->current);
+	pthread_mutex_unlock(&(m->available));
+    }
+    else
+	_monitor_output_sample(m, m->current);
+}
+
+void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag){
     struct monitor * m;
     while((m = array_iterate(monitors_to_print)) != NULL)
-	_monitor_output(m, mark);
+	monitor_output_method(m,flag);
 }
 
 static int _monitors_start(struct array * _monitors){
