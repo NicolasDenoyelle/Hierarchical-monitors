@@ -43,8 +43,7 @@
      *
      **/
 
-    extern hwloc_topology_t monitors_topology;  /* The lib topology */
-    extern struct array * monitors;    /* The lib list of monitors to be completed */
+    extern struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
 
     /* Default fields */
     const char *   default_perf_lib                           = "fake_perf_monitor"; 

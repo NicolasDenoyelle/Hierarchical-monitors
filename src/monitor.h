@@ -126,8 +126,5 @@ void monitor_display_all(int verbose);
  **/
 void monitor_lib_finalize();
 
-
-struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
-
 #endif //MONITOR_H
 
