@@ -38,6 +38,7 @@ unsigned i, j;
    monitor->stopped = 1;
    for(i=0;i<monitor->n_samples;i++){
        monitor->samples[i] = 0;
+       monitor->timestamps[i] = 0;
        for(j = 0; j < monitor->n_events; j++)
 	   monitor->events[i][j] = 0;
    }
@@ -76,12 +77,15 @@ new_monitor(hwloc_obj_t location,
     monitor->events_stat_lib = stat_evset_lib;
     monitor->samples_stat_lib = stat_samples_lib;
     monitor->events = NULL;
+    monitor->timestamps = NULL;
     monitor->userdata = NULL;
     pthread_mutex_init(&(monitor->available), NULL);
     
     /* allocate arrays */
     malloc_chk(monitor->events, n_samples*sizeof(*(monitor->events)));
     malloc_chk(monitor->samples, n_samples*sizeof(*(monitor->samples)));
+    malloc_chk(monitor->timestamps, n_samples*sizeof(*(monitor->timestamps)));
+
     for(i=0;i<monitor->n_samples;i++)
 	malloc_chk(monitor->events[i], n_events*sizeof(*(monitor->events[i])));
     
@@ -184,6 +188,7 @@ static void _monitor_delete(struct monitor * monitor){
 	free(monitor->events[i]);
     free(monitor->events);
     free(monitor->samples);
+    free(monitor->timestamps);
     pthread_mutex_destroy(&(monitor->available));
     free(monitor);
 }
@@ -260,12 +265,12 @@ void monitors_update(){
     /* Make all monitors unavailable */
     while((m = array_iterate(monitors)) != NULL)
 	pthread_mutex_lock(&(m->available));
+    /* Get timestamp */
+    clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
     /* Trigger monitors */
     pthread_barrier_wait(&monitor_threads_barrier);
     /* Sync and fetch stop flag */
     pthread_barrier_wait(&monitor_threads_barrier);
-    /* Print */
-    clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
 }
 
 void monitor_lib_finalize(){
@@ -289,7 +294,7 @@ void monitor_lib_finalize(){
 static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%ld ", tspec_diff((&monitors_start_time), (&monitors_current_time)));
+    fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
     for(j=0;j<m->n_events;j++)
 	fprintf(monitors_output_file,"%lf ", m->events[i][j]);
     if(m->events_stat_lib){
@@ -370,6 +375,7 @@ static void _monitor_read(struct monitor * m){
 		    hwloc_type_name(m->location->type), m->location->logical_index);
 	    _monitor_remove(m);
 	}
+	m->timestamps[c] = tspec_diff((&monitors_start_time), (&monitors_current_time));
 	if(m->events_stat_lib)
 	    m->samples[c] = m->events_stat_lib->call(m);
 	if(m->samples_stat_lib)

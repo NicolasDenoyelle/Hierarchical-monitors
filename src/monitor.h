@@ -26,6 +26,8 @@ struct monitor{
     double ** events, * samples, value, min_value, max_value;
     /** The number of events per eventset **/
     unsigned n_events;
+    /* The timestamp of each sample */
+    long * timestamps;
     /** The number of samples kept, the current sample index and the total amount of recorded samples **/
     unsigned n_samples, current, total;
     /** The functions to aggregate events: The first on aggregates events into  **/
