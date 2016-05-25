@@ -1,7 +1,7 @@
 #ifndef MONITOR_H
 #define MONITOR_H
 
-#include "utils.h"
+#include "monitor_utils.h"
 
 extern struct array *   monitors;
 extern hwloc_topology_t monitors_topology;
