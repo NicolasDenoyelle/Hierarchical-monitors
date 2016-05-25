@@ -79,7 +79,7 @@ uninstall: clean
                 echo "rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file";\
 		rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file; \
 	done
-	rm -f $(MONITOR_INCLUDE_INSTALL_DIR)/monitor.h
+	rm -f  $(MONITOR_INCLUDE_INSTALL_DIR)/monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)/monitor_utils.h
 	rm -f $(MONITOR_BIN_INSTALL_DIR)/$(BIN)
 	rm -f $(MONITOR_LIB_INSTALL_DIR)/$(LIB) 
 
