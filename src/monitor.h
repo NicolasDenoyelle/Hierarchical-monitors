@@ -3,8 +3,6 @@
 
 #include "utils.h"
 
-#define MONITOR_STRLEN_MAX 128
-
 extern struct array *   monitors;
 extern hwloc_topology_t monitors_topology;
 extern unsigned         monitors_topology_depth;
