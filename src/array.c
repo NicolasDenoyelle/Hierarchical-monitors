@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "utils.h"
+#include "monitor_utils.h"
 
 /* An array of objects */
 struct array{

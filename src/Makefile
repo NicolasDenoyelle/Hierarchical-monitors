@@ -69,6 +69,7 @@ install: all
 		cp $$plugin $(MONITOR_LIB_INSTALL_DIR); \
 	done
 	cp monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)
+	cp monitor_utils.h $(MONITOR_INCLUDE_INSTALL_DIR)
 
 clean: 
 	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PERF_PLUGINS_LIB)

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <hwloc.h>
 #include <papi.h>
-#include "../../utils.h"
+#include "../../monitor_utils.h"
 
 extern hwloc_topology_t monitors_topology;
 
