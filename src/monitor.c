@@ -295,13 +295,15 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
     fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
-    for(j=0;j<m->n_events;j++)
-	fprintf(monitors_output_file,"%lf ", m->events[i][j]);
-    if(m->events_stat_lib){
-	fprintf(monitors_output_file,"%lf ", m->samples[i]);
-	fprintf(monitors_output_file,"%lf ", m->min_value);
+    if(m->sampless_stat_lib){
 	fprintf(monitors_output_file,"%lf ", m->value);
-	fprintf(monitors_output_file,"%lf ", m->max_value);
+    }
+    else if(m->events_stat_lib){
+	fprintf(monitors_output_file,"%lf ", m->samples[i]);
+    }
+    else{
+	for(j=0;j<m->n_events;j++)
+	    fprintf(monitors_output_file,"%lf ", m->events[i][j]);
     }
     fprintf(monitors_output_file,"\n");
 }
