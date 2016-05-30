@@ -14,22 +14,22 @@ extern hwloc_cpuset_t   monitors_running_cpuset;
 struct monitor{
     /** node where values are recorded **/
     hwloc_obj_t location;
-    /** eventsets at this location **/
+    /** the monitor value: aggregated samples **/
+    double value, min, max;
+    /** eventsets, set of collected event **/
     void * eventset;
-    /** pointers to performance library handling event collection **/
-    struct monitor_perf_lib * perf_lib;
-    /** 
-     * events: n_samples * eventset_size.
-     * samples: n_samples (aggregated events).
-     * value: aggregated samples, maximum and minimum.
-     **/
-    double ** events, * samples, value, min_value, max_value;
-    /** The number of events per eventset **/
-    unsigned n_events;
+    /** events: history of collected events. n_samples * eventset_size.**/
+    long long ** events;
+    /** samples: n_samples (aggregated events). **/
+    double * samples;
     /* The timestamp of each sample */
     long * timestamps;
+    /** The number of events per eventset **/
+    unsigned n_events;
     /** The number of samples kept, the current sample index and the total amount of recorded samples **/
     unsigned n_samples, current, total;
+    /** pointers to performance library handling event collection **/
+    struct monitor_perf_lib * perf_lib;
     /** The functions to aggregate events: The first on aggregates events into  **/
     struct monitor_stats_lib * events_stat_lib, * samples_stat_lib;
     /** If stopped do not stop twice **/

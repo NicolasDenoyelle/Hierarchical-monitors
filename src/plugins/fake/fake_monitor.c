@@ -35,7 +35,7 @@ int monitor_eventset_stop(__attribute__ ((unused)) void * monitor_eventset){retu
 int monitor_eventset_reset(__attribute__ ((unused)) void * monitor_eventset){return 1;}
 
 
-int monitor_eventset_read(void * monitor_eventset, double * values){
+int monitor_eventset_read(void * monitor_eventset, long long * values){
   int i;
   for(i=0;i<*((int *)monitor_eventset);i++)
     values[i] = 1;

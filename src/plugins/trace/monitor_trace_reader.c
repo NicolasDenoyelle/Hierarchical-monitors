@@ -42,7 +42,7 @@ int monitor_trace_parse_next_entry(FILE * trace, char * location, long * timesta
 	next_token_begin(token, save_ptr);    
 	if(token == NULL) break;
 	if(trace_values_index[trace_index]){
-	    values[val_index++] = atof(token);
+	    values[val_index++] = atoll(token);
 	}
 	trace_index++;
     }

@@ -32,8 +32,8 @@ static int    _monitor_location_compare(void*, void*);
 void monitor_reset(struct monitor * monitor){
 unsigned i, j;
    monitor->value = 0;
-   monitor->min_value = 0;
-   monitor->max_value = 0;
+   monitor->min = 0;
+   monitor->max = 0;
    monitor->current = monitor->n_samples-1;
    monitor->stopped = 1;
    for(i=0;i<monitor->n_samples;i++){
@@ -194,7 +194,7 @@ static void _monitor_delete(struct monitor * monitor){
 }
 
 void monitors_start(){
-    unsigned i, n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_PU);
+    unsigned i, n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
     hwloc_obj_t obj, leaf;
     struct monitor * m;
 
@@ -203,13 +203,18 @@ void monitors_start(){
     array_sort(monitors_to_print, _monitor_location_compare);
 
     /* Clear leaves */
-    for(i=0;i<n_leaves; i++){
-	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU, i)->userdata = NULL;
-    }
+    for(i=0;i<n_leaves; i++)
+	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i)->userdata = NULL;
 	
     /* Count required threads and balance monitors on their child leaves */
     while((m = array_iterate(monitors)) != NULL){
-	obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_PU, 0);
+	if(m->location->type == HWLOC_OBJ_PU){
+	    if(m->location->parent->userdata == NULL)
+		m->location->parent->userdata = new_array(sizeof(m), monitors_topology_depth, NULL);
+	    array_push(m->location->parent->userdata, m);
+	    continue;
+	}
+	obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, 0);
 	leaf = NULL;
 	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_PU, leaf)) != NULL){
 	    if(leaf->userdata == NULL){
@@ -295,7 +300,7 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
     fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
-    if(m->sampless_stat_lib){
+    if(m->samples_stat_lib){
 	fprintf(monitors_output_file,"%lf ", m->value);
     }
     else if(m->events_stat_lib){
@@ -303,7 +308,7 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     }
     else{
 	for(j=0;j<m->n_events;j++)
-	    fprintf(monitors_output_file,"%lf ", m->events[i][j]);
+	    fprintf(monitors_output_file,"%lld ", m->events[i][j]);
     }
     fprintf(monitors_output_file,"\n");
 }
@@ -385,8 +390,8 @@ static void _monitor_read(struct monitor * m){
 	else
 	    m->value = m->samples[c];
 
-	m->min_value  = MIN(m->min_value, m->value);
-	m->max_value  = MAX(m->max_value, m->value);
+	m->min  = MIN(m->min, m->value);
+	m->max  = MAX(m->max, m->value);
 	m->total      = m->total+1; 
     }
 }

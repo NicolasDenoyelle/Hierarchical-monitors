@@ -113,7 +113,7 @@ int monitor_eventset_reset(void * monitor_eventset){
     return 0;
 }
 
-int monitor_eventset_read(void * monitor_eventset, double * values){
+int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     unsigned j,c;
     struct monitor * m = array_iterate(set->child_events);

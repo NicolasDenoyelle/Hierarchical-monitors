@@ -84,7 +84,7 @@ struct monitor_perf_lib{
      * @param values, the array of values to update.
      * @return 0 on success to read events. -1 if read error occured.
      */  
-    int (* monitor_eventset_read)(void * monitor_eventset, double * values);
+    int (* monitor_eventset_read)(void * monitor_eventset, long long * values);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
