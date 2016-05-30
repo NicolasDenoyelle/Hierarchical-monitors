@@ -50,12 +50,12 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
 	monitor = obj->userdata;
 	memset(obj_content,0,width+1);
 	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,monitors_running_cpuset)){
-	    if(monitor->max_value == monitor->min_value){
+	    if(monitor->max == monitor->min){
 		fill=width;
 	    }
 	    else{
-		val = monitor->value - monitor->min_value;
-		scale = monitor->max_value - monitor->min_value;
+		val = monitor->value - monitor->min;
+		scale = monitor->max - monitor->min;
 		fill =  val * width / scale;
 	    }
 	    if(verbose){
