@@ -9,6 +9,11 @@ extern unsigned         monitors_topology_depth;
 extern hwloc_cpuset_t   monitors_running_cpuset;
 
 /**
+ * A monitor is an object recording performance values for a certain topology node.
+ * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
+ * Performance values are collected and computed with user defined libraries.
+ * The monitor library help initializing a set of monitors and read them simultaneously.
+ * It monitors the whole system.
  * @brief Struct to hold hardware events value.
  **/
 struct monitor{
@@ -30,22 +35,16 @@ struct monitor{
     unsigned n_samples, current, total;
     /** pointers to performance library handling event collection **/
     struct monitor_perf_lib * perf_lib;
-    /** The functions to aggregate events: The first on aggregates events into  **/
-    struct monitor_stats_lib * events_stat_lib, * samples_stat_lib;
+    /** The function to aggregate events: into samples **/
+    struct monitor_stats_lib * events_stat_lib;
+    /** The function to aggregate samples: into value **/
+    struct monitor_stats_lib * samples_stat_lib;
     /** If stopped do not stop twice **/
     int stopped;
     /** Not available while reading events **/
     pthread_mutex_t available;
     void * userdata;
 };
-
-/**
- * A monitor is an object recording performance values for a certain topology node.
- * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
- * Performance values are collected and computed with user defined libraries.
- * The monitor library help initializing a set of monitors and read them simultaneously.
- * It monitors the whole system.
- **/
 
 /**
  * Initialize the library.
@@ -84,6 +83,7 @@ int monitors_import(char * input_path);
 /**
  * Start imported monitors.
  * Spawns one thread per topology object containing a monitor.
+ * To be called once.
  **/
 void monitors_start();
 
