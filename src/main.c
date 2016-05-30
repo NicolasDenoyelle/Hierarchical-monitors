@@ -92,7 +92,7 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; #A list of events defined by PERF_LIB\n");     
     printf("\t#Optional fields: \n");
     printf("\t\tN_SAMPLE:=128; #The number of stored values for timestamps and aggregates. Default to 32.\n");
-    printf("\t\tAGGREGATE:=$0/$1; #A stats_library defined in stats/stats_utils.h or a stats plugin or an arithmetique expression of events. Default to sum events.\n");
+    printf("\t\tAGGREGATE:=$0/$1; #A stats_library defined in stats/stats_monitor_utils.h or a stats plugin or an arithmetique expression of events. Default to sum events.\n");
     printf("\t\tPRINT:=MONITOR_STATS_LAST; #A stats library function to print statistic value of aggregates. Default to print last aggregate.\n");
     printf("\t\tMAX:=0; #Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN\n");
     printf("\t\tMIN:=0; #Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX\n");
@@ -264,7 +264,10 @@ main (int argc, char *argv[])
 		perror("read");
 	    } 
 	    monitors_update();
-	    monitors_output(monitor_output, 1);
+	    if(output_opt.set)
+		monitors_output(monitor_buffered_output,0);
+	    else
+		monitors_output(monitor_output, 1);
 	    if(display_opt.set){
  	      monitor_display_all(1);
 	    }
