@@ -9,14 +9,14 @@ void count();
 %option noinput
 
 integer           [[:digit:]]+
-hexa              "0x"[0-9A-Fa-f]+
-name              [[:alpha:]]+([\_\-[:alnum:]])*
-affectation       {name}={name}|{name}={integer}|{name}={hexa}
-attribute         ([:]+{name})+|"["{affectation}(","{affectation})*"]"
-file              ([\.]?{name})+
-path              [~]?([/]{file})+
+name              [[:alpha:]][[\_\-[:alnum:]]*|[[\_\-[:alnum:]]*[[:alpha:]]
 real              \-?{integer}(\.{integer})?([eE][\+\-]{integer})? 
 var               \${integer}
+hexa              "0x"[0-9A-Fa-f]+
+affectation       {name}={name}|{name}={integer}|{name}={hexa}
+attribute         (":"{name})+|"["{affectation}(","{affectation})*"]"
+file              ([\.]?{name})+
+path              [~]?([/]{file})+
 
 
 %{
@@ -28,32 +28,31 @@ void count();
 
 %%
 
-"-"                { count(); return('-'); };
-"+"                { count(); return('+'); };
-"*"                { count(); return('*'); };
-"/"                { count(); return('/'); };
-"}"                { count(); return('}'); };
-"{"                { count(); return('{'); };
-";"                { count(); return(';'); };
-"OBJ:="            { count(); return(OBJ_FIELD);        };
-"EVSET:="          { count(); return(EVSET_FIELD);      };
-"MAX:="            { count(); return(MAX_FIELD);        };
-"MIN:="            { count(); return(MIN_FIELD);        };
-"PERF_LIB:="       { count(); return(PERF_LIB_FIELD);   };
-"EVSET_REDUCE:="   { count(); return(EVSET_REDUCE_FIELD);   };
-"SAMPLES_REDUCE:=" { count(); return(SAMPLES_REDUCE_FIELD); };
-"N_SAMPLES:="       { count(); return(N_SAMPLE_FIELD);   };
-"ACCUMULATE:="     { count(); return(ACCUMULATE_FIELD); };
-"SILENT:="         { count(); return(SILENT_FIELD); };
-{integer}          { count(); yylval.str = strdup(yytext); return(INTEGER);  };
-{real}             { count(); yylval.str = strdup(yytext); return(REAL);     };
-{attribute}        { count(); yylval.str = strdup(yytext); return(ATTRIBUTE);};
-{var}              { count(); yylval.str = strdup(yytext); return(VAR);      };
-{path}             { count(); yylval.str = strdup(yytext);return(PATH);      };
-{name}             { count(); yylval.str = strdup(yytext); return(NAME);     };
-":"                { count(); return(':'); };
-","                { count(); return(','); };
-"."                { count(); return('.'); };
+"-"                { count(); /* fprintf(stderr,"-\n"); */                     return('-'); };
+"+"                { count(); /* fprintf(stderr,"+\n"); */                     return('+'); };
+"*"                { count(); /* fprintf(stderr,"*\n"); */                     return('*'); };
+"/"                { count(); /* fprintf(stderr,"/\n"); */                     return('/'); };
+"}"                { count(); /* fprintf(stderr,"}\n"); */                     return('}'); };
+"{"                { count(); /* fprintf(stderr,"{\n"); */                     return('{'); };
+";"                { count(); /* fprintf(stderr,";\n"); */                     return(';'); };
+","                { count(); /* fprintf(stderr,",\n"); */                     return(',');};
+"."                { count(); /* fprintf(stderr,".\n"); */                     return('.');};
+"OBJ:="            { count(); /* fprintf(stderr,"OBJ_FIELD\n"); */             return(OBJ_FIELD);};
+"EVSET:="          { count(); /* fprintf(stderr,"EVSET_FIELD\n"); */           return(EVSET_FIELD);};
+"MAX:="            { count(); /* fprintf(stderr,"MAX_FIELD\n"); */             return(MAX_FIELD);};
+"MIN:="            { count(); /* fprintf(stderr,"MIN_FIELD\n"); */             return(MIN_FIELD);};
+"PERF_LIB:="       { count(); /* fprintf(stderr,"PERF_FIELD\n"); */            return(PERF_LIB_FIELD);};
+"EVSET_REDUCE:="   { count(); /* fprintf(stderr,"EVSET_REDUCE_FIELD\n"); */    return(EVSET_REDUCE_FIELD);};
+"SAMPLES_REDUCE:=" { count(); /* fprintf(stderr,"SAMPLES_REDUCE_FIELD\n"); */  return(SAMPLES_REDUCE_FIELD);};
+"N_SAMPLES:="      { count(); /* fprintf(stderr,"N_SAMPLES_FIELD\n"); */       return(N_SAMPLE_FIELD);};
+"ACCUMULATE:="     { count(); /* fprintf(stderr,"ACCUMULATE_FIELD\n"); */      return(ACCUMULATE_FIELD);};
+"SILENT:="         { count(); /* fprintf(stderr,"SILENT_FIELD\n"); */          return(SILENT_FIELD);};
+{name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */      yylval.str = strdup(yytext); return(NAME);};
+{attribute}        { count(); /* fprintf(stderr,"ATTRIBUTE:%s\n", yytext); */ yylval.str = strdup(yytext); return(ATTRIBUTE);};
+{var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */       yylval.str = strdup(yytext); return(VAR); };
+{path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */      yylval.str = strdup(yytext); return(PATH);};
+{integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */   yylval.str = strdup(yytext); return(INTEGER);};
+{real}             { count(); /* fprintf(stderr,"REAL:%s\n", yytext); */      yylval.str = strdup(yytext); return(REAL);};
 \n                 { count();}
 #.*                { count();}
 x.                 { count();}
