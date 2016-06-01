@@ -26,6 +26,7 @@ static void   _monitor_read  (struct monitor*);
 static int    _monitors_start(struct array*);
 static int    _monitors_stop (struct array*);
 static void   _monitors_read (struct array*);
+static void   _monitors_analyse(struct array*);
 static void   _monitor_output_sample  (struct monitor* , unsigned);
 static int    _monitor_location_compare(void*, void*);
 
@@ -209,14 +210,16 @@ void monitors_start(){
     /* Count required threads and balance monitors on their child leaves */
     while((m = array_iterate(monitors)) != NULL){
 	if(m->location->type == HWLOC_OBJ_PU){
-	    if(m->location->parent->userdata == NULL)
-		m->location->parent->userdata = new_array(sizeof(m), monitors_topology_depth, NULL);
+	    if(m->location->parent->userdata == NULL){
+		m->location->parent->userdata = new_array(sizeof(m), monitors_topology_depth, NULL); 
+		monitor_thread_count++;
+	    }
 	    array_push(m->location->parent->userdata, m);
 	    continue;
 	}
 	obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, 0);
 	leaf = NULL;
-	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_PU, leaf)) != NULL){
+	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, leaf)) != NULL){
 	    if(leaf->userdata == NULL){
 		leaf->userdata = new_array(sizeof(m), monitors_topology_depth, NULL);
 		monitor_thread_count++;
@@ -234,7 +237,7 @@ void monitors_start(){
 
     /* Then spawn threads on non NULL leaves userdata */
     for(i=0; i<n_leaves; i++){
-	obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU, i);
+	obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i);
 	if(obj->userdata != NULL){
 	    hwloc_obj_t t_obj = obj;  
 	    pthread_create(&(monitor_threads[n]),NULL,_monitor_thread, (void*)(t_obj));
@@ -315,7 +318,6 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
 
 void monitor_buffered_output(struct monitor * m, int force){
     unsigned i;
-    pthread_mutex_lock(&(m->available));
     /* Really output when buffer is full to avoid IO */
     if(m->current+1 == m->n_samples){
 	for(i=0;i<m->n_samples;i++){
@@ -327,7 +329,6 @@ void monitor_buffered_output(struct monitor * m, int force){
 	    _monitor_output_sample(m,i);
 	}
     }
-    pthread_mutex_unlock(&(m->available));
 }
 
 void monitor_output(struct monitor * m, int wait){
@@ -342,8 +343,9 @@ void monitor_output(struct monitor * m, int wait){
 
 void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag){
     struct monitor * m;
-    while((m = array_iterate(monitors_to_print)) != NULL)
+    while((m = array_iterate(monitors_to_print)) != NULL){
 	monitor_output_method(m,flag);
+    }
 }
 
 static int _monitors_start(struct array * _monitors){
@@ -370,10 +372,6 @@ static int _monitors_stop(struct array * _monitors){
 
 static void _monitor_read(struct monitor * m){
     unsigned c;
-    if(m==NULL){
-	fprintf(stderr, "Read NULL monitor\n");
-	return;
-    }
     /* Check whether we have to update */
     if(hwloc_bitmap_intersects(monitors_running_cpuset, m->location->cpuset)){
 	c = m->current = (m->current+1)%(m->n_samples);
@@ -385,14 +383,7 @@ static void _monitor_read(struct monitor * m){
 	m->timestamps[c] = tspec_diff((&monitors_start_time), (&monitors_current_time));
 	if(m->events_stat_lib)
 	    m->samples[c] = m->events_stat_lib->call(m);
-	if(m->samples_stat_lib)
-	    m->value = m->samples_stat_lib->call(m);
-	else
-	    m->value = m->samples[c];
-
-	m->min  = MIN(m->min, m->value);
-	m->max  = MAX(m->max, m->value);
-	m->total      = m->total+1; 
+	m->total = m->total+1; 
     }
 }
 
@@ -400,17 +391,35 @@ static void _monitors_read(struct array * _monitors){
     struct monitor * m;
     while((m = array_iterate(_monitors)) != NULL){
 	_monitor_read(m);
-	pthread_mutex_unlock(&(m->available));
+    }
+}
+
+static void _monitor_analyse(struct monitor * m){
+    unsigned c = m->current;
+    if(m->samples_stat_lib)
+	m->value = m->samples_stat_lib->call(m);
+    else
+	m->value = m->samples[c];
+    m->min  = MIN(m->min, m->value);
+    m->max  = MAX(m->max, m->value);
+    pthread_mutex_unlock(&(m->available));
+}
+
+static void _monitors_analyse(struct array * _monitors){
+    struct monitor * m;
+    while((m = array_iterate(_monitors)) != NULL){
+	_monitor_analyse(m);
     }
 }
 
 void * _monitor_thread(void * arg)
 {
-    hwloc_obj_t PU = (hwloc_obj_t)(arg);
+    hwloc_obj_t Core = (hwloc_obj_t)(arg);
+    hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, Core->cpuset, HWLOC_OBJ_PU, hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, Core->cpuset, HWLOC_OBJ_PU) -1);
     /* Bind the thread */
     location_cpubind(PU); 
     location_membind(PU); 
-    struct array * _monitors = PU->userdata;
+    struct array * _monitors = Core->userdata;
 
     /* Wait other threads initialization */
     pthread_barrier_wait(&monitor_threads_barrier);
@@ -427,6 +436,7 @@ void * _monitor_thread(void * arg)
     pthread_barrier_wait(&monitor_threads_barrier);
     _monitors_stop(_monitors);
     _monitors_read(_monitors);
+    _monitors_analyse(_monitors);
     goto monitor_start;
     return NULL;  
 }
