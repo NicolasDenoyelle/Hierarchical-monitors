@@ -117,20 +117,20 @@ int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     unsigned j,c;
     struct monitor * m = array_iterate(set->child_events);
-    pthread_mutex_lock(&(m->available));
+    /* Child are updated before parents */
+    /* pthread_mutex_lock(&(m->available)); */
+    c = m->current;
     for(j=0; j<m->n_events; j++){
-	c = m->current;
 	values[j] = m->events[c][j];
     }
-    pthread_mutex_unlock(&(m->available));
     while((m = array_iterate(set->child_events)) != NULL){
-	pthread_mutex_lock(&(m->available));
+	c = m->current;
 	for(j=0; j<m->n_events; j++){
-	    c = m->current;
 	    values[j] += m->events[c][j];
 	}	
-	pthread_mutex_unlock(&(m->available));
     }
+    /* Child are updated before parents */
+    /* pthread_mutex_unlock(&(m->available)); */
     return 0;
 }
 
