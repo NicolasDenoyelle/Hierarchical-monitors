@@ -167,7 +167,8 @@ main (int argc, char *argv[])
 	if(output_opt.value.str_value == NULL){
 	    perror("strdup");
 	    exit(EXIT_FAILURE);
-	}	      
+	}
+	output_opt.set = 0;
     }
 
     /* check if configuration file was provided */
