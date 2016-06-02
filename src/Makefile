@@ -21,8 +21,8 @@ default: all
 ################################################################################################################
 #                                                    BIN+LIB                                                   #
 ################################################################################################################
-LIB=libmonitor.so
-BIN=monitor 
+LIB=libhwmon.so
+BIN=hwmon 
 SRC=monitor.c array.c hwloc.c proc.c parser.c scanner.c console.c performance.c stats.c 
 OBJ=$(patsubst %.c, %.o, $(SRC))
 
@@ -39,7 +39,7 @@ $(LIB): $(OBJ)
 	$(CC) $(CFLAGS) --shared $^ -o $@ $(LDFLAGS) -fPIC -lm -lpthread
 
 $(BIN): main.c $(LIB)
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lmonitor -lrt
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhwmon -lrt
 
 ################################################################################################################
 #                                                Performance plugins                                           #
@@ -53,7 +53,7 @@ ifneq (,$(findstring maqao, $(PERF_PLUGINS)))
 endif
 
 %.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lmonitor
+	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lhwmon
 
 
 ###############################################################################################################
