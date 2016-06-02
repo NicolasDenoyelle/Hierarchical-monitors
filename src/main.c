@@ -92,8 +92,8 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\t\tN_SAMPLE:=128;                    # The buffer size for timestamps, samples and events. Default to 32.\n");
     printf("\t\tEVSET_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or EVSET_SUM or EVSET_MAX or EVSET_MIN, or a plugin with the same pattern as PERF_LIB name.\n");
     printf("\t\tSAMPLES_REDUCE:=STATS_LAST;       # A stats library function to print statistic value of samples. The name pattern of the plugin to load is the same as for PERF_LIB.\n");
-    printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN.\n");
-    printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX.\n");
+    printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to 0.\n");
+    printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
     printf("\t\tOUTPUT:=/dev/stdout;              # Set a specific output for this monitor (default to --output option).\n\t}\n\n");
     printf("\tMONITOR_REDUCE{\n");
