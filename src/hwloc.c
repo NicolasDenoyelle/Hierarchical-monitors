@@ -117,12 +117,12 @@ int location_membind(hwloc_obj_t location)
 	return -1;
     }
 
-    if(hwloc_set_membind(monitors_topology, location->nodeset, HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_BYNODESET) == -1){
+    if(hwloc_set_membind(monitors_topology, bind->nodeset, HWLOC_MEMBIND_BIND,HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_BYNODESET) == -1){
 	perror("membind");
 	return -1;
     }
 
-    return chk_mem_bind(location->nodeset, 0);
+    return chk_mem_bind(bind->nodeset, 0);
 }
 
 char ** location_avail(unsigned * nobjs){
