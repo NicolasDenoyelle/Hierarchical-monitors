@@ -103,8 +103,8 @@ ins_cyc{
 
 int main(){
     monitor_lib_init(NULL, "output_file");
-    monitors_attach(getpid(), -1);
     monitors_import("my_monitors_path");
+    monitors_attach(getpid(), -1);
     monitors_start();
     monitors_update(-1);
     /* Code here */
