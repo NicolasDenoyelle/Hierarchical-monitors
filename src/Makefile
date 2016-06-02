@@ -21,8 +21,8 @@ default: all
 ################################################################################################################
 #                                                    BIN+LIB                                                   #
 ################################################################################################################
-LIB=libhwmon.so
-BIN=hwmon 
+LIB=libhmon.so
+BIN=hmon 
 SRC=monitor.c array.c hwloc.c proc.c parser.c scanner.c console.c performance.c stats.c 
 OBJ=$(patsubst %.c, %.o, $(SRC))
 
