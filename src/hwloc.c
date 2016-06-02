@@ -107,9 +107,10 @@ int location_cpubind(hwloc_obj_t location)
 
 int location_membind(hwloc_obj_t location)
 {
-    while(location != NULL && location->type != HWLOC_OBJ_NODE)
-	location = location ->parent;
-    if(location == NULL){
+    hwloc_obj_t bind = location;
+    while(bind != NULL && bind->type != HWLOC_OBJ_NODE)
+	bind = bind->parent;
+    if(bind == NULL){
 	char * name = location_name(location);
 	fprintf(stderr, "Cannot bind memory to %s\n", name);
 	free(name);
