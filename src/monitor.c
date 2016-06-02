@@ -26,7 +26,6 @@ static void   _monitor_read  (struct monitor*);
 static int    _monitors_start(struct array*);
 static int    _monitors_stop (struct array*);
 static void   _monitors_read (struct array*);
-static void   _monitors_analyse(struct array*);
 static void   _monitor_output_sample  (struct monitor* , unsigned);
 static int    _monitor_location_compare(void*, void*);
 
@@ -387,6 +386,13 @@ static void _monitor_read(struct monitor * m){
 	if(m->events_stat_lib)
 	    m->samples[c] = m->events_stat_lib->call(m);
 	m->total = m->total+1; 
+	if(m->samples_stat_lib)
+	    m->value = m->samples_stat_lib->call(m);
+	else
+	    m->value = m->samples[c];
+	m->min  = MIN(m->min, m->value);
+	m->max  = MAX(m->max, m->value);
+	pthread_mutex_unlock(&(m->available));
     }
 }
 
@@ -397,23 +403,6 @@ static void _monitors_read(struct array * _monitors){
     }
 }
 
-static void _monitor_analyse(struct monitor * m){
-    unsigned c = m->current;
-    if(m->samples_stat_lib)
-	m->value = m->samples_stat_lib->call(m);
-    else
-	m->value = m->samples[c];
-    m->min  = MIN(m->min, m->value);
-    m->max  = MAX(m->max, m->value);
-    pthread_mutex_unlock(&(m->available));
-}
-
-static void _monitors_analyse(struct array * _monitors){
-    struct monitor * m;
-    while((m = array_iterate(_monitors)) != NULL){
-	_monitor_analyse(m);
-    }
-}
 
 void * _monitor_thread(void * arg)
 {
@@ -439,7 +428,6 @@ void * _monitor_thread(void * arg)
     pthread_barrier_wait(&monitor_threads_barrier);
     _monitors_stop(_monitors);
     _monitors_read(_monitors);
-    _monitors_analyse(_monitors);
     goto monitor_start;
     return NULL;  
 }
