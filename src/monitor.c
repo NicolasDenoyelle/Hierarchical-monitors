@@ -319,6 +319,7 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
 void monitor_buffered_output(struct monitor * m, int force){
     unsigned i;
     /* Really output when buffer is full to avoid IO */
+    pthread_mutex_lock(&(m->available));
     if(m->current+1 == m->n_samples){
 	for(i=0;i<m->n_samples;i++){
 	    _monitor_output_sample(m,i);
@@ -329,6 +330,7 @@ void monitor_buffered_output(struct monitor * m, int force){
 	    _monitor_output_sample(m,i);
 	}
     }
+    pthread_mutex_unlock(&(m->available));
 }
 
 void monitor_output(struct monitor * m, int wait){
@@ -344,6 +346,7 @@ void monitor_output(struct monitor * m, int wait){
 void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag){
     struct monitor * m;
     while((m = array_iterate(monitors_to_print)) != NULL){
+	/* printf("output %s:%d\n", hwloc_type_name(m->location->type), m->location->logical_index); */
 	monitor_output_method(m,flag);
     }
 }
