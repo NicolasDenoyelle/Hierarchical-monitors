@@ -85,26 +85,23 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\tWill output to stdout the monitoring of the whole machine during \"my_prog\" run using the events settings in \"my_perf_group.txt\"\n"); 
     printf("\n");
     printf("Input file syntaxe:\n");
-    printf("\t#Commentary\n\n");
     printf("\tMONITOR_NAME{\n");
-    printf("\t\tOBJ:= PU:0..3; #name:logical_index where to map monitors. Can be a range of OBJ;\n");
-    printf("\t\tPERF_LIB:= PAPI_monitor; #Performance library to read counters\n");
-    printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; #A list of events defined by PERF_LIB\n");     
-    printf("\t#Optional fields: \n");
-    printf("\t\tN_SAMPLE:=128; #The number of stored values for timestamps and aggregates. Default to 32.\n");
-    printf("\t\tAGGREGATE:=$0/$1; #A stats_library defined in stats/stats_monitor_utils.h or a stats plugin or an arithmetique expression of events. Default to sum events.\n");
-    printf("\t\tPRINT:=MONITOR_STATS_LAST; #A stats library function to print statistic value of aggregates. Default to print last aggregate.\n");
-    printf("\t\tMAX:=0; #Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN\n");
-    printf("\t\tMIN:=0; #Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX\n");
-    printf("\t\tACCUMULATE:=1; #Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
-    printf("\t\tOUTPUT:=/dev/stdout; #Set a specific output for this monitor (default to --output option).\n\t}\n\n");
+    printf("\t\tOBJ:= PU;                         # Depth where to map monitors. One monitor per obj at this depth.;\n");
+    printf("\t\tPERF_LIB:=papi;                   # Performance library to read counters. Can be a file of type path/<name>.monitor_plugin.so or <name> if plugin is in findable with dlopen\n");
+    printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; # A list of events defined by PERF_LIB\n");     
+    printf("\t\tN_SAMPLE:=128;                    # The number of stored values for timestamps, samples and events. Default to 32.\n");
+    printf("\t\tEVSET_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or EVSET_SUM or EVSET_MAX or EVSET_MIN, or a plugin with the same pattern as PERF_LIB name.\n");
+    printf("\t\tSAMPLES_REDUCE:=STATS_LAST;       # A stats library function to print statistic value of samples. The name pattern of the plugin to load is the same as for PERF_LIB.\n");
+    printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN\n");
+    printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX\n");
+    printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
+    printf("\t\tOUTPUT:=/dev/stdout;              # Set a specific output for this monitor (default to --output option).\n\t}\n\n");
     printf("\tMONITOR_REDUCE{\n");
-    printf("\t\tOBJ:= L3:0;\n");
-    printf("\t\tPERF_LIB:= hierarchical_monitor;\n");
-    printf("\t\tPRINT:=MONITOR_STATS_ID;\n");
-    printf("\t\tEVSET:= MONITOR_NAME; #The four monitors MONITOR_NAME are selected\n");
-    printf("\t\tAGGREGATE:=MONITOR_EVSET_SUM;\n\t}\n\n");
-    printf("/!\\ Though monitors' thread and memory are mapped to the specified hwloc object, it is the responsibility of the library PERF_LIB to make sure that eventset initialization on this object will lead to value relative to this object. As an example, you can check default PAPI implementation PAPI_perf_monitor.so which performs cpu binding.\n");
+    printf("\t\tOBJ:= L3;\n");
+    printf("\t\tPERF_LIB:= hierarchical;\n");
+    printf("\t\tEVSET:=PU;                        # The monitors MONITOR_NAME child of each monitor MONITOR_REDUCE are selected and there eventset will be accumulated hierarchically\n");
+    printf("\t\tEVSET_REDUCE:=$0/$1;              # Reduce the same way as children\n\t}\n\n");
+    printf("/!\\ Though monitors' thread and memory are mapped to the specified hwloc object, it is the responsibility of the library PERF_LIB to make sure that eventset initialization on this object will lead to value relative to this object. As an example, you can check default PAPI implementation papi.monitor_plugin.so which performs cpu binding.\n");
 }
 
 int
