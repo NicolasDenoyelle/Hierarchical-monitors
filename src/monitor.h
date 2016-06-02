@@ -41,6 +41,8 @@ struct monitor{
     struct monitor_stats_lib * samples_stat_lib;
     /** If stopped do not stop twice **/
     int stopped;
+    /** 1:ACTIVE, 0:SLEEPING **/
+    int state_query;
     /** Not available while reading events **/
     pthread_mutex_t available;
     void * userdata;
