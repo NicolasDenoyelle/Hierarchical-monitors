@@ -39,7 +39,7 @@ $(LIB): $(OBJ)
 	$(CC) $(CFLAGS) --shared $^ -o $@ $(LDFLAGS) -fPIC -lm -lpthread
 
 $(BIN): main.c $(LIB)
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhwmon -lrt
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhmon -lrt
 
 ################################################################################################################
 #                                                Performance plugins                                           #
@@ -53,7 +53,7 @@ ifneq (,$(findstring maqao, $(PERF_PLUGINS)))
 endif
 
 %.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lhwmon
+	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lhmon
 
 
 ###############################################################################################################
