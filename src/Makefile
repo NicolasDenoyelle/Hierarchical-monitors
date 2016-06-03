@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -g -std=gnu99
-LDFLAGS=-L. -l:$(HOME)/local/lib/libhwloc.so 
+LDFLAGS=-L. -l:$(HOME)/local/lib/libhwloc.so -lpthread -lrt -ldl -lm
 
 # Installation directories
 PREFIX=$(HOME)/local
@@ -23,7 +23,7 @@ default: all
 ################################################################################################################
 LIB=libhmon.so
 BIN=hmon 
-SRC=monitor.c array.c hwloc.c proc.c parser.c scanner.c console.c performance.c stats.c 
+SRC=monitor.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c performance.c stats.c 
 OBJ=$(patsubst %.c, %.o, $(SRC))
 
 %.o: %.c
@@ -36,10 +36,10 @@ scanner.c: scanner.l
 	flex -o $@ $^
 
 $(LIB): $(OBJ)
-	$(CC) $(CFLAGS) --shared $^ -o $@ $(LDFLAGS) -fPIC -lm -lpthread
+	$(CC) $(CFLAGS) --shared $^ -o $@ $(LDFLAGS) -fPIC
 
 $(BIN): main.c $(LIB)
-	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhmon -lrt
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhmon
 
 ################################################################################################################
 #                                                Performance plugins                                           #
