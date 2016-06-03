@@ -20,7 +20,6 @@ void           array_insert       (struct array *, unsigned, void *);
 unsigned       array_insert_sorted(struct array * array, void * element, int (* compare)(void*, void*));
 void           array_sort         (struct array * array, int (* compare)(void*, void*));
 int            array_find         (struct array * array, void * key, int (* compare)(void*, void*));
-void *         array_iterate      (struct array *);
 
 /*********************************************** hwloc utils ***************************************************/
 

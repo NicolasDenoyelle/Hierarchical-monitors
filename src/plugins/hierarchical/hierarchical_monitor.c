@@ -12,12 +12,12 @@ struct hierarchical_eventset{
 
 
 char ** monitor_events_list(int * n_events){
-    struct monitor * m;
     unsigned n = 0, depth = monitors_topology_depth;
     char ** names = malloc(sizeof(*names) * depth); 
     *n_events=0;
 
-    while((m = array_iterate(monitors)) != NULL){
+    for(unsigned i = 0; i< array_length(monitors); i++){
+	struct monitor * m  = array_get(monitors,i);
 	if(m->location->depth < depth){
 	    depth = m->location->depth;
 	    names[n++] = strdup(hwloc_type_name(m->location->type));
@@ -107,23 +107,25 @@ extern void monitor_reset(struct monitor *);
 
 int monitor_eventset_reset(void * monitor_eventset){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
-    struct monitor * m;
-    while((m = array_iterate(set->child_events)) != NULL)
+    for(unsigned i = 0; i< array_length(set->child_events); i++){
+	struct monitor * m  = array_get(set->child_events,i);
 	monitor_reset(m);
+    }
     return 0;
 }
 
 int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     unsigned j,c;
-    struct monitor * m = array_iterate(set->child_events);
+    struct monitor * m = array_get(set->child_events,0);
     /* Child are updated before parents */
     /* pthread_mutex_lock(&(m->available)); */
     c = m->current;
     for(j=0; j<m->n_events; j++){
 	values[j] = m->events[c][j];
     }
-    while((m = array_iterate(set->child_events)) != NULL){
+    for(unsigned i = 1; i< array_length(set->child_events); i++){
+	m  = array_get(set->child_events,i);
 	c = m->current;
 	for(j=0; j<m->n_events; j++){
 	    values[j] += m->events[c][j];

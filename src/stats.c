@@ -78,7 +78,10 @@ struct monitor_stats_lib * monitor_build_custom_stats_lib(const char * name, con
 
     /* Search if library already exists */
     if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
-    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
+    for(unsigned i=0; i<array_length(libs); i++){
+	lib=array_get(libs,i);
+	if(!strcmp(lib->id,name)){return lib;}
+    }
 
     /* prepare file for functions copy, and dynamic library creation */
     memset(prefix,0,sizeof(prefix));
@@ -139,8 +142,10 @@ struct monitor_stats_lib * monitor_load_stats_lib(char * name){
 
     /* Search if library already exists */
     if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
-    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
-
+    for(unsigned i=0; i<array_length(libs); i++){
+	lib=array_get(libs,i);
+	if(!strcmp(lib->id,name)){return lib;}
+    }
     malloc_chk(lib, sizeof *lib);
     lib->dlhandle = NULL;
     

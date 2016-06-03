@@ -242,10 +242,9 @@ void monitors_start(){
 
 
 void monitors_update(){
-    struct monitor * m;
     /* Make monitors unavailable */
-    while((m = array_iterate(monitors)) != NULL)
-	pthread_mutex_lock(&(m->available));
+    for(unsigned i = 0; i< array_length(monitors); i++)
+	pthread_mutex_lock(&(((struct monitor *)array_get(monitors,i))->available));
     /* Get timestamp */
     clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
     /* Trigger monitors */

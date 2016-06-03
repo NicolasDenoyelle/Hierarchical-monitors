@@ -24,7 +24,10 @@ monitor_load_perf_lib(char * name){
 
     /* Search if library already exists */
     if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_perf_lib);}
-    while((lib = array_iterate(libs)) != NULL){if(!strcmp(lib->id,name)){return lib;}}
+    for(unsigned i=0; i<array_length(libs); i++){
+	lib=array_get(libs,i);
+	if(!strcmp(lib->id,name)){return lib;}
+    }
     
     prefix_name = strtok(name,".");
     snprintf(path, 256 ,"%s.monitor_plugin.so", prefix_name);

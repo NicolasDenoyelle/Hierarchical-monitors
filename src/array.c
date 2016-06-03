@@ -9,7 +9,6 @@ struct array{
     unsigned length;
     unsigned allocated_length;
     void     (*delete_element)(void*);
-    unsigned iterator;
 };
 
 struct array * 
@@ -22,7 +21,6 @@ new_array(size_t elem_size, unsigned max_elem, void (*delete_element)(void*)){
 	array->cell[i] = NULL;
     }
     array->length = 0;
-    array->iterator = 0;
     array->allocated_length = max_elem;
     array->delete_element = delete_element;
     return array;
@@ -121,7 +119,6 @@ void * array_remove(struct array * array, int i){
     if(array->length){
 	memmove(&array->cell[i], &array->cell[i+1], (array->length-i-1)*sizeof(*array->cell));
 	array->length--;
-	if(array->iterator == (unsigned)(i+1)){array->iterator--;}
     }	
     return ret;
 }
@@ -153,17 +150,5 @@ unsigned array_insert_sorted(struct array * array, void * element, int (* compar
 
 inline void array_sort(struct array * array, int (* compare)(void*, void*)){
     qsort(array->cell, array->length, sizeof(*(array->cell)), (__compar_fn_t)compare);
-}
-
-
-void * array_iterate(struct array * array){
-    void * ret;
-    if(array == NULL || array->length == 0)
-	return NULL;
-    if(array->iterator == array->length){array->iterator = 0; return NULL;}
-
-    ret = array->cell[array->iterator];
-    array->iterator++;
-    return ret;
 }
 
