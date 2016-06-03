@@ -134,7 +134,7 @@ monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
     struct PAPI_eventset * evset = (struct PAPI_eventset *) monitor_eventset;
     PAPI_call_check(PAPI_add_named_event(evset->evset,event), PAPI_OK, -1, "Failed to add event %s to eventset: ",(char*)event);
-    /* extend result array */
+    /* extend result hmon_array */
     evset->n_events++;
     realloc_chk(evset->values,evset->n_events*sizeof(*evset->values));
     evset->values[evset->n_events-1] =  0;

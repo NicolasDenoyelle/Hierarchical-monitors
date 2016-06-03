@@ -20,7 +20,7 @@ struct monitor_perf_lib{
      * Global function able to list available events.
      * !!! To be implemented by a user library. Sample in PAPI_monitors.c
      * @param n_events, output the number of available counters.
-     * @return An array containing each event's name.
+     * @return An hmon_array containing each event's name.
      */  
     char ** (* monitor_events_list)(int * n_counters);
     /**
@@ -81,7 +81,7 @@ struct monitor_perf_lib{
      * Function to call to read events value from the performance library on the local monitor.
      * !!! To be implemented by a user library. Sample in PAPI_monitors.c
      * @param monitor_eventset, the structure containing the set of variable to use.
-     * @param values, the array of values to update.
+     * @param values, the hmon_array of values to update.
      * @return 0 on success to read events. -1 if read error occured.
      */  
     int (* monitor_eventset_read)(void * monitor_eventset, long long * values);

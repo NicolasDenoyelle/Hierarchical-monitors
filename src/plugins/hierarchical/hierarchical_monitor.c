@@ -7,7 +7,7 @@
 
 struct hierarchical_eventset{
     hwloc_obj_t location;
-    struct array * child_events;
+    struct hmon_array * child_events;
 };
 
 
@@ -16,8 +16,8 @@ char ** monitor_events_list(int * n_events){
     char ** names = malloc(sizeof(*names) * depth); 
     *n_events=0;
 
-    for(unsigned i = 0; i< array_length(monitors); i++){
-	struct monitor * m  = array_get(monitors,i);
+    for(unsigned i = 0; i< hmon_array_length(monitors); i++){
+	struct monitor * m  = hmon_array_get(monitors,i);
 	if(m->location->depth < depth){
 	    depth = m->location->depth;
 	    names[n++] = strdup(hwloc_type_name(m->location->type));
@@ -36,7 +36,7 @@ int monitor_eventset_init(void ** monitor_eventset, hwloc_obj_t location, __attr
     struct hierarchical_eventset *  set;
     malloc_chk(set, sizeof(*set));
     set->location = location;
-    set->child_events =  new_array(sizeof(struct monitor *), 4, NULL);
+    set->child_events =  new_hmon_array(sizeof(struct monitor *), 4, NULL);
     *monitor_eventset = (void *)set;
     return 0;
 }
@@ -45,18 +45,17 @@ int monitor_eventset_destroy(void * eventset){
     if(eventset == NULL)
 	return 0;
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) eventset;
-    delete_array(set->child_events);
+    delete_hmon_array(set->child_events);
     free(set);
     return 1;
 }
 
 int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
+    struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     hwloc_obj_type_t type;
     int n_events = 0;
-    hwloc_obj_t obj = NULL;
-    struct monitor * m;
-    struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
+
     if(event==NULL || monitor_eventset == NULL)
 	return -1;
     if(hwloc_type_sscanf(event, &type, NULL, 0) == -1){
@@ -64,15 +63,20 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 	return -1;
     }
     
-    if(array_length(set->child_events) > 0){
+    if(hmon_array_length(set->child_events) > 0){
+	struct monitor * child_event = hmon_array_get(set->child_events,0);
+	fprintf(stderr, "Event %s already exist at location %s:%d.\n", 
+		hwloc_type_name(child_event->location->type), hwloc_type_name(set->location->type), set->location->logical_index);
 	fprintf(stderr, "Hierarchical monitor does not allow to add several events.\n");
-	    return -1;
+	return -1;
     }
-    
-    while((obj = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type, obj)) != NULL){
-	m = (struct monitor *)obj->userdata;
+
+    unsigned nbobjs = hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type);
+    for(unsigned i = 0; i < nbobjs; i++){
+	hwloc_obj_t obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type, i);
+	struct monitor * m = (struct monitor *)obj->userdata;
 	if(m != NULL){
-	    array_push(set->child_events,m);
+	    hmon_array_push(set->child_events,m);
 	    n_events = m ->n_events;
 	}
     }
@@ -107,8 +111,8 @@ extern void monitor_reset(struct monitor *);
 
 int monitor_eventset_reset(void * monitor_eventset){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
-    for(unsigned i = 0; i< array_length(set->child_events); i++){
-	struct monitor * m  = array_get(set->child_events,i);
+    for(unsigned i = 0; i< hmon_array_length(set->child_events); i++){
+	struct monitor * m  = hmon_array_get(set->child_events,i);
 	monitor_reset(m);
     }
     return 0;
@@ -117,15 +121,15 @@ int monitor_eventset_reset(void * monitor_eventset){
 int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     unsigned j,c;
-    struct monitor * m = array_get(set->child_events,0);
+    struct monitor * m = hmon_array_get(set->child_events,0);
     /* Child are updated before parents */
     /* pthread_mutex_lock(&(m->available)); */
     c = m->current;
     for(j=0; j<m->n_events; j++){
 	values[j] = m->events[c][j];
     }
-    for(unsigned i = 1; i< array_length(set->child_events); i++){
-	m  = array_get(set->child_events,i);
+    for(unsigned i = 1; i< hmon_array_length(set->child_events); i++){
+	m  = hmon_array_get(set->child_events,i);
 	c = m->current;
 	for(j=0; j<m->n_events; j++){
 	    values[j] += m->events[c][j];

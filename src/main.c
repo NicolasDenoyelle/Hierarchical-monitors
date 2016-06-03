@@ -198,7 +198,7 @@ main (int argc, char *argv[])
 
     monitors_import(input_opt.value.str_value);
 
-    if(array_length(monitors) == 0){
+    if(hmon_array_length(monitors) == 0){
 	monitor_print_err( "No monitor defined. Leaving.\n");
 	monitor_lib_finalize();
 	exit(EXIT_SUCCESS);

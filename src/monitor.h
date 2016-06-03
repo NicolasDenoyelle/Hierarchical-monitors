@@ -3,7 +3,7 @@
 
 #include "monitor_utils.h"
 
-extern struct array *   monitors;
+extern struct hmon_array *   monitors;
 extern hwloc_topology_t monitors_topology;
 extern unsigned         monitors_topology_depth;
 extern hwloc_cpuset_t   monitors_running_cpuset;

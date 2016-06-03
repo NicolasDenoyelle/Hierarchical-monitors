@@ -62,8 +62,8 @@
     double                     monitor_max;
     double                     monitor_min;
     unsigned                   monitor_n_sample;
-    struct array *     monitor_location;
-    struct array *     monitor_evset;
+    struct hmon_array *     monitor_location;
+    struct hmon_array *     monitor_evset;
     char *                     monitor_aggregation_code;
 
 
@@ -80,24 +80,24 @@
 	monitor_perf_lib        = NULL;
 	monitor_stats_evset_lib   = NULL;
 	monitor_stats_samples_lib       = NULL;
-	empty_array(monitor_evset); 
-	empty_array(monitor_location);
+	empty_hmon_array(monitor_evset); 
+	empty_hmon_array(monitor_location);
 	if(monitor_aggregation_code){free(monitor_aggregation_code);}
 	monitor_aggregation_code = NULL;
     }
 
     /* This function is called once before parsing */
     void import_init(){
-	monitor_evset = new_array(sizeof(char*),8,free);
-	monitor_location = new_array(sizeof(hwloc_obj_t),32,NULL);	
+	monitor_evset = new_hmon_array(sizeof(char*),8,free);
+	monitor_location = new_hmon_array(sizeof(hwloc_obj_t),32,NULL);	
 	reset_monitor_fields();
     }
 
     /* This function is called once after parsing */
     void import_finalize(){
 	/* cleanup */
-	delete_array(monitor_location);
-	delete_array(monitor_evset);
+	delete_hmon_array(monitor_location);
+	delete_hmon_array(monitor_evset);
     }
 
     static void print_avail_events(struct monitor_perf_lib * lib){
@@ -118,13 +118,13 @@
 	struct monitor_perf_lib * perf_lib;
 	struct monitor_stats_lib * evset_lib = NULL;
 	struct monitor_stats_lib * samples_lib = NULL;
-	unsigned j, n, n_siblings = array_length(monitor_location);
+	unsigned j, n, n_siblings = hmon_array_length(monitor_location);
 	int err, added_events;
 
 	/* Monitor default on root */
 	if(n_siblings == 0){
 	    n_siblings = 1;
-	    array_push(monitor_location, hwloc_get_root_obj(monitors_topology));
+	    hmon_array_push(monitor_location, hwloc_get_root_obj(monitors_topology));
 	}
 
 	/* Load dynamic library */
@@ -142,7 +142,7 @@
 	if(monitor_stats_samples_lib)
 	    samples_lib = monitor_load_stats_lib(monitor_stats_samples_lib);
 		
-	while((obj =  array_pop(monitor_location)) != NULL){
+	while((obj =  hmon_array_pop(monitor_location)) != NULL){
 	    if(obj->userdata != NULL){
 		char * name = location_name(obj);
 		fprintf(stderr, "Can't define a monitor on obj %s, because a monitor is already defined there\n", name);
@@ -157,12 +157,12 @@
 	    }
 
 	    /* Add events */
-	    n = array_length(monitor_evset);
+	    n = hmon_array_length(monitor_evset);
 	    added_events = 0;
 	    for(j=0;j<n;j++){
-		err = perf_lib->monitor_eventset_add_named_event(eventset,(char*)array_get(monitor_evset,j));
+		err = perf_lib->monitor_eventset_add_named_event(eventset,(char*)hmon_array_get(monitor_evset,j));
 		if(err == -1){
-		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)array_get(monitor_evset,j), name);
+		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(monitor_evset,j), name);
 		    print_avail_events(perf_lib);
 		    exit(EXIT_FAILURE);
 		}
@@ -246,7 +246,7 @@ field
     unsigned nbobjs = hwloc_get_nbobjs_by_type(monitors_topology, obj->type);
     while(nbobjs --){
 	obj = hwloc_get_obj_by_type(monitors_topology, obj->type, nbobjs);
-	array_push(monitor_location, obj);
+	hmon_array_push(monitor_location, obj);
     }
     free($2);
  }
@@ -273,8 +273,8 @@ min_field
 ;
 
 event_list
-: event                {array_push(monitor_evset,$1);}
-| event ',' event_list {array_push(monitor_evset,$1);}
+: event                {hmon_array_push(monitor_evset,$1);}
+| event ',' event_list {hmon_array_push(monitor_evset,$1);}
 ;
 
 event
@@ -296,11 +296,11 @@ mul_expr
 
 primary_expr 
 : VAR {
-    char array_index[strlen($1)]; 
-    memset(array_index,0,sizeof(array_index)); 
-    snprintf(array_index,sizeof(array_index),"%s",$1+1);
+    char hmon_array_index[strlen($1)]; 
+    memset(hmon_array_index,0,sizeof(hmon_array_index)); 
+    snprintf(hmon_array_index,sizeof(hmon_array_index),"%s",$1+1);
     free($1);
-    $$ = concat_expr(3,"monitor->events[monitor->current][",array_index,"]");}
+    $$ = concat_expr(3,"monitor->events[monitor->current][",hmon_array_index,"]");}
 | REAL    {$$ = $1;}
 | INTEGER {$$ = $1;}
 ;

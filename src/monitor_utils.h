@@ -6,20 +6,20 @@
 
 /************************************************ Array utils **************************************************/
 
-struct array * new_array          (size_t elem_size, unsigned max_elem, void (*delete_element)(void*));
-struct array * array_dup          (struct array *);
-void           delete_array       (struct array *);
-void           empty_array        (struct array *);
-unsigned       array_length       (struct array *);
-void *         array_get          (struct array *, unsigned);
-void *         array_set          (struct array *, unsigned, void *);
-void *         array_pop          (struct array *);
-void           array_push         (struct array *, void *);
-void *         array_remove       (struct array *, int);
-void           array_insert       (struct array *, unsigned, void *);
-unsigned       array_insert_sorted(struct array * array, void * element, int (* compare)(void*, void*));
-void           array_sort         (struct array * array, int (* compare)(void*, void*));
-int            array_find         (struct array * array, void * key, int (* compare)(void*, void*));
+struct hmon_array * new_hmon_array          (size_t elem_size, unsigned max_elem, void (*delete_element)(void*));
+struct hmon_array * hmon_array_dup          (struct hmon_array *);
+void           delete_hmon_array       (struct hmon_array *);
+void           empty_hmon_array        (struct hmon_array *);
+unsigned       hmon_array_length       (struct hmon_array *);
+void *         hmon_array_get          (struct hmon_array *, unsigned);
+void *         hmon_array_set          (struct hmon_array *, unsigned, void *);
+void *         hmon_array_pop          (struct hmon_array *);
+void           hmon_array_push         (struct hmon_array *, void *);
+void *         hmon_array_remove       (struct hmon_array *, int);
+void           hmon_array_insert       (struct hmon_array *, unsigned, void *);
+unsigned       hmon_array_insert_sorted(struct hmon_array * array, void * element, int (* compare)(void*, void*));
+void           hmon_array_sort         (struct hmon_array * array, int (* compare)(void*, void*));
+int            hmon_array_find         (struct hmon_array * array, void * key, int (* compare)(void*, void*));
 
 /*********************************************** hwloc utils ***************************************************/
 
