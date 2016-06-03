@@ -3,10 +3,10 @@
 #include <dirent.h>
 #include <dlfcn.h>
 
-static struct array * libs = NULL;
+static struct hmon_array * libs = NULL;
 
 static void __attribute__((destructor)) performance_at_exit(){
-    if(libs != NULL){delete_array(libs);}
+    if(libs != NULL){delete_hmon_array(libs);}
 }
 
 static void delete_perf_lib(void * lib){
@@ -23,9 +23,9 @@ monitor_load_perf_lib(char * name){
     char path[256];
 
     /* Search if library already exists */
-    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_perf_lib);}
-    for(unsigned i=0; i<array_length(libs); i++){
-	lib=array_get(libs,i);
+    if(libs == NULL){libs = new_hmon_array(sizeof(*lib), 16, delete_perf_lib);}
+    for(unsigned i=0; i<hmon_array_length(libs); i++){
+	lib=hmon_array_get(libs,i);
 	if(!strcmp(lib->id,name)){return lib;}
     }
     
@@ -51,7 +51,7 @@ monitor_load_perf_lib(char * name){
     load_fun(lib,lib->dlhandle,monitor_eventset_stop);
     load_fun(lib,lib->dlhandle,monitor_eventset_reset);
     load_fun(lib,lib->dlhandle,monitor_eventset_read);
-    array_push(libs, lib);
+    hmon_array_push(libs, lib);
     return lib;
 }
 
