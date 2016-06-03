@@ -10,7 +10,7 @@ struct monitor_stats_lib{
      **/
     void * dlhandle;
     /**
-     * Compute statistiques based on an array of event samples.
+     * Compute statistiques based on an hmon_array of event samples.
      * @param monitor, the monitor holding samples.
      * @return An aggregation value computed on monitor samples.
      */  

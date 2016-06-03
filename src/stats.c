@@ -54,10 +54,10 @@ static double (* stats_plugin_name_to_function(const char * name))(struct monito
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const  char * plugin_suffix = ".stats_monitor.so" ;
-static struct array * libs = NULL;
+static struct hmon_array * libs = NULL;
 
 static void __attribute__((destructor)) stats_at_exit(){
-    if(libs != NULL){delete_array(libs);}
+    if(libs != NULL){delete_hmon_array(libs);}
 }
 
 static void delete_stats_lib(void * lib){
@@ -77,9 +77,9 @@ struct monitor_stats_lib * monitor_build_custom_stats_lib(const char * name, con
     double (*fun)(struct monitor*);
 
     /* Search if library already exists */
-    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
-    for(unsigned i=0; i<array_length(libs); i++){
-	lib=array_get(libs,i);
+    if(libs == NULL){libs = new_hmon_array(sizeof(*lib), 16, delete_stats_lib);}
+    for(unsigned i=0; i<hmon_array_length(libs); i++){
+	lib=hmon_array_get(libs,i);
 	if(!strcmp(lib->id,name)){return lib;}
     }
 
@@ -126,7 +126,7 @@ struct monitor_stats_lib * monitor_build_custom_stats_lib(const char * name, con
     lib->dlhandle = dlhandle;
     lib->call = fun;
     lib->id = strdup(name);
-    array_push(libs, lib);
+    hmon_array_push(libs, lib);
 
     /* Cleanup */ 
     unlink(input_file_path);
@@ -141,9 +141,9 @@ struct monitor_stats_lib * monitor_load_stats_lib(char * name){
     struct monitor_stats_lib * lib;
 
     /* Search if library already exists */
-    if(libs == NULL){libs = new_array(sizeof(*lib), 16, delete_stats_lib);}
-    for(unsigned i=0; i<array_length(libs); i++){
-	lib=array_get(libs,i);
+    if(libs == NULL){libs = new_hmon_array(sizeof(*lib), 16, delete_stats_lib);}
+    for(unsigned i=0; i<hmon_array_length(libs); i++){
+	lib=hmon_array_get(libs,i);
 	if(!strcmp(lib->id,name)){return lib;}
     }
     malloc_chk(lib, sizeof *lib);
@@ -174,7 +174,7 @@ struct monitor_stats_lib * monitor_load_stats_lib(char * name){
     }
 
     lib->id = strdup(name);
-    array_push(libs, lib);
+    hmon_array_push(libs, lib);
     return lib;
 }
 
