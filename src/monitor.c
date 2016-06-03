@@ -22,7 +22,9 @@ static pthread_t *         monitor_threads;
 static pthread_barrier_t   monitor_threads_barrier;
 static volatile int        monitor_threads_stop = 0;
 
-#define _monitors_do(monitors, call, ...) do{struct monitor * m; while((m=array_iterate(monitors))!=NULL){call(m, ##__VA_ARGS__);}}while(0)
+#define _monitors_do(ms, call, ...)					\
+    do{for(unsigned i = 0; i< array_length(ms); i++){call(array_get(ms,i), ##__VA_ARGS__);}}while(0)
+
 static void * _monitor_thread        (void*);
 static void   _monitor_delete        (struct monitor*);
 static void   _monitor_reset         (struct monitor*);
@@ -31,6 +33,8 @@ static void   _monitor_read          (struct monitor*);
 static int    _monitor_start         (struct monitor*);
 static int    _monitor_stop          (struct monitor*);
 static void   _monitor_read          (struct monitor*);
+static void   _monitor_update_state  (struct monitor*);
+static void   _monitor_restrict      (struct monitor*);
 static void   _monitor_output_sample (struct monitor* , unsigned);
 static int    _monitor_location_compare(void*, void*);
 
@@ -55,7 +59,6 @@ new_monitor(hwloc_obj_t location,
     /* record at least 3 samples */
     n_samples = 3 > n_samples ? 2 : n_samples; 
 	
-    unsigned i;
     struct monitor * monitor;
     malloc_chk(monitor, sizeof(*monitor));  
 
@@ -80,7 +83,7 @@ new_monitor(hwloc_obj_t location,
     malloc_chk(monitor->samples, n_samples*sizeof(*(monitor->samples)));
     malloc_chk(monitor->timestamps, n_samples*sizeof(*(monitor->timestamps)));
 
-    for(i=0;i<monitor->n_samples;i++)
+    for(unsigned i = 0;i<monitor->n_samples;i++)
 	malloc_chk(monitor->events[i], n_events*sizeof(*(monitor->events[i])));
     
     /* reset values */
@@ -92,36 +95,24 @@ new_monitor(hwloc_obj_t location,
     return monitor;
 }
 
-
 int monitors_restrict(pid_t pid){
-    struct monitor * m;
     /* If the process is not running, return 0 */
     if(kill(pid,0)!=0){
 	return 0;
     }
     monitors_pid = pid;
     proc_get_allowed_cpuset(pid, monitors_running_cpuset);
-    while((m = array_iterate(monitors)) != NULL){
-	if(!hwloc_bitmap_intersects(m->location->cpuset, monitors_running_cpuset)){
-	    array_remove(monitors_to_print, array_find(monitors_to_print, m, _monitor_location_compare));
-	    array_remove(monitors,       array_find(monitors, m, _monitor_location_compare));
-	}
-    }
+    _monitors_do(monitors, _monitor_restrict);
     return 1;
 }
 
-
 void monitors_register_threads(int recurse){
-    struct monitor * m;
     if(monitors_pid == 0){
 	monitors_pid = getpid();
 	monitors_restrict(monitors_pid);
     }
     proc_get_running_cpuset(monitors_pid, monitors_running_cpuset, recurse);
-    while((m=array_iterate(monitors))!=NULL){
-	if(hwloc_bitmap_intersects(monitors_running_cpuset, m->location->cpuset)){m->state_query = ACTIVE;}
-	else{m->state_query=SLEEPING;}
-    }
+    _monitors_do(monitors, _monitor_update_state);
 }
 
 
@@ -150,11 +141,6 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
     else
 	monitors_output_file = stdout;
 
-
-    if((monitors_running_cpuset = hwloc_bitmap_alloc()) == NULL){
-	fprintf(stderr,"Allocation failed\n");
-	exit(EXIT_FAILURE);
-    }
     monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset);
 
     /* create or monitor list */ 
@@ -177,31 +163,30 @@ static int _monitor_location_compare(void* a, void* b){
 
 static void _monitor_delete(struct monitor * monitor){
     unsigned i;
-    for(i=0;i<monitor->n_events;i++)
+    for(i=0;i<monitor->n_samples;i++)
 	free(monitor->events[i]);
     free(monitor->events);
     free(monitor->samples);
     free(monitor->timestamps);
+    monitor->perf_lib->monitor_eventset_destroy(monitor->eventset);
     pthread_mutex_destroy(&(monitor->available));
     free(monitor);
 }
 
 
 void monitors_start(){
-    unsigned i, n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
-    hwloc_obj_t obj, leaf;
-    struct monitor * m;
-
+    unsigned n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
     /* Sort monitors per location for update from leaves to root */
     array_sort(monitors, _monitor_location_compare);
     array_sort(monitors_to_print, _monitor_location_compare);
 
     /* Clear leaves */
-    for(i=0;i<n_leaves; i++)
+    for(unsigned i = 0;i<n_leaves; i++)
 	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i)->userdata = NULL;
 	
     /* Count required threads and balance monitors on their child leaves */
-    while((m = array_iterate(monitors)) != NULL){
+    for(unsigned i = 0; i< array_length(monitors); i++){
+	struct monitor * m = array_get(monitors,i);
 	if(m->location->type == HWLOC_OBJ_PU){
 	    if(m->location->parent->userdata == NULL){
 		m->location->parent->userdata = new_array(sizeof(m), monitors_topology_depth, NULL); 
@@ -210,8 +195,8 @@ void monitors_start(){
 	    array_push(m->location->parent->userdata, m);
 	    continue;
 	}
-	obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, 0);
-	leaf = NULL;
+	hwloc_obj_t obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, 0);
+	hwloc_obj_t leaf = NULL;
 	while((leaf = hwloc_get_next_obj_inside_cpuset_by_type(monitors_topology, m->location->cpuset, HWLOC_OBJ_CORE, leaf)) != NULL){
 	    if(leaf->userdata == NULL){
 		leaf->userdata = new_array(sizeof(m), monitors_topology_depth, NULL);
@@ -229,8 +214,8 @@ void monitors_start(){
     monitor_threads = malloc(sizeof(*monitor_threads) * monitor_thread_count);
 
     /* Then spawn threads on non NULL leaves userdata */
-    for(i=0; i<n_leaves; i++){
-	obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i);
+    for(unsigned i = 0; i<n_leaves; i++){
+	hwloc_obj_t obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i);
 	if(obj->userdata != NULL){
 	    hwloc_obj_t t_obj = obj;  
 	    pthread_create(&(monitor_threads[n]),NULL,_monitor_thread, (void*)(t_obj));
@@ -242,7 +227,8 @@ void monitors_start(){
     pthread_barrier_wait(&monitor_threads_barrier);
 
     /* reset userdata at leaves with monitor */
-    while((m = array_iterate(monitors)) != NULL){
+    for(unsigned i = 0; i< array_length(monitors); i++){
+	struct monitor * m = array_get(monitors,i);
 	/* monitors are sorted from leaves to root */
 	if(m->location->type != HWLOC_OBJ_PU)
 	    break;
@@ -280,29 +266,12 @@ void monitor_lib_finalize(){
     }
 
     /* Cleanup */
+    fclose(monitors_output_file);
     delete_array(monitors);
     delete_array(monitors_to_print);
     free(monitor_threads);
     hwloc_bitmap_free(monitors_running_cpuset);
     hwloc_topology_destroy(monitors_topology);
-}
-
-
-static void _monitor_output_sample(struct monitor * m, unsigned i){
-    unsigned j;
-    fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
-    if(m->samples_stat_lib){
-	fprintf(monitors_output_file,"%lf ", m->value);
-    }
-    else if(m->events_stat_lib){
-	fprintf(monitors_output_file,"%lf ", m->samples[i]);
-    }
-    else{
-	for(j=0;j<m->n_events;j++)
-	    fprintf(monitors_output_file,"%lld ", m->events[i][j]);
-    }
-    fprintf(monitors_output_file,"\n");
 }
 
 
@@ -337,6 +306,36 @@ void monitor_output(struct monitor * m, int wait){
 
 void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag){
     _monitors_do(monitors_to_print, monitor_output_method, flag);
+}
+
+
+static void _monitor_output_sample(struct monitor * m, unsigned i){
+    unsigned j;
+    fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
+    if(m->samples_stat_lib){
+	fprintf(monitors_output_file,"%lf ", m->value);
+    }
+    else if(m->events_stat_lib){
+	fprintf(monitors_output_file,"%lf ", m->samples[i]);
+    }
+    else{
+	for(j=0;j<m->n_events;j++)
+	    fprintf(monitors_output_file,"%lld ", m->events[i][j]);
+    }
+    fprintf(monitors_output_file,"\n");
+}
+
+static void _monitor_restrict(struct monitor * m){
+    if(!hwloc_bitmap_intersects(m->location->cpuset, monitors_running_cpuset)){
+	array_remove(monitors_to_print, array_find(monitors_to_print, m, _monitor_location_compare));
+	array_remove(monitors,       array_find(monitors, m, _monitor_location_compare));
+    }
+}
+
+static void _monitor_update_state(struct monitor * m){
+    if(hwloc_bitmap_intersects(monitors_running_cpuset, m->location->cpuset)){m->state_query = ACTIVE;}
+    else{m->state_query=SLEEPING;}
 }
 
 
