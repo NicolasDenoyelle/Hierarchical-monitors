@@ -26,6 +26,7 @@ static volatile int        monitor_threads_stop = 0;
     do{for(unsigned i = 0; i< hmon_array_length(ms); i++){call(hmon_array_get(ms,i), ##__VA_ARGS__);}}while(0)
 
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t);
+static void        _monitor_thread_cleanup(void * arg)
 static void *      _monitor_thread        (void*);
 static void        _monitor_delete        (struct monitor*);
 static void        _monitor_reset         (struct monitor*);
@@ -265,20 +266,17 @@ void monitors_update(){
     clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
     /* Trigger monitors */
     pthread_barrier_wait(&monitor_threads_barrier);
-    /* Sync and fetch stop flag */
-    pthread_barrier_wait(&monitor_threads_barrier);
 }
 
 
 void monitor_lib_finalize(){
     unsigned i;
     /* Stop monitors */
-    __sync_or_and_fetch(&monitor_threads_stop , 1);
+    for(i=0;i<monitor_thread_count;i++)
+	pthread_cancel(monitor_threads[i]);
     pthread_barrier_wait(&monitor_threads_barrier);
-	
-    for(i=0;i<monitor_thread_count;i++){
+    for(i=0;i<monitor_thread_count;i++)
 	pthread_join(monitor_threads[i],NULL);
-    }
 
     /* Cleanup */
     fclose(monitors_output_file);
@@ -425,10 +423,15 @@ static void _monitor_analyse(struct monitor * m){
 }
 
 
+static void _monitor_thread_cleanup(void * arg){
+    struct hmon_array * _monitors = (struct hmon_array *)arg;
+    _monitors_do(_monitors, _monitor_stop);
+    delete_hmon_array(_monitors);    
+}
+
 void * _monitor_thread(void * arg)
 {
     hwloc_obj_t Core = (hwloc_obj_t)(arg);
-
     /* Bind the thread */
     hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, Core->cpuset, HWLOC_OBJ_PU, hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, Core->cpuset, HWLOC_OBJ_PU) -1);
     location_cpubind(PU); 
@@ -438,23 +441,23 @@ void * _monitor_thread(void * arg)
     /* Sort monitors to update leaves first */
     hmon_array_sort(_monitors, _monitor_location_compare);
 
+    /* push clean method */
+    pthread_cleanup_push(_monitor_thread_cleanup, _monitors);
+
     /* Wait other threads initialization */
     pthread_barrier_wait(&monitor_threads_barrier);
+
     /* Collect events */
  monitor_start:
     _monitors_do(_monitors, _monitor_start);
     pthread_barrier_wait(&monitor_threads_barrier);
-    /* Check whether we have to finnish */
-    if(__sync_fetch_and_and(&monitor_threads_stop,1)){
-	_monitors_do(_monitors, _monitor_stop);
-	delete_hmon_array(_monitors);
-	pthread_exit(NULL);
-    }
-    pthread_barrier_wait(&monitor_threads_barrier);
+    pthread_testcancel();
     _monitors_do(_monitors, _monitor_stop);
     _monitors_do(_monitors, _monitor_read);
     _monitors_do(_monitors, _monitor_analyse);
     goto monitor_start;
+
+    pthread_cleanup_pop(1);
     return NULL;  
 }
 
