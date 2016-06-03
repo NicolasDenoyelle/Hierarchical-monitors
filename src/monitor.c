@@ -55,8 +55,6 @@ new_monitor(hwloc_obj_t location,
     /* Look which core will host the monitor near location */ 
     hwloc_obj_t Core = _monitor_find_core_host(location); 
 
-    /* allocate data near location */
-    location_membind(Core);
     malloc_chk(monitor, sizeof(*monitor));  
     
     /* push monitor to array holding monitor on Core */
@@ -180,6 +178,13 @@ static void _monitor_delete(struct monitor * monitor){
 /* Host must be a core where to spawn a thread */
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
     hwloc_obj_t host = NULL;
+    /* host = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, 0); */
+    /* if(host->userdata == NULL){ */
+    /* 	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL); */
+    /* 	monitor_thread_count++; */
+    /* } */
+    /* return host; */
+
     /* If child of core then host is the parent core */
     if(near->type == HWLOC_OBJ_PU){
 	host = near->parent;
@@ -205,6 +210,8 @@ static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 	}
     }
     if(host->userdata == NULL){
+	/* allocate data near location */
+	location_membind(host);	
 	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
 	monitor_thread_count++;
     }
@@ -219,6 +226,7 @@ void monitors_start(){
 
     /* Now we know the number of threads, we can initialize a barrier and an hmon_array of threads */
     pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
+    location_membind(hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_NODE,0));	
     monitor_threads = malloc(sizeof(*monitor_threads) * monitor_thread_count);
 
     /* Then spawn threads on non NULL leaves userdata */
