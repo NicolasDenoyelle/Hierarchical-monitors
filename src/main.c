@@ -39,7 +39,7 @@ static struct perf_option refresh_opt = {.name = "--refresh", .arg = "<refresh_u
 static struct perf_option display_opt = {.name = "--display-topology", .arg = "",                 .type = OPT_TYPE_INT,    .value.int_value = 0,      .def_val = "0",           .set = 0};
 static const  unsigned n_opt = 7;
 
-unsigned set_option(struct perf_option * opt, char * val){
+static unsigned set_option(struct perf_option * opt, const char * val){
     switch(opt->type){
     case OPT_TYPE_INT:
 	if(val) {
@@ -59,7 +59,7 @@ unsigned set_option(struct perf_option * opt, char * val){
     case OPT_TYPE_STRING:
 	if(val){
 	    opt->set = 1;
-	    opt->value.str_value = val;
+	    opt->value.str_value = strdup(val);
 	    return 1; 
 	}
 	break;
@@ -160,7 +160,7 @@ main (int argc, char *argv[])
 
     /* Set monitors output */
     if(!output_opt.set){
-	set_option((&output_opt), strdup(output_opt.def_val));
+	set_option((&output_opt), output_opt.def_val);
 	if(output_opt.value.str_value == NULL){
 	    perror("strdup");
 	    exit(EXIT_FAILURE);
