@@ -231,7 +231,7 @@ monitor_list
 ;
 
 monitor
-: NAME '{' field_list '}' { monitor_create($1);}
+: NAME '{' field_list '}' { monitor_create($1); free($1);}
 ;
 
 field_list

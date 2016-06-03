@@ -273,6 +273,7 @@ main (int argc, char *argv[])
     }
 
     /* clean up */
+    free(output_opt.value.str_value);
     monitor_lib_finalize();
     return EXIT_SUCCESS;
 }

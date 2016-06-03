@@ -37,13 +37,13 @@ double monitor_evset_sum(struct monitor * monitor){
 }
 
 static double (* stats_plugin_name_to_function(const char * name))(struct monitor *){
-    if(!strcmp(name,"MONITOR_SAMPLES_LAST"))
+    if(!strcmp(name,"SAMPLES_LAST"))
 	return monitor_samples_last;
-    else if(!strcmp(name,"MONITOR_EVSET_MAX"))
+    else if(!strcmp(name,"EVSET_MAX"))
 	return monitor_evset_max;
-    else if(!strcmp(name,"MONITOR_EVSET_MIN"))
+    else if(!strcmp(name,"EVSET_MIN"))
 	return monitor_evset_min;
-    else if(!strcmp(name,"MONITOR_EVSET_SUM"))
+    else if(!strcmp(name,"EVSET_SUM"))
 	return monitor_evset_sum;
     else 
 	return NULL;

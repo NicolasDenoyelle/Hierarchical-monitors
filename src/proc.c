@@ -114,6 +114,7 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
 	err = getline(&line, &read, status_file);
     } while(err!=-1 && strncmp(line, token, token_length));
     
+    fclose(status_file);
     if(err == -1){
 	free(line);
 	return;

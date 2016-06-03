@@ -11,6 +11,7 @@ static void __attribute__((destructor)) performance_at_exit(){
 
 static void delete_perf_lib(void * lib){
     struct monitor_perf_lib * perf_lib = (struct monitor_perf_lib *)lib;
+    dlclose(perf_lib->dlhandle);
     free(perf_lib->id);
     free(perf_lib);
 }
