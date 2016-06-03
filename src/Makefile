@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -g
-LDFLAGS=-L. -lhwloc 
+CFLAGS=-Wall -Wextra -Werror -g -std=gnu99
+LDFLAGS=-L. -l:$(HOME)/local/lib/libhwloc.so 
 
 # Installation directories
 PREFIX=$(HOME)/local
