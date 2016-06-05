@@ -13,6 +13,7 @@ static struct hmon_array *      monitors_to_print;
 hwloc_topology_t           monitors_topology;
 unsigned                   monitors_topology_depth;
 static unsigned long       monitors_pid;
+static hwloc_obj_t         monitors_restrict_first_group;
 static FILE *              monitors_output_file;
 static struct timespec     monitors_start_time, monitors_current_time;
 hwloc_cpuset_t             monitors_running_cpuset;
@@ -26,7 +27,7 @@ static volatile int        monitor_threads_stop = 0;
     do{for(unsigned i = 0; i< hmon_array_length(ms); i++){call(hmon_array_get(ms,i), ##__VA_ARGS__);}}while(0)
 
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t);
-static void        _monitor_thread_cleanup(void * arg)
+static void        _monitor_thread_cleanup(void * arg);
 static void *      _monitor_thread        (void*);
 static void        _monitor_delete        (struct monitor*);
 static void        _monitor_reset         (struct monitor*);
@@ -133,6 +134,11 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
 	return 1;
     }
     monitors_topology_depth = hwloc_topology_get_depth(monitors_topology);
+
+    /* Restrict topology to first group */
+    monitors_restrict_first_group = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU,0);
+    while(monitors_restrict_first_group->type != HWLOC_OBJ_GROUP && monitors_restrict_first_group->type != HWLOC_OBJ_MACHINE)
+	monitors_restrict_first_group = monitors_restrict_first_group->parent;
     
     if(output){
 	monitors_output_file = fopen(output, "w");
@@ -176,29 +182,30 @@ static void _monitor_delete(struct monitor * monitor){
     free(monitor);
 }
 
-/* Host must be a core where to spawn a thread */
+/* Host must be a core where to spawn a thread 
+ * Host must be into the first topology group, otherwise overhead of pthread_barrier is too high.
+ */
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
-    hwloc_obj_t host = NULL;
-    /* host = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, 0); */
-    /* if(host->userdata == NULL){ */
-    /* 	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL); */
-    /* 	monitor_thread_count++; */
-    /* } */
-    /* return host; */
 
+    /* match near to be in restricted topology */
+    int cousins = get_max_objs_inside_cpuset_by_type(monitors_restrict_first_group->cpuset, near->type);
+    near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, monitors_restrict_first_group->cpuset, near->depth, near->logical_index%cousins);
+
+    hwloc_obj_t host = NULL;
     /* If child of core then host is the parent core */
     if(near->type == HWLOC_OBJ_PU){
 	host = near->parent;
     }
-    /* If core then host is the location parameter */
+
+    /* If core then host is the matching core in group */
     else if(near->type == HWLOC_OBJ_CORE){
 	host = near;
     }
     /* Other wise we choose the least loaded child on Core leaves */
     else{
 	hwloc_obj_t potential_host = NULL;
-	hwloc_cpuset_t cpuset = near->cpuset;
 	hwloc_obj_type_t CORE = HWLOC_OBJ_CORE;
+	hwloc_cpuset_t cpuset = near->cpuset;
 	unsigned n_core = hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, cpuset, CORE);
 	for(unsigned i = 0; i< n_core; i++){
 	    potential_host = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, cpuset, CORE, i);
