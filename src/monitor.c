@@ -189,7 +189,12 @@ static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 
     /* match near to be in restricted topology */
     int cousins = get_max_objs_inside_cpuset_by_type(monitors_restrict_first_group->cpuset, near->type);
-    near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, monitors_restrict_first_group->cpuset, near->depth, near->logical_index%cousins);
+    /* near type is found inside cpuset of restricted topology */
+    if(cousins > 0)
+	near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, monitors_restrict_first_group->cpuset, near->depth, near->logical_index%cousins);
+    /* near is above restricted topology */
+    else 
+	near = monitors_restrict_first_group;
 
     hwloc_obj_t host = NULL;
     /* If child of core then host is the parent core */
@@ -233,7 +238,7 @@ void monitors_start(){
     hmon_array_sort(monitors_to_print, _monitor_location_compare);
 
     /* Now we know the number of threads, we can initialize a barrier and an hmon_array of threads */
-    pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
+   pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
     location_membind(hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_NODE,0));	
     monitor_threads = malloc(sizeof(*monitor_threads) * monitor_thread_count);
 
