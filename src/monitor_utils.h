@@ -29,6 +29,7 @@ char *       location_name   (hwloc_obj_t);
 hwloc_obj_t  location_parse  (char *);
 char **      location_avail  (unsigned *);
 int          location_compare(void *, void *); /* void * must be: hwloc_obj_t */
+int          get_max_objs_inside_cpuset_by_type(hwloc_cpuset_t, hwloc_obj_type_t);
 
 /*********************************************** proc utils ****************************************************/
 

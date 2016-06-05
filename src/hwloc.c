@@ -156,6 +156,24 @@ char ** location_avail(unsigned * nobjs){
     return obj_types;
 }
 
+int get_max_objs_inside_cpuset_by_type(hwloc_cpuset_t cpuset, hwloc_obj_type_t type){
+    int depth = hwloc_get_type_depth(monitors_topology, HWLOC_OBJ_CORE);
+    if(depth == HWLOC_TYPE_DEPTH_UNKNOWN){
+	fprintf(stderr, "Cannot find depth %s\n", hwloc_type_name(type));
+	return -1;
+    }
+    if(depth == HWLOC_TYPE_DEPTH_MULTIPLE){
+	hwloc_obj_t deepest_of_type = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, cpuset, HWLOC_OBJ_PU,0);
+	while(deepest_of_type !=NULL && deepest_of_type->type != type && deepest_of_type)
+	    deepest_of_type = deepest_of_type->parent;
+	if(deepest_of_type == NULL)
+	    return -1;
+	else 
+	    depth = deepest_of_type->depth;
+    }
+    return hwloc_get_nbobjs_inside_cpuset_by_depth(monitors_topology, cpuset, depth);
+}
+
 int location_compare(void * a, void * b){
     hwloc_obj_t obj_a = *(hwloc_obj_t *)a;
     hwloc_obj_t obj_b = *(hwloc_obj_t *)b;
