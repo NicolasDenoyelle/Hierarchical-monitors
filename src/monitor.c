@@ -159,6 +159,9 @@ int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output){
 
     /* Restrict topology to first group */
     restrict_location = location_parse(restrict_obj);
+    
+    /* Create cpuset for running monitors */
+    monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset); 
 
     /* create or monitor list */ 
     monitors = new_hmon_array(sizeof(struct monitor *), 32, (void (*)(void*))_monitor_delete);
@@ -194,7 +197,7 @@ static void _monitor_delete(struct monitor * monitor){
  * Host must be into the first topology group, otherwise overhead of pthread_barrier is too high.
  */
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
-
+    /* printf("monitor located on %s:%d ", hwloc_type_name(near->type), near->logical_index); */
     /* match near to be in restricted topology */
     int cousins = get_max_objs_inside_cpuset_by_type(restrict_location->cpuset, near->type);
     /* near type is found inside cpuset of restricted topology */
@@ -236,6 +239,8 @@ static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
 	monitor_thread_count++;
     }
+
+    /* printf("will be hosted on %s:%d\n",hwloc_type_name(host->type), host->logical_index);	  */
     return host;
 }
 
