@@ -193,8 +193,9 @@ static void _monitor_delete(struct monitor * monitor){
     free(monitor);
 }
 
-/* Host must be a core where to spawn a thread 
- * Host must be into the first topology group, otherwise overhead of pthread_barrier is too high.
+/* 
+ * Host must be a core where to spawn a thread 
+ * Host must be into the restricted area, otherwise overhead of pthread_barrier is too high.
  */
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
     /* printf("monitor located on %s:%d ", hwloc_type_name(near->type), near->logical_index); */
@@ -209,37 +210,19 @@ static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 
     hwloc_obj_t host = NULL;
     /* If child of core then host is the parent core */
-    if(near->type == HWLOC_OBJ_PU){
-	host = near->parent;
-    }
-
+    if(near->type == HWLOC_OBJ_PU){host = near->parent;}
     /* If core then host is the matching core in group */
-    else if(near->type == HWLOC_OBJ_CORE){
-	host = near;
-    }
-    /* Other wise we choose the least loaded child on Core leaves */
-    else{
-	hwloc_obj_t potential_host = NULL;
-	hwloc_obj_type_t CORE = HWLOC_OBJ_CORE;
-	hwloc_cpuset_t cpuset = near->cpuset;
-	unsigned n_core = hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, cpuset, CORE);
-	for(unsigned i = 0; i< n_core; i++){
-	    potential_host = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, cpuset, CORE, i);
-	    if(potential_host->userdata == NULL){
-		host = potential_host;
-		break;
-	    }
-	    if(host == NULL){host = potential_host;}
-	    if(hmon_array_length(potential_host->userdata) < hmon_array_length(host->userdata)){host = potential_host;}
-	}
-    }
+    else if(near->type == HWLOC_OBJ_CORE){host = near;}
+    /* Other wise we choose the first child on Core leaves */
+    else {host = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, near->cpuset, HWLOC_OBJ_CORE, 0);}
+
+    /* allocate data near location */
+    location_membind(host);
+    /* if no thread have ever been hosted here, initialize location */
     if(host->userdata == NULL){
-	/* allocate data near location */
-	location_membind(host);	
 	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
 	monitor_thread_count++;
     }
-
     /* printf("will be hosted on %s:%d\n",hwloc_type_name(host->type), host->logical_index);	  */
     return host;
 }
