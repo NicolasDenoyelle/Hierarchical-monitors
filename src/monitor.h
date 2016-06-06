@@ -52,7 +52,7 @@ struct monitor{
  * Initialize the library.
  * @param topo, an topology to map monitor on. If topo is NULL the current machine topology is used.
  * @param output, the path where to print the trace.
- * @return 0 on error, 1 on success;
+ * @return -1 on error, 0 on success;
  **/
 int monitor_lib_init(hwloc_topology_t topo, char * output);
 

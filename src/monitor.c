@@ -13,11 +13,10 @@ static struct hmon_array *      monitors_to_print;
 hwloc_topology_t           monitors_topology;
 unsigned                   monitors_topology_depth;
 static unsigned long       monitors_pid;
-static hwloc_obj_t         monitors_restrict_first_group;
 static FILE *              monitors_output_file;
 static struct timespec     monitors_start_time, monitors_current_time;
 hwloc_cpuset_t             monitors_running_cpuset;
-
+static hwloc_obj_t         first_group;
 static unsigned            monitor_thread_count;
 static pthread_t *         monitor_threads;
 static pthread_barrier_t   monitor_threads_barrier;
@@ -121,6 +120,18 @@ void monitors_register_threads(int recurse){
 
 
 int monitor_lib_init(hwloc_topology_t topo, char * output){
+    /* Check hwloc version */
+#if HWLOC_API_VERSION >= 0x0020000
+    /* Header uptodate for monitor */
+    if(hwloc_get_api_version() < 0x20000){
+	fprintf(stderr, "hwloc version mismatch, required version 0x20000 or later, found %#08x\n", hwloc_get_api_version());
+	return -1;
+    }
+#else
+    fprintf(stderr, "hwloc version too old, required version 0x20000 or later\n");
+    return -1;    
+#endif
+
     /* initialize topology */
     if(topo == NULL){
 	hwloc_topology_init(&monitors_topology); 
@@ -131,14 +142,10 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
 	hwloc_topology_dup(&monitors_topology,topo);
 
     if(monitors_topology==NULL){
-	return 1;
+	fprintf(stderr, "Failed to init topology\n");
+	return -1;
     }
     monitors_topology_depth = hwloc_topology_get_depth(monitors_topology);
-
-    /* Restrict topology to first group */
-    monitors_restrict_first_group = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU,0);
-    while(monitors_restrict_first_group->type != HWLOC_OBJ_GROUP && monitors_restrict_first_group->type != HWLOC_OBJ_MACHINE)
-	monitors_restrict_first_group = monitors_restrict_first_group->parent;
     
     if(output){
 	monitors_output_file = fopen(output, "w");
@@ -150,6 +157,10 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
     else
 	monitors_output_file = stdout;
 
+    /* Restrict topology to first group */
+    first_group = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU,0);
+    while(first_group->type != HWLOC_OBJ_GROUP && first_group->type != HWLOC_OBJ_MACHINE)
+	first_group = first_group->parent;
     monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset);
 
     /* create or monitor list */ 
@@ -188,13 +199,13 @@ static void _monitor_delete(struct monitor * monitor){
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 
     /* match near to be in restricted topology */
-    int cousins = get_max_objs_inside_cpuset_by_type(monitors_restrict_first_group->cpuset, near->type);
+    int cousins = get_max_objs_inside_cpuset_by_type(first_group->cpuset, near->type);
     /* near type is found inside cpuset of restricted topology */
     if(cousins > 0)
-	near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, monitors_restrict_first_group->cpuset, near->depth, near->logical_index%cousins);
+	near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, first_group->cpuset, near->depth, near->logical_index%cousins);
     /* near is above restricted topology */
     else 
-	near = monitors_restrict_first_group;
+	near = first_group;
 
     hwloc_obj_t host = NULL;
     /* If child of core then host is the parent core */
