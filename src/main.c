@@ -33,11 +33,13 @@ struct perf_option{
 static struct perf_option help_opt =    {.name = "--help" ,   .arg = "",                          .type = OPT_TYPE_BOOL,   .value.int_value = 0,      .def_val = "0",           .set = 0};
 static struct perf_option input_opt =   {.name = "--input",   .arg = "<perf_group_file>",         .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "NULL",        .set = 0};
 static struct perf_option output_opt =  {.name = "--output",  .arg = "<output_file>",             .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "/dev/stdout", .set = 0};
+static struct perf_option restrict_opt =  {.name = "--restrict",  .arg = "<hwloc_obj:index>",     .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "Machine:0", .set = 0};
 static struct perf_option trace_opt =   {.name = "--trace",   .arg = "<perf_trace_file>",         .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "NULL",        .set = 0};
 static struct perf_option pid_opt =     {.name = "--pid",     .arg = "<pid (-1= whole-machine)>", .type = OPT_TYPE_INT,    .value.int_value = -1,     .def_val = "-1",          .set = 0};
 static struct perf_option refresh_opt = {.name = "--refresh", .arg = "<refresh_usec>",            .type = OPT_TYPE_INT,    .value.int_value = 100000, .def_val = "100000",      .set = 0};
 static struct perf_option display_opt = {.name = "--display-topology", .arg = "",                 .type = OPT_TYPE_INT,    .value.int_value = 0,      .def_val = "0",           .set = 0};
-static const  unsigned n_opt = 7;
+
+#define n_opt 8
 
 static unsigned set_option(struct perf_option * opt, const char * val){
     switch(opt->type){
@@ -60,6 +62,10 @@ static unsigned set_option(struct perf_option * opt, const char * val){
 	if(val){
 	    opt->set = 1;
 	    opt->value.str_value = strdup(val);
+	    if(opt->value.str_value == NULL){
+		perror("strdup");
+		exit(EXIT_FAILURE);
+	    }
 	    return 1; 
 	}
 	break;
@@ -107,7 +113,7 @@ static void usage(char* argv0, struct perf_option ** options)
 int
 main (int argc, char *argv[])
 {
-    struct perf_option * options[8];
+    struct perf_option * options[n_opt];
     options[0] = &input_opt;
     options[1] = &output_opt;
     options[2] = &refresh_opt;
@@ -115,6 +121,7 @@ main (int argc, char *argv[])
     options[4] = &pid_opt;
     options[5] = &trace_opt;
     options[6] = &display_opt;
+    options[7] = &restrict_opt;
     char * runnable = NULL;
     char ** run_args = NULL;
 
@@ -161,11 +168,12 @@ main (int argc, char *argv[])
     /* Set monitors output */
     if(!output_opt.set){
 	set_option((&output_opt), output_opt.def_val);
-	if(output_opt.value.str_value == NULL){
-	    perror("strdup");
-	    exit(EXIT_FAILURE);
-	}
 	output_opt.set = 0;
+    }
+
+    /* Restrict monitors */
+    if(!restrict_opt.set){
+	set_option((&restrict_opt), restrict_opt.def_val);
     }
 
     /* check if configuration file was provided */
@@ -191,7 +199,7 @@ main (int argc, char *argv[])
     char buf[sizeof(uint64_t)]; /* To read timerfd */
 
     /* Monitors initialization */
-    monitor_lib_init(NULL, output_opt.value.str_value);
+    monitor_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
 
     if(trace_opt.set)
 	setenv("MONITOR_TRACE_PATH",trace_opt.value.str_value,1);
@@ -274,6 +282,7 @@ main (int argc, char *argv[])
 
     /* clean up */
     free(output_opt.value.str_value);
+    free(restrict_opt.value.str_value);
     monitor_lib_finalize();
     return EXIT_SUCCESS;
 }

@@ -54,7 +54,7 @@ struct monitor{
  * @param output, the path where to print the trace.
  * @return -1 on error, 0 on success;
  **/
-int monitor_lib_init(hwloc_topology_t topo, char * output);
+int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output);
 
 /**
  * Destroy monitors outside of pid allowed cpuset.

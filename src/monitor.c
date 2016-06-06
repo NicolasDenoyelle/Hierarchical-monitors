@@ -16,7 +16,7 @@ static unsigned long       monitors_pid;
 static FILE *              monitors_output_file;
 static struct timespec     monitors_start_time, monitors_current_time;
 hwloc_cpuset_t             monitors_running_cpuset;
-static hwloc_obj_t         first_group;
+static hwloc_obj_t         restrict_location;
 static unsigned            monitor_thread_count;
 static pthread_t *         monitor_threads;
 static pthread_barrier_t   monitor_threads_barrier;
@@ -119,7 +119,7 @@ void monitors_register_threads(int recurse){
 }
 
 
-int monitor_lib_init(hwloc_topology_t topo, char * output){
+int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output){
     /* Check hwloc version */
 #if HWLOC_API_VERSION >= 0x0020000
     /* Header uptodate for monitor */
@@ -158,10 +158,7 @@ int monitor_lib_init(hwloc_topology_t topo, char * output){
 	monitors_output_file = stdout;
 
     /* Restrict topology to first group */
-    first_group = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_PU,0);
-    while(first_group->type != HWLOC_OBJ_GROUP && first_group->type != HWLOC_OBJ_MACHINE)
-	first_group = first_group->parent;
-    monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset);
+    restrict_location = location_parse(restrict_obj);
 
     /* create or monitor list */ 
     monitors = new_hmon_array(sizeof(struct monitor *), 32, (void (*)(void*))_monitor_delete);
@@ -199,13 +196,13 @@ static void _monitor_delete(struct monitor * monitor){
 static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 
     /* match near to be in restricted topology */
-    int cousins = get_max_objs_inside_cpuset_by_type(first_group->cpuset, near->type);
+    int cousins = get_max_objs_inside_cpuset_by_type(restrict_location->cpuset, near->type);
     /* near type is found inside cpuset of restricted topology */
     if(cousins > 0)
-	near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, first_group->cpuset, near->depth, near->logical_index%cousins);
+	near = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, restrict_location->cpuset, near->depth, near->logical_index%cousins);
     /* near is above restricted topology */
     else 
-	near = first_group;
+	near = restrict_location;
 
     hwloc_obj_t host = NULL;
     /* If child of core then host is the parent core */
