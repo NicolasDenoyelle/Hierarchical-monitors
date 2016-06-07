@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -g -std=gnu99
-LDFLAGS=-L. -l:$(HOME)/local/lib/libhwloc.so -lpthread -lrt -ldl -lm
+LDFLAGS=-L. -lhwloc -lpthread -lrt -ldl -lm
 
 # Installation directories
 PREFIX=$(HOME)/local
