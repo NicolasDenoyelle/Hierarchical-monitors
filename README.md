@@ -122,7 +122,7 @@ L3_balance{
 
 ### Embeding the library:
 * Include `"monitor.h"` into the files calling the monitor library.
-* Compile your code with -lmonitor ldflag.
+* Compile your code with -lhmon ldflag.
 * Code sample:
 
 ```
