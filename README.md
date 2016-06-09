@@ -115,7 +115,7 @@ L3_balance{
 
 ```
 
-* display help: `monitor --help`
+* display help: `hmon --help`
 * `hmon --input monitor_configuration_file`
 
 
