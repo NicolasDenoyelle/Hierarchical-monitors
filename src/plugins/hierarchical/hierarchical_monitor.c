@@ -54,7 +54,6 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     hwloc_obj_type_t type;
-    int n_events = 0;
 
     if(event==NULL || monitor_eventset == NULL)
 	return -1;
@@ -74,13 +73,9 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
     unsigned nbobjs = hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type);
     for(unsigned i = 0; i < nbobjs; i++){
 	hwloc_obj_t obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type, i);
-	struct monitor * m = (struct monitor *)obj->userdata;
-	if(m != NULL){
-	    hmon_array_push(set->child_events,m);
-	    n_events = m ->n_events;
-	}
+	hmon_array_push(set->child_events,obj->userdata);
     }
-    return n_events;
+    return nbobjs;
 }
 
 int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
@@ -120,20 +115,10 @@ int monitor_eventset_reset(void * monitor_eventset){
 
 int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
-    unsigned j,c;
-    struct monitor * m = hmon_array_get(set->child_events,0);
     /* Child are updated before parents */
     /* pthread_mutex_lock(&(m->available)); */
-    c = m->current;
-    for(j=0; j<m->n_events; j++){
-	values[j] = m->events[c][j];
-    }
-    for(unsigned i = 1; i< hmon_array_length(set->child_events); i++){
-	m  = hmon_array_get(set->child_events,i);
-	c = m->current;
-	for(j=0; j<m->n_events; j++){
-	    values[j] += m->events[c][j];
-	}	
+    for(unsigned i = 0; i< hmon_array_length(set->child_events); i++){
+	values[i] = ((struct monitor *)hmon_array_get(set->child_events,i))->value;
     }
     /* Child are updated before parents */
     /* pthread_mutex_unlock(&(m->available)); */
