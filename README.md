@@ -42,6 +42,7 @@ Several implementations are already available:
   * accumulate: accumulates eventsets of closest children monitors. Event names are defined as topology depths name.
   * hierarchical: read closest children monitors values to fill eventset.
   * trace: read events from a monitor trace. Events are field index to read.
+
 `plugins/performance_plugin.h` document the ABI to implement a plugin usable in a monitor. 
 
 * Statistic plugins,
