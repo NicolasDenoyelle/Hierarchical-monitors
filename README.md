@@ -113,6 +113,9 @@ L3_balance{
 	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
 }
 
+* display help: `monitor --help`
+* `hmon --input monitor_configuration_file`
+
 ```
 
 ### Embeding the library:
@@ -142,10 +145,6 @@ The file `"monitor.h"` let you know about the monitor structure, and gives you a
 Their are to way to find monitors: 
 * by walking the topology and dereferencing topology node's with non NULL userdata, 
 * or by iterating over the `monitors` array using the array API in `"utils.h"`.
-
-### Using the monitor utility:
-* display help: `monitor --help`
-* `hmon --input monitor_configuration_file`
 
 ## Coding the library
 
