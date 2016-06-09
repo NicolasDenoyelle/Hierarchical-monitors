@@ -418,6 +418,8 @@ static void _monitor_analyse(struct monitor * m){
 	/* Reduce events */
 	if(m->events_stat_lib)
 	    m->samples[m->current] = m->events_stat_lib->call(m);
+	else if(m->n_events == 1)
+	    m->samples[m->current] = m->events[m->current][0];
 	m->total = m->total+1; 
 	/* Analyse samples */
 	if(m->samples_stat_lib)
