@@ -33,12 +33,16 @@ struct monitor{
     unsigned n_events;
     /** The number of samples kept, the current sample index and the total amount of recorded samples **/
     unsigned n_samples, current, total;
-    /** pointers to performance library handling event collection **/
-    struct monitor_perf_lib * perf_lib;
+    /** pointers to performance library handling event collection. Functions documentation in plugin.h  **/
+    int (* eventset_start)   (void *);
+    int (* eventset_stop)    (void *);
+    int (* eventset_reset)   (void *);
+    int (* eventset_read)    (void *, long long *);
+    int (* eventset_destroy) (void *);
     /** The function to aggregate events: into samples **/
-    struct monitor_stats_lib * events_stat_lib;
+    double (* events_to_sample)(struct monitor *);
     /** The function to aggregate samples: into value **/
-    struct monitor_stats_lib * samples_stat_lib;
+    double (* samples_to_value)(struct monitor *);
     /** If stopped do not stop twice **/
     int stopped;
     /** 1:ACTIVE, 0:SLEEPING **/

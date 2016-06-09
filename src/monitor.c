@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include "monitor.h"
-#include "performance.h"
+#include "plugin.h"
 #include "stats.h"
 
 #define ACTIVE   1
@@ -46,9 +46,9 @@ new_monitor(hwloc_obj_t location,
 	    void * eventset, 
 	    unsigned n_events,
 	    unsigned n_samples, 
-	    struct monitor_perf_lib * perf_lib,
-	    struct monitor_stats_lib * stat_evset_lib,
-	    struct monitor_stats_lib * stat_samples_lib, 
+	    const char * perf_plugin,
+	    const char * events_to_sample,
+	    const char * samples_to_value,
 	    int silent)
 {
     struct monitor * monitor;
@@ -72,16 +72,46 @@ new_monitor(hwloc_obj_t location,
     monitor->eventset = eventset;
     monitor->n_samples = n_samples;
     monitor->n_events = n_events;
-    monitor->perf_lib = perf_lib;
-    monitor->events_stat_lib = stat_evset_lib;
-    monitor->samples_stat_lib = stat_samples_lib;
     monitor->events = NULL;
     monitor->timestamps = NULL;
     monitor->state_query = ACTIVE;
     monitor->userdata = NULL;
-    pthread_mutex_init(&(monitor->available), NULL);
-    
-    /* allocate hmon_arrays */
+    monitor->events_to_sample = evset_to_sample;
+    monitor->samples_to_value = samples_to_value;
+
+    /* Load perf plugin functions */
+    struct monitor_plugin * plugin = monitor_plugin_load(perf_plugin);
+    if(plugin == NULL){
+	fprintf("Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
+	free(monitor);
+	return NULL;
+    }
+    monitor->eventset_start    = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_start",   1);
+    monitor->eventset_stop     = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_stop",    1);
+    monitor->eventset_reset    = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_reset",   1);
+    monitor->eventset_read     = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_read",    1);
+    monitor->eventset_destroy  = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_destroy", 1);
+    if(monitor->eventset_start   == NULL ||
+       monitor->eventset_stop    == NULL ||
+       monitor->eventset_reset   == NULL ||
+       monitor->eventset_destroy == NULL ||
+       monitor->eventset_read    == NULL){
+	fprintf("Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
+	free(monitor);
+	return NULL;
+    }
+
+    if(evset_to_sample != NULL)
+	monitor->events_to_sample = monitor_stat_plugins_lookup_function(evset_to_sample);
+    else
+	monitor->events_to_sample = NULL;
+
+    if(samples_to_value != NULL)
+	monitor->samples_to_value = monitor_stat_plugins_lookup_function(samples_to_value);
+    else
+	monitor->samples_to_value = NULL;
+
+    /* allocate arrays */
     malloc_chk(monitor->events, n_samples*sizeof(*(monitor->events)));
     malloc_chk(monitor->samples, n_samples*sizeof(*(monitor->samples)));
     malloc_chk(monitor->timestamps, n_samples*sizeof(*(monitor->timestamps)));
@@ -91,6 +121,8 @@ new_monitor(hwloc_obj_t location,
     
     /* reset values */
     _monitor_reset(monitor);
+
+    pthread_mutex_init(&(monitor->available), NULL);
 
     /* Add monitor to existing monitors*/
     hmon_array_push(monitors, monitor);
@@ -188,7 +220,7 @@ static void _monitor_delete(struct monitor * monitor){
     free(monitor->events);
     free(monitor->samples);
     free(monitor->timestamps);
-    monitor->perf_lib->monitor_eventset_destroy(monitor->eventset);
+    monitor->eventset_destroy(monitor->eventset);
     pthread_mutex_destroy(&(monitor->available));
     free(monitor);
 }
@@ -334,10 +366,10 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
     fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
-    if(m->samples_stat_lib){
+    if(m->samples_to_value != NULL){
 	fprintf(monitors_output_file,"%lf ", m->value);
     }
-    else if(m->events_stat_lib){
+    else if(m->events_to_sample != NULL){
 	fprintf(monitors_output_file,"%lf ", m->samples[i]);
     }
     else{
@@ -385,7 +417,7 @@ static void _monitor_remove(struct monitor * monitor){
 
 static int _monitor_start(struct monitor * m){
     if(m->stopped && m->state_query==ACTIVE){
-	m->perf_lib->monitor_eventset_start(m->eventset);
+	m->eventset_start(m->eventset);
 	m->stopped = 0;
     }
     return 0;
@@ -393,7 +425,7 @@ static int _monitor_start(struct monitor * m){
 
 static int _monitor_stop(struct monitor * m){
     if(!m->stopped){
-	m->perf_lib->monitor_eventset_stop(m->eventset);
+	m->eventset_stop(m->eventset);
 	m->stopped = 1;
     }
     return 0;
@@ -403,7 +435,7 @@ static void _monitor_read(struct monitor * m){
     if(m->state_query == ACTIVE){
 	m->current = (m->current+1)%(m->n_samples);
 	/* Read events */
-	if((m->perf_lib->monitor_eventset_read(m->eventset,m->events[m->current])) == -1){
+	if((m->eventset_read(m->eventset,m->events[m->current])) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
 		    hwloc_type_name(m->location->type), m->location->logical_index);
 	    _monitor_remove(m);
@@ -416,14 +448,14 @@ static void _monitor_analyse(struct monitor * m){
 	/* Save timestamp */
 	m->timestamps[m->current] = tspec_diff((&monitors_start_time), (&monitors_current_time));
 	/* Reduce events */
-	if(m->events_stat_lib)
-	    m->samples[m->current] = m->events_stat_lib->call(m);
+	if(m->events_to_sample != NULL)
+	    m->samples[m->current] = m->events_to_sample(m);
 	else if(m->n_events == 1)
 	    m->samples[m->current] = m->events[m->current][0];
 	m->total = m->total+1; 
 	/* Analyse samples */
-	if(m->samples_stat_lib)
-	    m->value = m->samples_stat_lib->call(m);
+	if(m->samples_to_value != NULL)
+	    m->value = m->samples_to_value(m);
 	else
 	    m->value = m->samples[m->current];
 	m->min  = MIN(m->min, m->value);

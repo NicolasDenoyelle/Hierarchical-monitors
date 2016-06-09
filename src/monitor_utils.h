@@ -48,14 +48,6 @@ pid_t start_executable       (char * exe, char * args[]);
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 #define str(s) #s
 #define x_str(s) str(s)
-
-#define load_fun(lib,dlhandle,fun) do{					\
-	lib->fun = dlsym(dlhandle,x_str(fun));				\
-	if(lib->fun == NULL){						\
-	    monitor_print_err("Failed to load function "x_str(fun)" from %s\n",path); \
-	    monitor_print_err("%s\n", dlerror());			\
-	}								\
-    } while(0)
 #define monitor_print_err(...) fprintf(stderr, __FILE__  "(" x_str(__LINE__) "): " __VA_ARGS__)
 
 #endif /* MONITOR_UTILS_H */
