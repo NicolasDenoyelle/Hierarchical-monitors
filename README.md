@@ -77,7 +77,7 @@ Everything is set up in Makefile.
 ### Defining monitors:
 
 You have to describe the monitors into a single parsable file with the syntax below.
-Those monitors aggregates LLCs miss balance, to check if pressure is balanced over last level caches. 
+Those monitors aggregate LLCs miss balance, to check if pressure is balanced over last level caches. 
 
 ```
 
