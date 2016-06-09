@@ -113,10 +113,11 @@ L3_balance{
 	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
 }
 
+```
+
 * display help: `monitor --help`
 * `hmon --input monitor_configuration_file`
 
-```
 
 ### Embeding the library:
 * Include `"monitor.h"` into the files calling the monitor library.
