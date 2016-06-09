@@ -1,3 +1,4 @@
+#include "../performance_plugin.h"
 #include "../../monitor.h"
 
 /**

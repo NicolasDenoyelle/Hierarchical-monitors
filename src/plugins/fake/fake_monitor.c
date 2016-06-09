@@ -1,4 +1,5 @@
 #include "../../monitor_utils.h"
+#include "../performance_plugin.h"
 
 #define FAKE_NAME "FAKE_MONITOR"
 typedef int* fake_eventset;

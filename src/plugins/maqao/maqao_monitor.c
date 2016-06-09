@@ -1,6 +1,7 @@
-#include "maqao.h"
-#include "../../monitor_utils.h"
 #include <pthread.h>
+#include "../../monitor_utils.h"
+#include "../performance_plugin.h"
+#include "maqao.h"
 
 /* Improvements :
  * Avoid false sharing of callsites;
