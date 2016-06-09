@@ -102,6 +102,7 @@ L3_miss{
 	OBJ:=L3;
 	PERF_LIB:=accumulate;
 	EVSET:=PU;                            #Use accumulation of eventsets of child monitors on PU.
+	SILENT:=1;
 }
 
 #This monitor print a single L3 balance value 
