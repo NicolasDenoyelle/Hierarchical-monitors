@@ -137,7 +137,7 @@ Their are to way to find monitors:
 
 ### Using the monitor utility:
 * display help: `monitor --help`
-* `monitor --input monitor_configuration_file`
+* `hmon --input monitor_configuration_file`
 
 ## Coding the library
 
