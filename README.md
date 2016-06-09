@@ -23,8 +23,8 @@ The configuration of a monitor let you choose:
 * its eventset ABI implementation (see performance plugins), 
 * its eventset, 
 * the length of its eventsets history, 
-* an eventset to sample reduction function (instruction, cycles -> instructions/cycles) (see stat plugins)
-* a samples to value analysis function to compute the monitor value given the history of samples computed with derivation function. (see stat plugins)
+* a function to reduce eventset to a sample (instruction, cycles -> instructions/cycles) (see stat plugins)
+* a function to analyze samples and compute the monitor value. (see stat plugins)
 
 This information is necessary to caracterize applications with respect to the underlying hardware.
 
