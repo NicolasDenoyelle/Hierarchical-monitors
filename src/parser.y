@@ -5,8 +5,7 @@
 #include <float.h>
 #include <dlfcn.h>
 #include "monitor.h"
-#include "performance.h"
-#include "stats.h"
+#include "plugin.h"
 
     /**
      * #Commentary
@@ -43,66 +42,63 @@
      *
      **/
 
-    extern struct monitor * new_monitor(hwloc_obj_t location, void * eventset, unsigned n_events, unsigned n_samples, struct monitor_perf_lib * perf_lib, struct monitor_stats_lib * stat_evset_lib, struct monitor_stats_lib * stat_samples_lib, int silent);
+    extern struct monitor * new_monitor(hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int);
 
     /* Default fields */
-    const char *   default_perf_lib                           = "fake_perf_monitor"; 
-    const double   default_max                                = DBL_MIN;
-    const double   default_min                                = DBL_MAX;
-    const unsigned default_n_sample                           = 32;
-    const int      default_accumulate                         = 0;
-    const int      default_silent                             = 0;
+    const char * default_perf_lib = "fake"; 
 
     /* User fields */
-    char *                     monitor_perf_lib;
-    char *                     monitor_stats_evset_lib;
-    char *                     monitor_stats_samples_lib;
-    int                        monitor_accumulate;
-    int                        monitor_silent;
-    double                     monitor_max;
-    double                     monitor_min;
-    unsigned                   monitor_n_sample;
-    struct hmon_array *     monitor_location;
-    struct hmon_array *     monitor_evset;
-    char *                     monitor_aggregation_code;
+    char *                     perf_plugin_name;
+    char *                     evset_analysis_name;
+    char *                     samples_analysis_name;
+    char *                     code;
+    int                        accumulate;
+    int                        silent;
+    double                     max;
+    double                     min;
+    unsigned                   n_sample;
+    unsigned                   location_depth;
+    struct hmon_array *        eventset;
 
 
     /* This function is called for each newly parsed monitor */
     void reset_monitor_fields(){
-	if(monitor_perf_lib){free(monitor_perf_lib);}
-	if(monitor_stats_samples_lib){free(monitor_stats_samples_lib);}
-	if(monitor_stats_evset_lib){free(monitor_stats_evset_lib);}
-	monitor_max             = default_max;
-	monitor_min             = default_min;
-	monitor_n_sample        = default_n_sample;
-	monitor_accumulate      = 0;
-	monitor_silent          = 0;
-	monitor_perf_lib        = NULL;
-	monitor_stats_evset_lib   = NULL;
-	monitor_stats_samples_lib       = NULL;
-	empty_hmon_array(monitor_evset); 
-	empty_hmon_array(monitor_location);
-	if(monitor_aggregation_code){free(monitor_aggregation_code);}
-	monitor_aggregation_code = NULL;
+	if(perf_plugin_name){free(perf_plugin_name);}
+	if(samples_analysis_name){free(samples_analysis_name);}
+	if(evset_analysis_name){free(evset_analysis_name);}
+	if(code){free(code);}
+	max                    = DBL_MIN;
+	min                    = DBL_MAX;
+	n_sample               = 32;       /* default store 32 samples */
+	accumulate             = 0;        /* default do not accumulate */
+	silent                 = 0; 	   /* default not silent */     
+	location_depth         = 0; 	   /* default on root */
+	perf_plugin_name       = NULL;
+	evset_analysis_name    = NULL;
+	samples_analysis_name  = NULL;
+	code                   = NULL;
+	empty_hmon_array(eventset); 
     }
 
     /* This function is called once before parsing */
     void import_init(){
-	monitor_evset = new_hmon_array(sizeof(char*),8,free);
-	monitor_location = new_hmon_array(sizeof(hwloc_obj_t),32,NULL);	
+	eventset = new_hmon_array(sizeof(char*),8,free);
 	reset_monitor_fields();
     }
 
     /* This function is called once after parsing */
     void import_finalize(){
 	/* cleanup */
-	delete_hmon_array(monitor_location);
-	delete_hmon_array(monitor_evset);
+	delete_hmon_array(eventset);
     }
 
-    static void print_avail_events(struct monitor_perf_lib * lib){
+    static void print_avail_events(struct monitor_plugin * lib){
+	char ** (* events_list)(int *) = monitor_plugin_load_function(lib, "monitor_events_list");
+	if(monitor_events_list == NULL)
+	    return;
+
 	int n = 0;
-	char ** avail = lib->monitor_events_list(&n);
+	char ** avail = events_list(&n);
 	printf("List of available events:\n");
 	while(n--){
 	    printf("\t%s\n",avail[n]);
@@ -113,36 +109,40 @@
 
     /* Finalize monitor creation */
     void monitor_create(char * name){
-	hwloc_obj_t obj;
-	void * eventset;
-	struct monitor_perf_lib * perf_lib;
-	struct monitor_stats_lib * evset_lib = NULL;
-	struct monitor_stats_lib * samples_lib = NULL;
-	unsigned j, n, n_siblings = hmon_array_length(monitor_location);
+	hwloc_obj_t obj = NULL;
+	void * eventset = NULL;
+	struct monitor_plugin * perf_lib = NULL;
+	int    (* eventset_init)(void **, hwloc_obj_t, int);
+	int    (* eventset_init_fini)(void);
+	int    (* eventset_destroy)(void *);
+	int    (* add_named_event)(void *, char *);
+	unsigned j, n, n_siblings = hwloc_get_nb_objs_by_depth(losation_depth);
 	int err, added_events;
-
-	/* Monitor default on root */
-	if(n_siblings == 0){
-	    n_siblings = 1;
-	    hmon_array_push(monitor_location, hwloc_get_root_obj(monitors_topology));
-	}
+	char * reduce_code = NULL;
 
 	/* Load dynamic library */
-	if(!monitor_perf_lib){ monitor_perf_lib = strdup(default_perf_lib);}
-	perf_lib =  monitor_load_perf_lib(monitor_perf_lib);
+	if(!perf_plugin_name){ perf_plugin_name = strdup(default_perf_lib);}
+	perf_lib =  monitor_plugin_load(perf_plugin_name, MONITOR_PLUGIN_PERF);
 	if(perf_lib == NULL){
 	    fprintf(stderr, "Failed to load %s performance library.\n", name);
-	    exit(EXIT_FAILURE);
+	    return;
+	}
+	eventset_init      = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_init",      1);
+	eventset_init_fini = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_init_fini", 1);
+	add_named_event    = monitor_perf_plugin_load_fun(perf_lib, "monitor_add_named_event",    1);
+	eventset_destroy   = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_destroy",   1);
+	
+	/* Build reduction on events */
+	if(code){	    
+	    reduce_code = concat_expr(6,"#include <monitor.h>\n", "double ", name, "(struct monitor * monitor){return", code, ";}\n");
+	    monitor_stat_plugin_build(name, reduce_code);
+	    free(reduce_code);
+	    evset_analysis_name = strdup(name);
 	}
 	
-	if(monitor_aggregation_code)
-	    evset_lib = monitor_build_custom_stats_lib(name, monitor_aggregation_code);
-	else if(monitor_stats_evset_lib)
-	    evset_lib = monitor_load_stats_lib(monitor_stats_evset_lib);
-	if(monitor_stats_samples_lib)
-	    samples_lib = monitor_load_stats_lib(monitor_stats_samples_lib);
-		
-	while((obj =  hmon_array_pop(monitor_location)) != NULL){
+	/* Build one monitor per location */
+	
+	while((obj = hwloc_get_next_obj_by_depth(monitors_topology, obj)) != NULL){
 	    if(obj->userdata != NULL){
 		char * name = location_name(obj);
 		fprintf(stderr, "Can't define a monitor on obj %s, because a monitor is already defined there\n", name);
@@ -151,18 +151,18 @@
 	    }
 
 	    /* Initialize this->eventset */
-	    if(perf_lib->monitor_eventset_init(&eventset, obj, monitor_accumulate)==-1){
+	    if(eventset_init(&eventset, obj, accumulate)==-1){
 		monitor_print_err( "failed to initialize %s eventset\n", name);
 		return;
 	    }
 
 	    /* Add events */
-	    n = hmon_array_length(monitor_evset);
+	    n = hmon_array_length(eventset);
 	    added_events = 0;
 	    for(j=0;j<n;j++){
-		err = perf_lib->monitor_eventset_add_named_event(eventset,(char*)hmon_array_get(monitor_evset,j));
+		err = add_named_event(eventset,(char*)hmon_array_get(eventset,j));
 		if(err == -1){
-		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(monitor_evset,j), name);
+		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(eventset,j), name);
 		    print_avail_events(perf_lib);
 		    exit(EXIT_FAILURE);
 		}
@@ -170,15 +170,15 @@
 	    }
 	    
 	    if(added_events==0){
-		perf_lib->monitor_eventset_destroy(eventset);
+		eventset_destroy(eventset);
 		continue;
 	    }
 	
 	    /* Finalize eventset initialization */
-	    perf_lib->monitor_eventset_init_fini(eventset);
+	    eventset_init_fini(eventset);
 
 	    /* Create monitor */
-	    new_monitor(obj, eventset, added_events, monitor_n_sample, perf_lib, evset_lib, samples_lib, monitor_silent);
+	    new_monitor(obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, sample_analysis_name, silent);
 	}
 	reset_monitor_fields();
     }
@@ -243,38 +243,34 @@ field
 : OBJ_FIELD NAME ';'{
     hwloc_obj_t obj = location_parse($2);
     if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
-    unsigned nbobjs = hwloc_get_nbobjs_by_type(monitors_topology, obj->type);
-    while(nbobjs --){
-	obj = hwloc_get_obj_by_type(monitors_topology, obj->type, nbobjs);
-	hmon_array_push(monitor_location, obj);
-    }
+    location_depth = obj->depth;
     free($2);
  }
-| EVSET_REDUCE_FIELD  add_expr  ';' {monitor_aggregation_code = $2;}
-| EVSET_REDUCE_FIELD  NAME      ';' {monitor_stats_evset_lib = $2;}
-| SAMPLES_REDUCE_FIELD      NAME      ';' {monitor_stats_samples_lib = $2;}
-| PERF_LIB_FIELD   NAME      ';' {monitor_perf_lib = $2;}
-| ACCUMULATE_FIELD INTEGER   ';' {monitor_accumulate = atoi($2); free($2);}
-| SILENT_FIELD     INTEGER   ';' {monitor_silent = atoi($2); free($2);}
-| N_SAMPLE_FIELD   INTEGER   ';' {monitor_n_sample = atoi($2); free($2);}
+| EVSET_REDUCE_FIELD  add_expr  ';' {code = $2;}
+| EVSET_REDUCE_FIELD  NAME      ';' {evset_analysis_name = $2;}
+| SAMPLES_REDUCE_FIELD      NAME      ';' {samples_analysis_name = $2;}
+| PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
+| ACCUMULATE_FIELD INTEGER   ';' {accumulate = atoi($2); free($2);}
+| SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
+| N_SAMPLE_FIELD   INTEGER   ';' {n_sample = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}
 | min_field                      {}
 | max_field                      {}
 ;
 
 max_field
-: MAX_FIELD REAL    ';' { monitor_max = (double)atof($2); free($2);}
-| MAX_FIELD INTEGER ';' { monitor_max = (double)atoi($2); free($2);}
+: MAX_FIELD REAL    ';' { max = (double)atof($2); free($2);}
+| MAX_FIELD INTEGER ';' { max = (double)atoi($2); free($2);}
 ;
 
 min_field
-: MIN_FIELD REAL    ';' { monitor_min = (double)atof($2); free($2);}
-| MIN_FIELD INTEGER ';' { monitor_min = (double)atoi($2); free($2);}
+: MIN_FIELD REAL    ';' { min = (double)atof($2); free($2);}
+| MIN_FIELD INTEGER ';' { min = (double)atoi($2); free($2);}
 ;
 
 event_list
-: event                {hmon_array_push(monitor_evset,$1);}
-| event ',' event_list {hmon_array_push(monitor_evset,$1);}
+: event                {hmon_array_push(eventset,$1);}
+| event ',' event_list {hmon_array_push(eventset,$1);}
 ;
 
 event
