@@ -29,7 +29,7 @@ The configuration of a monitor let you choose:
 This information is necessary to caracterize applications with respect to the underlying hardware.
 
 ### Plugins description:
-A plugin is a file with pattern name: <name>.monitor_plugin.so loadable with dlopen.
+A plugin is a file with pattern name: `<name>.monitor_plugin.so` loadable with dlopen.
 There is two kind of plugins: 
 
 * Performance plugins, 
