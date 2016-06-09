@@ -76,8 +76,11 @@ Everything is set up in Makefile.
 
 ### Defining monitors:
 
-You have to describe the monitors into a single parsable file with this syntax:
+You have to describe the monitors into a single parsable file with the syntax below.
+Those monitors aggregates LLCs miss balance, to check if pressure is balanced over last level caches. 
+
 ```
+
 #This monitor measure the total of L3 miss performed on each processing unit.
 L3_miss_pu{
 	OBJ:=PU;                              #Default machine.
@@ -94,12 +97,16 @@ L3_miss_pu{
        #SAMPLES_REDUCE:=monitor_samples_last; #No sample reduction.
 }
 
+#This monitor accumulate L3 miss on each L3
 L3_miss{
+	OBJ:=L3;
 	PERF_LIB:=accumulate;
 	EVSET:=PU;                            #Use accumulation of eventsets of child monitors on PU.
 }
 
+#This monitor print a single L3 balance value 
 L3_balance{
+	OBJ:=Machine;
 	PERF_LIB:=hierarchical;
 	EVSET:=L3;                            #Read each L3 cache miss value.
 	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
