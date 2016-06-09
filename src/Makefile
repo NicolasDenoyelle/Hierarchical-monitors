@@ -10,7 +10,7 @@ MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
-PERF_PLUGINS=fake hierarchical papi trace maqao 
+PERF_PLUGINS=fake accumulate hierarchical papi trace maqao stat_default
 
 # Not a filename targets
 .PHONY: default all install clean uninstall
@@ -23,7 +23,7 @@ default: all
 ################################################################################################################
 LIB=libhmon.so
 BIN=hmon 
-SRC=monitor.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c performance.c stats.c 
+SRC=monitor.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
 OBJ=$(patsubst %.c, %.o, $(SRC))
 
 %.o: %.c
