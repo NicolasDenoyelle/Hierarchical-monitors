@@ -30,7 +30,7 @@ This information is necessary to caracterize applications with respect to the un
 
 ### Plugins description:
 A plugin is a file with pattern name: `<name>.monitor_plugin.so` loadable with dlopen.
-There is two kind of plugins: 
+There are two kind of plugins: 
 
 * Performance plugins, 
 Several implementations are already available:
