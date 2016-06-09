@@ -2,8 +2,6 @@
 #include <signal.h>
 #include <pthread.h>
 #include "monitor.h"
-#include "plugin.h"
-#include "stats.h"
 
 #define ACTIVE   1
 #define SLEEPING 0
@@ -76,33 +74,31 @@ new_monitor(hwloc_obj_t location,
     monitor->timestamps = NULL;
     monitor->state_query = ACTIVE;
     monitor->userdata = NULL;
-    monitor->events_to_sample = evset_to_sample;
-    monitor->samples_to_value = samples_to_value;
 
     /* Load perf plugin functions */
-    struct monitor_plugin * plugin = monitor_plugin_load(perf_plugin);
+    struct monitor_plugin * plugin = monitor_plugin_load(perf_plugin, MONITOR_PLUGIN_PERF);
     if(plugin == NULL){
-	fprintf("Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
+	fprintf(stderr, "Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
 	free(monitor);
 	return NULL;
     }
-    monitor->eventset_start    = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_start",   1);
-    monitor->eventset_stop     = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_stop",    1);
-    monitor->eventset_reset    = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_reset",   1);
-    monitor->eventset_read     = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_read",    1);
-    monitor->eventset_destroy  = monitor_perf_plugin_load_fun(plugin, "monitor_eventset_destroy", 1);
+    monitor->eventset_start    = monitor_plugin_load_fun(plugin, "monitor_eventset_start",   1);
+    monitor->eventset_stop     = monitor_plugin_load_fun(plugin, "monitor_eventset_stop",    1);
+    monitor->eventset_reset    = monitor_plugin_load_fun(plugin, "monitor_eventset_reset",   1);
+    monitor->eventset_read     = monitor_plugin_load_fun(plugin, "monitor_eventset_read",    1);
+    monitor->eventset_destroy  = monitor_plugin_load_fun(plugin, "monitor_eventset_destroy", 1);
     if(monitor->eventset_start   == NULL ||
        monitor->eventset_stop    == NULL ||
        monitor->eventset_reset   == NULL ||
        monitor->eventset_destroy == NULL ||
        monitor->eventset_read    == NULL){
-	fprintf("Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
+	fprintf(stderr, "Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
 	free(monitor);
 	return NULL;
     }
 
-    if(evset_to_sample != NULL)
-	monitor->events_to_sample = monitor_stat_plugins_lookup_function(evset_to_sample);
+    if(events_to_sample != NULL)
+	monitor->events_to_sample = monitor_stat_plugins_lookup_function(events_to_sample);
     else
 	monitor->events_to_sample = NULL;
 

@@ -5,7 +5,6 @@
 #include <float.h>
 #include <dlfcn.h>
 #include "monitor.h"
-#include "plugin.h"
 
     /**
      * #Commentary
@@ -58,11 +57,11 @@
     double                     min;
     unsigned                   n_sample;
     unsigned                   location_depth;
-    struct hmon_array *        eventset;
+    struct hmon_array *        event_names;
 
 
     /* This function is called for each newly parsed monitor */
-    void reset_monitor_fields(){
+    static void reset_monitor_fields(){
 	if(perf_plugin_name){free(perf_plugin_name);}
 	if(samples_analysis_name){free(samples_analysis_name);}
 	if(evset_analysis_name){free(evset_analysis_name);}
@@ -77,24 +76,40 @@
 	evset_analysis_name    = NULL;
 	samples_analysis_name  = NULL;
 	code                   = NULL;
-	empty_hmon_array(eventset); 
+	empty_hmon_array(event_names); 
     }
 
     /* This function is called once before parsing */
-    void import_init(){
-	eventset = new_hmon_array(sizeof(char*),8,free);
+    static void import_init(){
+	event_names = new_hmon_array(sizeof(char*),8,free);
 	reset_monitor_fields();
     }
 
     /* This function is called once after parsing */
-    void import_finalize(){
+    static void import_finalize(){
 	/* cleanup */
-	delete_hmon_array(eventset);
+	delete_hmon_array(event_names);
+    }
+
+    static char * concat_expr(int n, ...){
+	va_list ap;
+	int i;
+	size_t c = 0, size = 0;
+	va_start(ap,n);
+	for(i=0;i<n;i++)
+	    size += 1+strlen(va_arg(ap, char*));
+	char * ret = malloc(size); memset(ret,0,size);
+	va_start(ap,n);
+	for(i=0;i<n;i++){
+	    char * str = va_arg(ap, char*);
+	    c += sprintf(ret+c, "%s", str);
+	}
+	return ret;
     }
 
     static void print_avail_events(struct monitor_plugin * lib){
-	char ** (* events_list)(int *) = monitor_plugin_load_function(lib, "monitor_events_list");
-	if(monitor_events_list == NULL)
+	char ** (* events_list)(int *) = monitor_plugin_load_fun(lib, "monitor_events_list", 1);
+	if(events_list == NULL)
 	    return;
 
 	int n = 0;
@@ -108,33 +123,33 @@
     }
 
     /* Finalize monitor creation */
-    void monitor_create(char * name){
+    static void monitor_create(char * name){
 	hwloc_obj_t obj = NULL;
 	void * eventset = NULL;
 	struct monitor_plugin * perf_lib = NULL;
 	int    (* eventset_init)(void **, hwloc_obj_t, int);
-	int    (* eventset_init_fini)(void);
-	int    (* eventset_destroy)(void *);
-	int    (* add_named_event)(void *, char *);
-	unsigned j, n, n_siblings = hwloc_get_nb_objs_by_depth(losation_depth);
+	int    (* eventset_init_fini)(void*);
+	int    (* eventset_destroy)(void*);
+	int    (* add_named_event)(void*, char*);
+	unsigned j, n;
 	int err, added_events;
 	char * reduce_code = NULL;
 
 	/* Load dynamic library */
-	if(!perf_plugin_name){ perf_plugin_name = strdup(default_perf_lib);}
+	if(!perf_plugin_name){perf_plugin_name = strdup(default_perf_lib);}
 	perf_lib =  monitor_plugin_load(perf_plugin_name, MONITOR_PLUGIN_PERF);
 	if(perf_lib == NULL){
 	    fprintf(stderr, "Failed to load %s performance library.\n", name);
 	    return;
 	}
-	eventset_init      = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_init",      1);
-	eventset_init_fini = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_init_fini", 1);
-	add_named_event    = monitor_perf_plugin_load_fun(perf_lib, "monitor_add_named_event",    1);
-	eventset_destroy   = monitor_perf_plugin_load_fun(perf_lib, "monitor_eventset_destroy",   1);
+	eventset_init      = monitor_plugin_load_fun(perf_lib, "monitor_eventset_init",      1);
+	eventset_init_fini = monitor_plugin_load_fun(perf_lib, "monitor_eventset_init_fini", 1);
+	add_named_event    = monitor_plugin_load_fun(perf_lib, "monitor_eventset_add_named_event",    1);
+	eventset_destroy   = monitor_plugin_load_fun(perf_lib, "monitor_eventset_destroy",   1);
 	
 	/* Build reduction on events */
 	if(code){	    
-	    reduce_code = concat_expr(6,"#include <monitor.h>\n", "double ", name, "(struct monitor * monitor){return", code, ";}\n");
+	    reduce_code = concat_expr(6,"#include <monitor.h>\n", "double ", name, "(struct monitor * monitor){return ", code, ";}\n");
 	    monitor_stat_plugin_build(name, reduce_code);
 	    free(reduce_code);
 	    evset_analysis_name = strdup(name);
@@ -142,7 +157,7 @@
 	
 	/* Build one monitor per location */
 	
-	while((obj = hwloc_get_next_obj_by_depth(monitors_topology, obj)) != NULL){
+	while((obj = hwloc_get_next_obj_by_depth(monitors_topology, location_depth, obj)) != NULL){
 	    if(obj->userdata != NULL){
 		char * name = location_name(obj);
 		fprintf(stderr, "Can't define a monitor on obj %s, because a monitor is already defined there\n", name);
@@ -157,12 +172,12 @@
 	    }
 
 	    /* Add events */
-	    n = hmon_array_length(eventset);
+	    n = hmon_array_length(event_names);
 	    added_events = 0;
 	    for(j=0;j<n;j++){
-		err = add_named_event(eventset,(char*)hmon_array_get(eventset,j));
+		err = add_named_event(eventset,(char*)hmon_array_get(event_names,j));
 		if(err == -1){
-		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(eventset,j), name);
+		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(event_names,j), name);
 		    print_avail_events(perf_lib);
 		    exit(EXIT_FAILURE);
 		}
@@ -178,26 +193,10 @@
 	    eventset_init_fini(eventset);
 
 	    /* Create monitor */
-	    new_monitor(obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, sample_analysis_name, silent);
+	    new_monitor(obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
 	}
 	reset_monitor_fields();
     }
-
-static char * concat_expr(int n, ...){
-    va_list ap;
-    int i;
-    size_t c = 0, size = 0;
-    va_start(ap,n);
-    for(i=0;i<n;i++)
-	size += 1+strlen(va_arg(ap, char*));
-    char * ret = malloc(size); memset(ret,0,size);
-    va_start(ap,n);
-    for(i=0;i<n;i++){
-	char * str = va_arg(ap, char*);
-	c += sprintf(ret+c, "%s", str);
-    }
-    return ret;
-}
 
     extern char yytext[];
     extern FILE *yyin;
@@ -269,8 +268,8 @@ min_field
 ;
 
 event_list
-: event                {hmon_array_push(eventset,$1);}
-| event ',' event_list {hmon_array_push(eventset,$1);}
+: event                {hmon_array_push(event_names,$1);}
+| event ',' event_list {hmon_array_push(event_names,$1);}
 ;
 
 event

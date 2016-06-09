@@ -20,26 +20,35 @@ events samples into a single insightful information.
 
 The configuration of a monitor let you choose: 
 * its depth location on topology, 
-* its eventset ABI implementation, 
+* its eventset ABI implementation (see performance plugins), 
 * its eventset, 
 * the length of its eventsets history, 
-* an eventset derivation function (instruction, cycles -> instructions/cycles)
-* a function to compute the monitor value given the history of samples computed with derivation function.
+* an eventset to sample reduction function (instruction, cycles -> instructions/cycles) (see stat plugins)
+* a samples to value analysis function to compute the monitor value given the history of samples computed with derivation function. (see stat plugins)
 
 This information is necessary to caracterize applications with respect to the underlying hardware.
 
 ### Plugins description:
+A plugin is a file with pattern name: <name>.monitor_plugin.so loadable with dlopen.
+There is two kind of plugins: 
 
-The file `plugins/performance_utils.h` document the ABI to implement a library usable in a monitor.
+* Performance plugins, 
 Several implementations are already available:
-
-* papi: use papi hardware events in monitors. This implementation assumes that you define a monitor for a leaf
+  * papi: use papi hardware events in monitors. This implementation assumes that you define a monitor for a leaf
   of the topology, or for the root of the topology. Defining a monitor with this plugin on another location can
   be misleading if you are not aware that it will record events with default papi options.
-* maqao: use maqao hardware events in monitors. It also assumes that monitor will be located on a leaf
+  * maqao: use maqao hardware events in monitors. It also assumes that monitor will be located on a leaf
   or on the root of the topology, otherwise events are system wide events.
-* hierarchical: accumulates eventsets of closest children monitors. Event names are defined as topology depths name.
-* trace: read events from a monitor trace. Events are field index to read.
+  * accumulate: accumulates eventsets of closest children monitors. Event names are defined as topology depths name.
+  * hierarchical: read closest children monitors values to fill eventset.
+  * trace: read events from a monitor trace. Events are field index to read.
+`plugins/performance_plugin.h` document the ABI to implement a plugin usable in a monitor. 
+
+* Statistic plugins,
+listed in environment: `export MONITOR_STAT_PLUGINS=<plugin1>,<plugin2>...` (stat_default is loaded by default)",
+containing functions with prototype: `double <name>(struct monitor *)`,
+loaded at library initialization, 
+and which function <name> might be loaded to perform the task of reducing monitor's events to a sample or samples history to a synthetic value into.
 
 ## Requirements:
 
@@ -69,26 +78,33 @@ Everything is set up in Makefile.
 
 You have to describe the monitors into a single parsable file with this syntax:
 ```
-#This monitor measure the total of instruction per cycle performed on each processing unit.
-ins_cyc_pu{
+#This monitor measure the total of L3 miss performed on each processing unit.
+L3_miss_pu{
 	OBJ:=PU;                              #Default machine.
 	PERF_LIB:=papi;                       #Compulsory.
-	EVSET:=PAPI_TOT_INS, PAPI_TOT_CYC;    #Compulsory.
-	EVSET_REDUCE:=$0/$1;                  #Default to sum.
+	EVSET:=PAPI_L3_TCM;                   #Compulsory.
+
 #other optional fields
-       N_SAMPLES:=4;	                     #Default to 32. (history of samples length)
-       ACCUMULATE:=1;                        #Default to 0.  (accumulate if > 0)
-       SILENT:=1;                            #Default to 0.  (print if == 0)
-       MAX:=0;                               #Default to 0.  (Preset maximum value of sample)
-       MIN:=0;                               #Default to 0.  (Preset minimum value of sample)
-       SAMPLES_REDUCE:=MONITOR_SAMPLES_LAST; #Default to this value. (Computes a value based on the monitor values)
+       #EVSET_REDUCE:=$0/$1;                  #No event reduction for this monitor.	
+       #N_SAMPLES:=4;	                      #Default to 32. (history of samples length)
+       #ACCUMULATE:=0;                        #Default to 0.  (accumulate if > 0)
+       SILENT:=1;                             #Default to 0.  (print if == 0)
+       #MAX:=0;                               #Default to DBL_MIN.  (Preset maximum value of sample)
+       #MIN:=0;                               #Default to DBL_MAX.  (Preset minimum value of sample)
+       #SAMPLES_REDUCE:=monitor_samples_last; #No sample reduction.
 }
 
-ins_cyc{
-	PERF_LIB:=hierarchical;
+L3_miss{
+	PERF_LIB:=accumulate;
 	EVSET:=PU;                            #Use accumulation of eventsets of child monitors on PU.
-	EVSET_REDUCE:=$0/$1;
 }
+
+L3_balance{
+	PERF_LIB:=hierarchical;
+	EVSET:=L3;                            #Read each L3 cache miss value.
+	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
+}
+
 ```
 
 ### Embeding the library:

@@ -85,8 +85,16 @@ static void usage(char* argv0, struct perf_option ** options)
     for(i=0;i<n_opt;i++){
 	printf("\t%s %s: default=%s\n",options[i]->name, options[i]->arg, options[i]->def_val);
     }
+
+    printf("Plugins:\n");
+    printf("You can use plugins both for event collection and monitor analysis\n");
+    printf("Plugins file must have a pattern name: <plugin>.monitor_plugin.so\n");
+    printf("Providing <plugin> or pattern name, or full path will search the plugin in location findable by dlopen\n");
+    printf("There are two kinds of plugins:\n");
+    printf("\t* Event collection plugins defined in PERF_LIB field of the monitors.\n");
+    printf("\t* And stat library to aggregate events into samples and samples into value, defined in a comma separated list in MONITOR_STAT_PLUGINS environment. The default stat_default plugin is automatically loaded\n");
     
-    printf("Example:\n");
+    printf("Monitor input:\n");
     printf("\t$>%s --input my_perf_group.txt\n",argv0);
     printf("\tWill output to stdout the monitoring of the whole machine using the events settings in \"my_perf_group.txt\"\n"); 
     printf("\n");
@@ -96,8 +104,8 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\t\tPERF_LIB:=papi;                   # Performance library to read counters. Can be a file of type path/<name>.monitor_plugin.so or <name> if plugin <name>.monitor_plugin.so is findable by dlopen.\n");
     printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; # A list of events defined by PERF_LIB.\n");     
     printf("\t\tN_SAMPLE:=128;                    # The buffer size for timestamps, samples and events. Default to 32.\n");
-    printf("\t\tEVSET_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or EVSET_SUM or EVSET_MAX or EVSET_MIN, or a plugin with the same pattern as PERF_LIB name.\n");
-    printf("\t\tSAMPLES_REDUCE:=STATS_LAST;       # A stats library function to print statistic value of samples. The name pattern of the plugin to load is the same as for PERF_LIB.\n");
+    printf("\t\tEVSET_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or a function name loadable in a stat plugin.\n");
+    printf("\t\tSAMPLES_REDUCE:=STATS_LAST;       # A function loadable in a stat plugin.\n");
     printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
