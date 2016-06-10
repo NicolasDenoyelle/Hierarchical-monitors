@@ -10,7 +10,7 @@ MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
-PERF_PLUGINS=fake accumulate hierarchical papi trace maqao stat_default
+PLUGINS=fake accumulate hierarchical papi trace maqao stat_default stat_gsl
 
 # Not a filename targets
 .PHONY: default all install clean uninstall
@@ -25,6 +25,12 @@ LIB=libhmon.so
 BIN=hmon 
 SRC=monitor.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
 OBJ=$(patsubst %.c, %.o, $(SRC))
+
+STAT_PLUGINS_DEF=stat_default
+ifneq (,$(findstring stat_gsl, $(PLUGINS)))
+	STAT_PLUGINS_DEF=stat_default,stat_gsl,
+endif
+CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS_DEF)\""
 
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c $^ -o $@  $(LDFLAGS)
@@ -42,40 +48,43 @@ $(BIN): main.c $(LIB)
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS) -lhmon
 
 ################################################################################################################
-#                                                Performance plugins                                           #
+#                                                      plugins                                                 #
 ################################################################################################################
-PERF_PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PERF_PLUGINS))
-ifneq (,$(findstring papi, $(PERF_PLUGINS)))
-	PERF_PLUGINS_LDFLAGS=-lpapi 
+PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PLUGINS))
+ifneq (,$(findstring stat_gsl, $(PLUGINS)))
+	PLUGINS_LDFLAGS+=-lgsl
 endif
-ifneq (,$(findstring maqao, $(PERF_PLUGINS)))
-	PERF_PLUGINS_LDFLAGS+=-llprof
+ifneq (,$(findstring papi, $(PLUGINS)))
+	PLUGINS_LDFLAGS=-lpapi 
+endif
+ifneq (,$(findstring maqao, $(PLUGINS)))
+	PLUGINS_LDFLAGS+=-llprof
 endif
 
 %.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PERF_PLUGINS_LDFLAGS) -lhmon
+	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PLUGINS_LDFLAGS) -lhmon
 
 
 ###############################################################################################################
 #                                             PHONY: Clean, Install ...                                       #
 ###############################################################################################################
 
-all: $(LIB) $(BIN) $(PERF_PLUGINS_LIB)
+all: $(LIB) $(BIN) $(PLUGINS_LIB)
 
 install: all
 	cp $(LIB) $(MONITOR_LIB_INSTALL_DIR)
 	cp $(BIN) $(MONITOR_BIN_INSTALL_DIR)
-	@for plugin in $(PERF_PLUGINS_LIB); do\
+	@for plugin in $(PLUGINS_LIB); do\
 		cp $$plugin $(MONITOR_LIB_INSTALL_DIR); \
 	done
 	cp monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)
 	cp monitor_utils.h $(MONITOR_INCLUDE_INSTALL_DIR)
 
 clean: 
-	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PERF_PLUGINS_LIB)
+	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PLUGINS_LIB)
 
 uninstall: clean
-	@for file in $(PERF_PLUGINS_LIB); do\
+	@for file in $(PLUGINS_LIB); do\
                 echo "rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file";\
 		rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file; \
 	done

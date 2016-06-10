@@ -2,9 +2,14 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <stdio.h>
+#include <string.h>
 
 static struct hmon_array * perf_plugins = NULL;
 static struct hmon_array * stat_plugins = NULL;
+
+/* #ifndef STAT_PLUGINS */
+/* #define STAT_PLUGINS "stat_default" */
+/* #endif */
 
 static void delete_monitor_plugin(void * plugin){
     struct monitor_plugin * p = (struct monitor_plugin *)plugin;
@@ -29,7 +34,13 @@ static void __attribute__((constructor)) plugins_init(){
 	    monitor_plugin_load(plugin_env, MONITOR_PLUGIN_STAT);
 	} while((plugin_env = strtok(NULL, ",")) != NULL);
     }
-    monitor_plugin_load("stat_default", MONITOR_PLUGIN_STAT);
+    char * plugins = strdup(STAT_PLUGINS);
+    char * plugin = strtok(plugins, ",");
+    do{
+	monitor_plugin_load(plugin, MONITOR_PLUGIN_STAT);
+	plugin = strtok(NULL, ",");
+    } while(plugin != NULL);
+    free(plugins);
 }
 
 

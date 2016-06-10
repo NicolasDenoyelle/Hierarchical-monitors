@@ -1,0 +1,8 @@
+double gsl_eventset_var(struct monitor * m){
+    return gsl_stat_variance(m->events[m->current], 1, m->n_events);
+}
+
+double gsl_samples_var(struct monitor * m){
+    return gsl_stat_variance(m->samples, 1, m->n_samples);
+}
+
