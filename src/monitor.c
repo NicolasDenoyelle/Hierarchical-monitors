@@ -279,12 +279,13 @@ void monitors_start(){
     /* Wait threads initialization */
     pthread_barrier_wait(&monitor_threads_barrier);
 
-    /* reset userdata at leaves with monitor */
+    /* reset userdata and put monitor in it */
+    for(int i=0; i<hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE); i++){
+	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i)->userdata = NULL;
+    }
     for(unsigned i = 0; i< hmon_array_length(monitors); i++){
 	struct monitor * m = hmon_array_get(monitors,i);
 	/* monitors are sorted from leaves to root */
-	if(m->location->type != HWLOC_OBJ_PU)
-	    break;
 	m->location->userdata = m;
     }
 
