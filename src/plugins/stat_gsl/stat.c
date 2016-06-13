@@ -1,12 +1,14 @@
 #include <monitor.h>
 #include <gsl/gsl_statistics.h>
+#include <stdlib.h>
 
 double gsl_eventset_var(struct monitor * m){
     unsigned i, n = m->n_events, c = m->current;
     long * events = malloc(sizeof(*events) * n);
     double ret;
-    for(i=0;i<n;i++)
+    for(i=0;i<n;i++){
 	events[i]=m->events[c][i];
+    }
     ret = gsl_stats_long_variance(events, 1, n);
     free(events);
     return ret;
