@@ -28,7 +28,7 @@ OBJ=$(patsubst %.c, %.o, $(SRC))
 
 STAT_PLUGINS_DEF=stat_default
 ifneq (,$(findstring stat_gsl, $(PLUGINS)))
-	STAT_PLUGINS_DEF=stat_default,stat_gsl,
+	STAT_PLUGINS_DEF=stat_default:stat_gsl
 endif
 CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS_DEF)\""
 
@@ -51,14 +51,15 @@ $(BIN): main.c $(LIB)
 #                                                      plugins                                                 #
 ################################################################################################################
 PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PLUGINS))
-ifneq (,$(findstring stat_gsl, $(PLUGINS)))
-	PLUGINS_LDFLAGS+=-lgsl
-endif
+
 ifneq (,$(findstring papi, $(PLUGINS)))
-	PLUGINS_LDFLAGS=-lpapi 
+	PLUGINS_LDFLAGS=-lpapi
 endif
 ifneq (,$(findstring maqao, $(PLUGINS)))
 	PLUGINS_LDFLAGS+=-llprof
+endif
+ifneq (,$(findstring stat_gsl, $(PLUGINS)))
+	PLUGINS_LDFLAGS+=-lgsl
 endif
 
 %.monitor_plugin.so: plugins/%/*.c
