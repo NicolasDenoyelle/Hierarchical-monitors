@@ -35,12 +35,10 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     unsigned i, n_obj;
     double val, scale;
 
-    obj = hwloc_get_obj_by_depth(monitors_topology, depth, 0);
     n_obj = hwloc_get_nbobjs_by_depth(monitors_topology, depth);
-    if(obj==NULL)
-	return;
 
     /* Print obj type */
+    obj = hwloc_get_obj_by_depth(monitors_topology, depth, 0);
     printf("%-9s ", hwloc_obj_type_string(obj->type));
     width = (cols - 10 - n_obj*2) / n_obj;
     obj_content = malloc(width+1);
