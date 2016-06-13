@@ -460,6 +460,31 @@ static void _monitor_analyse(struct monitor * m){
     pthread_mutex_unlock(&(m->available));
 }
 
+/* Assumes monitor array is sorted per depth */
+static void _monitor_read_analyse_per_depth(struct hmon_array * a){
+    struct monitor * m = NULL, * ma;
+    unsigned i0 = 0, i = 0, j = 0, depth = 0;
+
+    m = hmon_array_get(a,0);
+    depth = m->location->depth;
+    for(i=0;i<hmon_array_length(a); i++){
+	m = hmon_array_get(a,i);
+	/* Roll back to analyze previous depth */
+	if(m->location->depth!=depth){
+	    for(j=i0; j<i; j++){
+		ma = hmon_array_get(a,j);
+		_monitor_analyse(ma);
+	    }
+	    depth = m->location->depth;
+	    i0 = i;
+	}
+	/* Read monitor */
+	_monitor_read(m);
+    }
+    /* Roll back to analyze last depth */
+    for(j=i0; j<i; j++)
+	_monitor_analyse(hmon_array_get(a,j));
+}
 
 static void _monitor_thread_cleanup(void * arg){
     struct hmon_array * _monitors = (struct hmon_array *)arg;
@@ -478,7 +503,6 @@ void * _monitor_thread(void * arg)
     struct hmon_array * _monitors = Core->userdata;
     /* Sort monitors to update leaves first */
     hmon_array_sort(_monitors, _monitor_location_compare);
-
     /* push clean method */
     pthread_cleanup_push(_monitor_thread_cleanup, _monitors);
 
@@ -491,8 +515,7 @@ void * _monitor_thread(void * arg)
     pthread_barrier_wait(&monitor_threads_barrier);
     pthread_testcancel();
     _monitors_do(_monitors, _monitor_stop);
-    _monitors_do(_monitors, _monitor_read);
-    _monitors_do(_monitors, _monitor_analyse);
+    _monitor_read_analyse_per_depth(_monitors);
     goto monitor_start;
 
     pthread_cleanup_pop(1);

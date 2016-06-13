@@ -118,25 +118,27 @@ int monitor_eventset_reset(void * monitor_eventset){
     return 0;
 }
 
+    
 int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
     unsigned j,c;
     struct monitor * m = hmon_array_get(set->child_events,0);
-    /* Child are updated before parents */
-    /* pthread_mutex_lock(&(m->available)); */
+    pthread_mutex_lock(&(m->available));
     c = m->current;
     for(j=0; j<m->n_events; j++){
 	values[j] = m->events[c][j];
     }
+    pthread_mutex_unlock(&(m->available));
     for(unsigned i = 1; i< hmon_array_length(set->child_events); i++){
 	m  = hmon_array_get(set->child_events,i);
+	pthread_mutex_lock(&(m->available));
 	c = m->current;
 	for(j=0; j<m->n_events; j++){
 	    values[j] += m->events[c][j];
-	}	
+	}
+	pthread_mutex_unlock(&(m->available));
     }
-    /* Child are updated before parents */
-    /* pthread_mutex_unlock(&(m->available)); */
+
     return 0;
 }
 

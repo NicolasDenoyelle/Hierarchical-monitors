@@ -116,13 +116,13 @@ int monitor_eventset_reset(void * monitor_eventset){
 
 int monitor_eventset_read(void * monitor_eventset, long long * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
-    /* Child are updated before parents */
-    /* pthread_mutex_lock(&(m->available)); */
+    struct monitor * m;
     for(unsigned i = 0; i< hmon_array_length(set->child_events); i++){
-	values[i] = ((struct monitor *)hmon_array_get(set->child_events,i))->value;
+	m = hmon_array_get(set->child_events,i);
+	pthread_mutex_lock(&(m->available));
+	values[i] = m->value;
+	pthread_mutex_unlock(&(m->available));
     }
-    /* Child are updated before parents */
-    /* pthread_mutex_unlock(&(m->available)); */
     return 0;
 }
 
