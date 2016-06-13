@@ -92,7 +92,7 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("Providing <plugin> or pattern name, or full path will search the plugin in location findable by dlopen\n");
     printf("There are two kinds of plugins:\n");
     printf("\t* Event collection plugins defined in PERF_LIB field of the monitors.\n");
-    printf("\t* And stat library to aggregate events into samples and samples into value, defined in a comma separated list in MONITOR_STAT_PLUGINS environment. The default stat_default plugin is automatically loaded\n");
+    printf("\t* And stat library to aggregate events into samples and samples into value, defined in a double colon separated list in MONITOR_STAT_PLUGINS environment. The default stat_default plugin is automatically loaded\n");
     
     printf("Monitor input:\n");
     printf("\t$>%s --input my_perf_group.txt\n",argv0);
