@@ -41,7 +41,7 @@
      *
      **/
 
-    extern struct monitor * new_monitor(hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int);
+    extern struct monitor * new_monitor(char*, hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int);
 
     /* Default fields */
     const char * default_perf_lib = "fake"; 
@@ -193,7 +193,7 @@
 	    eventset_init_fini(eventset);
 
 	    /* Create monitor */
-	    new_monitor(obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
+	    new_monitor(name, obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
 	}
 	reset_monitor_fields();
     }

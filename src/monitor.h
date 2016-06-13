@@ -17,6 +17,8 @@ extern hwloc_cpuset_t   monitors_running_cpuset;
  * @brief Struct to hold hardware events value.
  **/
 struct monitor{
+    /** identifier **/
+    char * id;
     /** node where values are recorded **/
     hwloc_obj_t location;
     /** the monitor value: aggregated samples **/

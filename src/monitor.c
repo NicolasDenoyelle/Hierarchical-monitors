@@ -40,7 +40,8 @@ static int         _monitor_location_compare(void*, void*);
 
 
 struct monitor *
-new_monitor(hwloc_obj_t location,
+new_monitor(const char * id,
+	    hwloc_obj_t location,
 	    void * eventset, 
 	    unsigned n_events,
 	    unsigned n_samples, 
@@ -61,9 +62,10 @@ new_monitor(hwloc_obj_t location,
     
     /* record at least 3 samples */
     n_samples = 3 > n_samples ? 2 : n_samples; 
-	
+    
 
     /* Set default attributes */
+    monitor->id = strdup(id);
     monitor->location = location;
     location->userdata = monitor;
 
@@ -216,6 +218,7 @@ static void _monitor_delete(struct monitor * monitor){
     free(monitor->events);
     free(monitor->samples);
     free(monitor->timestamps);
+    free(monitor->id);
     monitor->eventset_destroy(monitor->eventset);
     pthread_mutex_destroy(&(monitor->available));
     free(monitor);

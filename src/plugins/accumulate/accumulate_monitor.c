@@ -20,7 +20,7 @@ char ** monitor_events_list(int * n_events){
 	struct monitor * m  = hmon_array_get(monitors,i);
 	if(m->location->depth < depth){
 	    depth = m->location->depth;
-	    names[n++] = strdup(hwloc_type_name(m->location->type));
+	    names[n++] = strdup(m->id);
 	}
     }
 
@@ -53,33 +53,42 @@ int monitor_eventset_destroy(void * eventset){
 int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
-    hwloc_obj_type_t type;
     int n_events = 0;
-
+    unsigned idx, child_depth;
+    struct monitor * child_event = NULL;
+    
     if(event==NULL || monitor_eventset == NULL)
 	return -1;
-    if(hwloc_type_sscanf(event, &type, NULL, 0) == -1){
-	fprintf(stderr, "Unrecognized event name %s\n", event);
-	return -1;
-    }
-    
+
+    /* Check eventset is empty */
     if(hmon_array_length(set->child_events) > 0){
-	struct monitor * child_event = hmon_array_get(set->child_events,0);
+        child_event = hmon_array_get(set->child_events,0);
 	fprintf(stderr, "Event %s already exist at location %s:%d.\n", 
-		hwloc_type_name(child_event->location->type), hwloc_type_name(set->location->type), set->location->logical_index);
+		child_event->id, hwloc_type_name(set->location->type), set->location->logical_index);
 	fprintf(stderr, "Accumulate monitor does not allow to add several events.\n");
 	return -1;
     }
-
-    unsigned nbobjs = hwloc_get_nbobjs_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type);
-    for(unsigned i = 0; i < nbobjs; i++){
-	hwloc_obj_t obj = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, set->location->cpuset, type, i);
-	struct monitor * m = (struct monitor *)obj->userdata;
-	if(m != NULL){
-	    hmon_array_push(set->child_events,m);
-	    n_events = m ->n_events;
-	}
+    /* Look if event exists */
+    for(idx=0; idx<hmon_array_length(monitors); idx++){
+	child_event = hmon_array_get(monitors, idx);
+	if(!strcmp(child_event->id, event))
+	    break;
     }
+    /* event does not exists*/
+    if(strcmp(child_event->id, event)){
+	fprintf(stderr, "Unrecognized event name %s, expected defined monitor name.\n", event);
+	return -1;
+    }
+    /* Event exists, add events */
+    child_depth = child_event->location->depth;
+    n_events = child_event->n_events;
+    for(idx++; child_event!=NULL && child_event->location->depth == child_depth; idx++){
+	if(hwloc_bitmap_isincluded(child_event->location->cpuset, set->location->cpuset)){
+	    hmon_array_push(set->child_events, child_event);
+	}
+	child_event = hmon_array_get(monitors, idx);
+    }
+    
     return n_events;
 }
 

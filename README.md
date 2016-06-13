@@ -102,7 +102,7 @@ L3_miss_pu{
 L3_miss{
 	OBJ:=L3;
 	PERF_LIB:=accumulate;
-	EVSET:=PU;                            #Use accumulation of eventsets of child monitors on PU.
+	EVSET:=L3_miss_PU;                     #Use accumulation of eventsets of child monitors on PU.
 	SILENT:=1;
 }
 
@@ -110,7 +110,7 @@ L3_miss{
 L3_balance{
 	OBJ:=Machine;
 	PERF_LIB:=hierarchical;
-	EVSET:=L3;                            #Read each L3 cache miss value.
+	EVSET:=L3_miss;                       #Read each L3 cache miss value.
 	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
 }
 
