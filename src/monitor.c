@@ -6,24 +6,30 @@
 #define ACTIVE   1
 #define SLEEPING 0
 
-struct hmon_array *             monitors;
-static struct hmon_array *      monitors_to_print;
-hwloc_topology_t           monitors_topology;
-unsigned                   monitors_topology_depth;
-static unsigned long       monitors_pid;
-static FILE *              monitors_output_file;
-static struct timespec     monitors_start_time, monitors_current_time;
-hwloc_cpuset_t             monitors_running_cpuset;
-static hwloc_obj_t         restrict_location;
-static unsigned            monitor_thread_count;
-static pthread_t *         monitor_threads;
-static pthread_barrier_t   monitor_threads_barrier;
-static volatile int        monitor_threads_stop = 0;
+struct hmon_array *        monitors;                 /* The array of monitors */
+static struct hmon_array * monitors_to_print;        /* The array of monitors to print */
+hwloc_topology_t           monitors_topology;        /* The topology with monitor on hwloc_obj_t->userdata */
+unsigned                   monitors_topology_depth;  /* The topology depth */
+static FILE *              monitors_output_file;     /* The output where to write the trace */
+static struct timespec     monitors_start_time;      /* The timer of when monitors have been started */
+static struct timespec     monitors_current_time;    /* The timer of current time */
+static unsigned long       monitors_pid;             /* The pid to follow */
+hwloc_cpuset_t             monitors_running_cpuset;  /* The cpuset where the monitors_pid is running, or whole machine */
+
+/** Monitors threads **/
+static hwloc_obj_t         restrict_location;        /* The location where to spawn threads */
+static unsigned            ncores;                   /* Number of cores inside restrict location */
+struct hmon_array **       core_monitors;            /* An array of monitor per core in restrict location */
+static unsigned            monitor_thread_count;     /* Number of threads */
+static volatile int        monitor_threads_stop = 0; /* Flag telling whether threads must stop */
+static pthread_t *         monitor_threads;          /* Threads id */
+static pthread_barrier_t   monitor_threads_barrier;  /* Common barrier between monitors' thread and main thread */
+
 
 #define _monitors_do(ms, call, ...)					\
     do{for(unsigned i = 0; i< hmon_array_length(ms); i++){call(hmon_array_get(ms,i), ##__VA_ARGS__);}}while(0)
 
-static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t);
+static unsigned    _monitor_find_core_host(hwloc_obj_t);
 static void        _monitor_thread_cleanup(void * arg);
 static void *      _monitor_thread        (void*);
 static void        _monitor_delete        (struct monitor*);
@@ -52,13 +58,23 @@ new_monitor(const char * id,
 {
     struct monitor * monitor;
 
+    /* Check if location is available */
+    if(location->userdata != NULL){
+	fprintf(stderr, "Cannot create monitor %s on %s:%d, because location is not empty\n",
+		id, hwloc_type_name(location->type), location->logical_index);
+	return NULL;
+    }
+    
     /* Look which core will host the monitor near location */ 
-    hwloc_obj_t Core = _monitor_find_core_host(location); 
-
+    unsigned core_idx = _monitor_find_core_host(location);
+    
     malloc_chk(monitor, sizeof(*monitor));  
     
     /* push monitor to array holding monitor on Core */
-    hmon_array_push(Core->userdata, monitor);
+    hmon_array_push(core_monitors[core_idx], monitor);
+
+    location->userdata = monitor;
+    monitor->location = location;
     
     /* record at least 3 samples */
     n_samples = 3 > n_samples ? 2 : n_samples; 
@@ -187,8 +203,12 @@ int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output){
     else
 	monitors_output_file = stdout;
 
-    /* Restrict topology to first group */
+    /* Restrict topology to first group and set an array of monitor per core */
     restrict_location = location_parse(restrict_obj);
+    ncores = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
+    malloc_chk(core_monitors, sizeof(*core_monitors) * ncores);
+    for(unsigned i=0; i<ncores; i++)
+	core_monitors[i] = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
     
     /* Create cpuset for running monitors */
     monitors_running_cpuset = hwloc_bitmap_dup(hwloc_get_root_obj(monitors_topology)->cpuset); 
@@ -228,7 +248,7 @@ static void _monitor_delete(struct monitor * monitor){
  * Host must be a core where to spawn a thread 
  * Host must be into the restricted area, otherwise overhead of pthread_barrier is too high.
  */
-static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
+static unsigned _monitor_find_core_host(hwloc_obj_t near){
     /* printf("monitor located on %s:%d ", hwloc_type_name(near->type), near->logical_index); */
     /* match near to be in restricted topology */
     int cousins = get_max_objs_inside_cpuset_by_type(restrict_location->cpuset, near->type);
@@ -249,49 +269,36 @@ static hwloc_obj_t _monitor_find_core_host(hwloc_obj_t near){
 
     /* allocate data near location */
     location_membind(host);
-    /* if no thread have ever been hosted here, initialize location */
-    if(host->userdata == NULL){
-	host->userdata = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
+    /* if no monitor have ever been hosted here, a thread will be spawned */
+    unsigned core_idx = host->logical_index%ncores;
+    if(hmon_array_length(core_monitors[core_idx]) == 0)
 	monitor_thread_count++;
-    }
     /* printf("will be hosted on %s:%d\n",hwloc_type_name(host->type), host->logical_index);	  */
-    return host;
+    return core_idx;
 }
 
 void monitors_start(){
-    unsigned n = 0, n_leaves = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
+    unsigned n = 0;
     /* Sort monitors per location for update from leaves to root */
     hmon_array_sort(monitors, _monitor_location_compare);
     hmon_array_sort(monitors_to_print, _monitor_location_compare);
 
     /* Now we know the number of threads, we can initialize a barrier and an hmon_array of threads */
-   pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
+    pthread_barrier_init(&monitor_threads_barrier, NULL, monitor_thread_count+1);
     location_membind(hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_NODE,0));	
     monitor_threads = malloc(sizeof(*monitor_threads) * monitor_thread_count);
 
     /* Then spawn threads on non NULL leaves userdata */
-    for(unsigned i = 0; i<n_leaves; i++){
-	hwloc_obj_t obj = hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i);
-	if(obj->userdata != NULL){
-	    hwloc_obj_t t_obj = obj;  
-	    pthread_create(&(monitor_threads[n]),NULL,_monitor_thread, (void*)(t_obj));
+    for(unsigned i = 0; i<ncores; i++){
+	if(hmon_array_length(core_monitors[i]) > 0){
+	    hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_type(monitors_topology, restrict_location->cpuset, HWLOC_OBJ_CORE, i);
+	    pthread_create(&(monitor_threads[n]),NULL,_monitor_thread, (void*)(core));
 	    n++;
 	}
     }
 
     /* Wait threads initialization */
     pthread_barrier_wait(&monitor_threads_barrier);
-
-    /* reset userdata and put monitor in it */
-    for(int i=0; i<hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE); i++){
-	hwloc_get_obj_by_type(monitors_topology, HWLOC_OBJ_CORE, i)->userdata = NULL;
-    }
-    for(unsigned i = 0; i< hmon_array_length(monitors); i++){
-	struct monitor * m = hmon_array_get(monitors,i);
-	/* monitors are sorted from leaves to root */
-	m->location->userdata = m;
-    }
-
 
     /* Finally start the timer */
     clock_gettime(CLOCK_MONOTONIC, &monitors_start_time);
@@ -317,9 +324,12 @@ void monitor_lib_finalize(){
     pthread_barrier_wait(&monitor_threads_barrier);
     for(i=0;i<monitor_thread_count;i++)
 	pthread_join(monitor_threads[i],NULL);
-
+    
     /* Cleanup */
     fclose(monitors_output_file);
+    for(i=0; i<ncores;i++)
+	delete_hmon_array(core_monitors[i]);
+    free(core_monitors);
     delete_hmon_array(monitors);
     delete_hmon_array(monitors_to_print);
     free(monitor_threads);
@@ -504,7 +514,7 @@ void * _monitor_thread(void * arg)
     location_cpubind(PU); 
     location_membind(PU);
 
-    struct hmon_array * _monitors = Core->userdata;
+    struct hmon_array * _monitors = core_monitors[Core->logical_index%ncores];
     /* Sort monitors to update leaves first */
     hmon_array_sort(_monitors, _monitor_location_compare);
     /* push clean method */
