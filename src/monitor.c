@@ -36,9 +36,11 @@ static void        _monitor_delete        (struct monitor*);
 static void        _monitor_reset         (struct monitor*);
 static void        _monitor_remove        (struct monitor*);
 static void        _monitor_read          (struct monitor*);
+static void        _monitor_analyse       (struct monitor*);
 static int         _monitor_start         (struct monitor*);
 static int         _monitor_stop          (struct monitor*);
 static void        _monitor_read          (struct monitor*);
+static void        _monitor_read_analyse_per_depth(struct hmon_array*);
 static void        _monitor_update_state  (struct monitor*);
 static void        _monitor_restrict      (struct monitor*);
 static void        _monitor_output_sample (struct monitor* , unsigned);
@@ -207,6 +209,7 @@ int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output){
     restrict_location = location_parse(restrict_obj);
     ncores = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
     malloc_chk(core_monitors, sizeof(*core_monitors) * ncores);
+
     for(unsigned i=0; i<ncores; i++)
 	core_monitors[i] = new_hmon_array(sizeof(struct monitor *), monitors_topology_depth, NULL);
     
@@ -327,8 +330,6 @@ void monitor_lib_finalize(){
     
     /* Cleanup */
     fclose(monitors_output_file);
-    for(i=0; i<ncores;i++)
-	delete_hmon_array(core_monitors[i]);
     free(core_monitors);
     delete_hmon_array(monitors);
     delete_hmon_array(monitors_to_print);
@@ -374,8 +375,9 @@ void monitors_output(void (* monitor_output_method)(struct monitor*, int), int f
 
 static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
+    fprintf(monitors_output_file,"%s ",    m->id);
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%ld ", m->timestamps[i]);
+    fprintf(monitors_output_file,"%ld ",   m->timestamps[i]);
     if(m->samples_to_value != NULL){
 	fprintf(monitors_output_file,"%lf ", m->value);
     }
