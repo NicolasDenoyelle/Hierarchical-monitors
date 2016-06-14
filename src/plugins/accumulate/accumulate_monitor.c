@@ -53,9 +53,8 @@ int monitor_eventset_destroy(void * eventset){
 int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
-    int n_events = 0;
-    unsigned idx, child_depth;
     struct monitor * child_event = NULL;
+    hwloc_obj_t child_obj;
     
     if(event==NULL || monitor_eventset == NULL)
 	return -1;
@@ -69,27 +68,25 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 	return -1;
     }
     /* Look if event exists */
-    for(idx=0; idx<hmon_array_length(monitors); idx++){
-	child_event = hmon_array_get(monitors, idx);
-	if(!strcmp(child_event->id, event))
+    child_obj = set->location->first_child;
+    while(child_obj != NULL){
+	child_event = child_obj->userdata;
+	if(child_event != NULL && !strcmp(child_event->id, event))
 	    break;
+	child_obj = child_obj->first_child;
     }
+    
     /* event does not exists*/
-    if(strcmp(child_event->id, event)){
-	fprintf(stderr, "Unrecognized event name %s, expected defined monitor name.\n", event);
+    if(child_obj == NULL || child_event==NULL || strcmp(child_event->id, event)){
+	fprintf(stderr, "Unrecognized event name %s, expected defined monitor name, deeper than %s.\n", event, hwloc_type_name(set->location->type));
 	return -1;
     }
     /* Event exists, add events */
-    child_depth = child_event->location->depth;
-    n_events = child_event->n_events;
-    for(idx++; child_event!=NULL && child_event->location->depth == child_depth; idx++){
-	if(hwloc_bitmap_isincluded(child_event->location->cpuset, set->location->cpuset)){
-	    hmon_array_push(set->child_events, child_event);
-	}
-	child_event = hmon_array_get(monitors, idx);
+    for(unsigned i = 0; i<hwloc_get_nbobjs_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth); i++){
+	hmon_array_push(set->child_events,hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth, i)->userdata);
     }
     
-    return n_events;
+    return child_event->n_events;
 }
 
 int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
