@@ -121,12 +121,12 @@ L3_balance{
 
 
 ### Embeding the library:
-* Include `"monitor.h"` into the files calling the monitor library.
+* Include `"hmon.h"` into the files calling the monitor library.
 * Compile your code with -lhmon ldflag.
 * Code sample:
 
 ```
-#include "monitor.h"
+#include "hmon.h"
 #include <sys/types.h>
 #include <unistd.h>
 
