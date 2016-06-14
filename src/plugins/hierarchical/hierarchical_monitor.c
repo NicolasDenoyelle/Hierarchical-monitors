@@ -1,5 +1,5 @@
 #include "../performance_plugin.h"
-#include "../../monitor.h"
+#include "../../hmon.h"
 
 /**
  * Eventset: set of monitors on object of the same type, below a common location.

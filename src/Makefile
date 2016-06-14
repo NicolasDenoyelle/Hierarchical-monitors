@@ -78,7 +78,7 @@ install: all
 	@for plugin in $(PLUGINS_LIB); do\
 		cp $$plugin $(MONITOR_LIB_INSTALL_DIR); \
 	done
-	cp monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)
+	cp hmon.h $(MONITOR_INCLUDE_INSTALL_DIR)
 	cp monitor_utils.h $(MONITOR_INCLUDE_INSTALL_DIR)
 
 clean: 
@@ -89,7 +89,7 @@ uninstall: clean
                 echo "rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file";\
 		rm -f $(MONITOR_LIB_INSTALL_DIR)/$$file; \
 	done
-	rm -f  $(MONITOR_INCLUDE_INSTALL_DIR)/monitor.h $(MONITOR_INCLUDE_INSTALL_DIR)/monitor_utils.h
+	rm -f  $(MONITOR_INCLUDE_INSTALL_DIR)/hmon.h $(MONITOR_INCLUDE_INSTALL_DIR)/monitor_utils.h
 	rm -f $(MONITOR_BIN_INSTALL_DIR)/$(BIN)
 	rm -f $(MONITOR_LIB_INSTALL_DIR)/$(LIB) 
 

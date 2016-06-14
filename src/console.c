@@ -1,4 +1,4 @@
-#include "monitor.h"
+#include "hmon.h"
 
 static unsigned get_term_width(){
     unsigned cols;

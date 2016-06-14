@@ -1,4 +1,4 @@
-#include "monitor.h"
+#include "hmon.h"
 
 static int chk_cpu_bind(hwloc_cpuset_t cpuset, int print)
 {

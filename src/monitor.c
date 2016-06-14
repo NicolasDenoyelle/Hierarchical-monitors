@@ -1,7 +1,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <pthread.h>
-#include "monitor.h"
+#include "hmon.h"
 
 #define ACTIVE   1
 #define SLEEPING 0
@@ -269,7 +269,7 @@ static unsigned _monitor_find_core_host(hwloc_obj_t near){
 
     /* allocate data near location */
     location_membind(host);
-    /* if no monitor have ever been hosted here, a thread will be spawned */
+    /* if no hmon.have ever been hosted here, a thread will be spawned */
     unsigned core_idx = host->logical_index%ncores;
     if(hmon_array_length(core_monitors[core_idx]) == 0)
 	monitor_thread_count++;

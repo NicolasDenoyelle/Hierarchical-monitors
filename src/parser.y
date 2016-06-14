@@ -4,7 +4,7 @@
 #include <string.h>     
 #include <float.h>
 #include <dlfcn.h>
-#include "monitor.h"
+#include "hmon.h"
 
     /**
      * #Commentary
@@ -149,7 +149,7 @@
 	
 	/* Build reduction on events */
 	if(code){	    
-	    reduce_code = concat_expr(6,"#include <monitor.h>\n", "double ", name, "(struct monitor * monitor){return ", code, ";}\n");
+	    reduce_code = concat_expr(6,"#include <hmon.h>\n", "double ", name, "(struct monitor * monitor){return ", code, ";}\n");
 	    monitor_stat_plugin_build(name, reduce_code);
 	    free(reduce_code);
 	    evset_analysis_name = strdup(name);

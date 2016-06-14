@@ -1,4 +1,4 @@
-#include "../../monitor.h"
+#include "../../hmon.h"
 #include "../performance_plugin.h"
 #include "monitor_trace_interface.h"
 #include <string.h>

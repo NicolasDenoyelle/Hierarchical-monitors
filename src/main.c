@@ -4,7 +4,7 @@
 #include <sys/wait.h>
 #include <sys/timerfd.h>
 
-#include "monitor.h"
+#include "hmon.h"
 
 static int timerfd;
 static fd_set in_fds, in_fds_original;
