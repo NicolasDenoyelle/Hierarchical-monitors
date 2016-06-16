@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-Wall -Wextra -Werror -g -std=gnu99
+export   CC=gcc
+export   CFLAGS=-Wall -Wextra -Werror -g -std=gnu99
 LDFLAGS=-L. -lhwloc -lpthread -lrt -ldl -lm
 
 # Installation directories
@@ -10,7 +10,7 @@ MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
-PLUGINS=fake accumulate hierarchical papi trace maqao stat_default stat_gsl
+PLUGINS=fake accumulate hierarchical papi maqao stat_default stat_gsl
 
 # Not a filename targets
 .PHONY: default all install clean uninstall
@@ -32,6 +32,7 @@ ifneq (,$(findstring stat_gsl, $(PLUGINS)))
 endif
 CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS_DEF)\""
 
+
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c $^ -o $@  $(LDFLAGS)
 
@@ -52,18 +53,9 @@ $(BIN): main.c $(LIB)
 ################################################################################################################
 PLUGINS_LIB=$(patsubst %, %.monitor_plugin.so, $(PLUGINS))
 
-ifneq (,$(findstring papi, $(PLUGINS)))
-	PLUGINS_LDFLAGS=-lpapi
-endif
-ifneq (,$(findstring maqao, $(PLUGINS)))
-	PLUGINS_LDFLAGS+=-llprof
-endif
-ifneq (,$(findstring stat_gsl, $(PLUGINS)))
-	PLUGINS_LDFLAGS+=-lgsl
-endif
-
-%.monitor_plugin.so: plugins/%/*.c
-	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS) $(PLUGINS_LDFLAGS) -lhmon
+%.monitor_plugin.so: plugins/%
+	make -C $<
+	cp $</$@ .
 
 
 ###############################################################################################################
@@ -83,6 +75,9 @@ install: all
 
 clean: 
 	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PLUGINS_LIB)
+	@for plugin in $(PLUGINS); do\
+		make -C plugins/$$plugin clean;\
+	done
 
 uninstall: clean
 	@for file in $(PLUGINS_LIB); do\
