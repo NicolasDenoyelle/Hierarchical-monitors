@@ -29,16 +29,16 @@ static void __attribute__((constructor)) plugins_init(){
     char * plugins_env = getenv("MONITOR_STAT_PLUGINS");
     char * plugin_env;
     if(plugins_env != NULL){
-	plugin_env = strtok(plugins_env, ":");
+	plugin_env = strtok(plugins_env, " ");
 	if(plugin_env != NULL) do{
 	    monitor_plugin_load(plugin_env, MONITOR_PLUGIN_STAT);
-	} while((plugin_env = strtok(NULL, ":")) != NULL);
+	} while((plugin_env = strtok(NULL, " ")) != NULL);
     }
     char * plugins = strdup(STAT_PLUGINS), * save_ptr;
-    char * plugin = strtok_r(plugins, ":", &save_ptr);
+    char * plugin = strtok_r(plugins, " ", &save_ptr);
     do{
 	monitor_plugin_load(plugin, MONITOR_PLUGIN_STAT);
-	plugin = strtok_r(NULL, ":", &save_ptr);
+	plugin = strtok_r(NULL, " ", &save_ptr);
     } while(plugin != NULL);
     free(plugins);
 }
@@ -181,8 +181,8 @@ void monitor_stat_plugin_build(const char * name, const char * code)
     monitor_plugin_load(name, MONITOR_PLUGIN_STAT);
 
     /* Cleanup */ 
-    unlink(input_file_path);
-    unlink(output_file_path);
+    /* unlink(input_file_path); */
+    /* unlink(output_file_path); */
 }
 
 
