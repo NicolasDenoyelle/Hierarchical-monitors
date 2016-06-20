@@ -14,7 +14,7 @@
 
 struct brain{
     struct perceptron * p;
-    double *            X; /* Features (n*m) */
+    double *            X; /* Features (m*n) */
     unsigned            c; /* Index of current features */
     double *            Y; /* Goal (m) */
     double *            S; /* Unit vector or condition number of X */
@@ -44,7 +44,7 @@ struct brain * new_brain(const int m, const int n, const double max, const doubl
 
 
 static inline double * current_features(struct brain * b){
-    return &(b->X[b->c*b->m]);
+    return &(b->X[b->c*b->n]);
 }
 
 static inline double * next_features(struct brain * b){
@@ -85,14 +85,11 @@ double fourier_fit(struct monitor * hmon){
 	fourier_features(b, hmon->timestamps[c]);
     }
     
-    /* Train online */
-    perceptron_fit_by_gradiant_descent(b->p, current_features(b), &val, 1);
-
-    /* Train only for a significant amount of samples */
+    /* Train only for a significant amount of samples (might be one sample)*/
     if(hmon->current == m-1){
 	b->set_features = 0;
-    	/* memcpy(b->Y, hmon->samples, m * sizeof(double)); */
-    	/* perceptron_fit_by_gradiant_descent(b->p, b->X, b->Y, m); */
+    	memcpy(b->Y, hmon->samples, m * sizeof(double));
+    	perceptron_fit_by_gradiant_descent(b->p, b->X, b->Y, m);
     }
     
     /* Predict */
