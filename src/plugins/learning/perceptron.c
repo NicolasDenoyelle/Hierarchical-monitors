@@ -2,10 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <cblas.h>
-#include <lapacke.h>
 #include <float.h>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
 
 /**
  * This file implements the basic tools to learn.
@@ -23,10 +20,6 @@ struct perceptron{
     double *  Theta;         /* Features parameters     */
     double    alpha;         /* Learning rate           */
     int       n;             /* Number of features      */
-    /* gsl_rng * rng;           /\* Random number generator *\/ */
-    /* double    sigma;         /\* Standard deviation of the value that should be output *\/ */
-    /* double    mu;            /\* Mean of the value that should be output *\/ */
-    /* double    J;             /\* Previous Cost function *\/ */
 };
 
 struct perceptron *
@@ -36,33 +29,15 @@ new_perceptron(const int n, __attribute__ ((unused)) const double max, __attribu
     p->n = n;
     p->alpha = ALPHA;
     p->Theta = Unit(n);
-    /* p->rng = gsl_rng_alloc(gsl_rng_default); */
-    /* if(p->rng == NULL){ */
-    /* 	fprintf(stderr, "Error initalizing perceptron random number generator\n"); */
-    /* 	free(p->Theta); */
-    /* 	free(p); */
-    /* 	return NULL; */
-    /* } */
-    /* p->sigma = max - min; */
-    /* p->mu = max-min/2; */
-    /* p->J = DBL_MAX; */
     return p;
 }
 
 
 void delete_perceptron(struct perceptron * p){free(p->Theta); free(p);}
 
-
-/* static void target_randomize(double * Y, const int m, gsl_rng * rng, const double mu, const double sigma){ */
-/*     for(int i = 0; i< m; i++){ */
-/* 	Y[i] = Y[i] + mu + gsl_ran_gaussian(rng, sigma); */
-/*     } */
-/* } */
-
 void
 perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, double * Y, const int m)
 {
-    /* target_randomize(Y, m, p->rng, p->mu, p->sigma); */
     gradiant_descent(m, p->n, X, p->Theta, Y, p->alpha);
 }
 
