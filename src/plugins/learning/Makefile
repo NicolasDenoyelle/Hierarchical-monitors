@@ -1,5 +1,5 @@
 CFLAGS=-Wall -Wextra -std=gnu99 -g -I../..
-LDFLAGS=-lblas -llapacke -lgsl
+LDFLAGS=-lblas
 
 SRC=perceptron.c utils.c fourier.c
 OBJ=$(patsubst %.c, %.o, $(SRC)	)
