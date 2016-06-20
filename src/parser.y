@@ -68,7 +68,7 @@
 	if(code){free(code);}
 	max                    = DBL_MIN;
 	min                    = DBL_MAX;
-	n_sample               = 32;       /* default store 32 samples */
+	n_sample               = 2;        /* default store 2 samples */
 	accumulate             = 0;        /* default do not accumulate */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
@@ -295,7 +295,7 @@ primary_expr
     memset(hmon_array_index,0,sizeof(hmon_array_index)); 
     snprintf(hmon_array_index,sizeof(hmon_array_index),"%s",$1+1);
     free($1);
-    $$ = concat_expr(3,"monitor->events[monitor->current][",hmon_array_index,"]");}
+    $$ = concat_expr(3,"(double)(monitor->events[monitor->current][",hmon_array_index,"])");}
 | REAL    {$$ = $1;}
 | INTEGER {$$ = $1;}
 ;
