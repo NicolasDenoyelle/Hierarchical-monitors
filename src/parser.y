@@ -68,7 +68,7 @@
 	if(code){free(code);}
 	max                    = DBL_MIN;
 	min                    = DBL_MAX;
-	n_sample               = 2;        /* default store 2 samples */
+	n_sample               = 1;        /* default store 1 samples */
 	accumulate             = 0;        /* default do not accumulate */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */

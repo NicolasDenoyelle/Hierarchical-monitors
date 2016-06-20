@@ -78,8 +78,8 @@ new_monitor(const char * id,
     location->userdata = monitor;
     monitor->location = location;
     
-    /* record at least 3 samples */
-    n_samples = 3 > n_samples ? 2 : n_samples; 
+    /* record at least 1 samples */
+    n_samples = 1 > n_samples ? 1 : n_samples; 
     
 
     /* Set default attributes */
