@@ -10,13 +10,17 @@ MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
-PLUGINS=fake accumulate hierarchical papi maqao stat_default stat_gsl
+PLUGINS=fake accumulate hierarchical papi maqao
+STAT_PLUGINS=stat_default stat_gsl learning
+PLUGINS+=$(foreach p, $(STAT_PLUGINS), $(p))
+CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS)\""
 
 # Not a filename targets
 .PHONY: default all install clean uninstall
 
 # default target
 default: all
+
 
 ################################################################################################################
 #                                                    BIN+LIB                                                   #
@@ -25,13 +29,6 @@ LIB=libhmon.so
 BIN=hmon 
 SRC=monitor.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
 OBJ=$(patsubst %.c, %.o, $(SRC))
-
-STAT_PLUGINS_DEF=stat_default
-ifneq (,$(findstring stat_gsl, $(PLUGINS)))
-	STAT_PLUGINS_DEF=stat_default:stat_gsl
-endif
-CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS_DEF)\""
-
 
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c $^ -o $@  $(LDFLAGS)
@@ -73,7 +70,7 @@ install: all
 	cp hmon.h $(MONITOR_INCLUDE_INSTALL_DIR)
 	cp monitor_utils.h $(MONITOR_INCLUDE_INSTALL_DIR)
 
-clean: 
+clean:
 	rm -f scanner.c parser.h parser.c $(LIB) $(BIN) $(OBJ) $(PLUGINS_LIB)
 	@for plugin in $(PLUGINS); do\
 		make -C plugins/$$plugin clean;\
