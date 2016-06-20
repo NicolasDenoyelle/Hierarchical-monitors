@@ -181,8 +181,8 @@ void monitor_stat_plugin_build(const char * name, const char * code)
     monitor_plugin_load(name, MONITOR_PLUGIN_STAT);
 
     /* Cleanup */ 
-    /* unlink(input_file_path); */
-    /* unlink(output_file_path); */
+    unlink(input_file_path);
+    unlink(output_file_path);
 }
 
 
