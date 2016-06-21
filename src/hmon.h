@@ -21,8 +21,8 @@ struct monitor{
     char * id;
     /** node where values are recorded **/
     hwloc_obj_t location;
-    /** the monitor value: aggregated samples **/
-    double value, min, max;
+    /** the monitor value: aggregated samples, max samples, min samples, mean samples **/
+    double value, min, max, mu;
     /** eventsets, set of collected event **/
     void * eventset;
     /** events: history of collected events. n_samples * eventset_size.**/

@@ -409,6 +409,7 @@ unsigned i, j;
    monitor->value = 0;
    monitor->min = 0;
    monitor->max = 0;
+   monitor->mu = 0;
    monitor->current = monitor->n_samples-1;
    monitor->stopped = 1;
    for(i=0;i<monitor->n_samples;i++){
@@ -464,14 +465,16 @@ static void _monitor_analyse(struct monitor * m){
 	    m->samples[m->current] = m->events_to_sample(m);
 	else if(m->n_events == 1)
 	    m->samples[m->current] = m->events[m->current][0];
-	m->total = m->total+1; 
+	double sample = m->samples[m->current];
 	/* Analyse samples */
 	if(m->samples_to_value != NULL)
 	    m->value = m->samples_to_value(m);
 	else
-	    m->value = m->samples[m->current];
-	m->min  = MIN(m->min, m->value);
-	m->max  = MAX(m->max, m->value);
+	    m->value = sample;
+	m->min  = MIN(m->min, sample);
+	m->max  = MAX(m->max, sample);
+	m->mu   = (sample + m->total*m->mu) / (m->total+1);
+	m->total = m->total+1; 
     }
     pthread_mutex_unlock(&(m->available));
 }
