@@ -7,12 +7,13 @@
 #include <math.h>
 #include "learning.h"
 
-#define N           63      /* Features-1: harmonics, polynomial ... */
-#define FUTURE      1       /* Timesteps in the future */
+#define N           32      /* Features-1: harmonics, polynomial ... */
+#define FUTURE      16      /* Timesteps in the future */
 
 struct brain{
     struct perceptron * p;
     double *            X; /* Features (m*n) */
+    double *            Y; /* Goal (m) */
     unsigned            n; /* Number of features */
     unsigned            m; /* Number of samples */
     double *       future; /* array of prediction in the future */
@@ -30,6 +31,7 @@ static struct brain * new_brain(const int m, const int n, const double max, cons
     struct brain * b = malloc(sizeof(*b));
     b->p = new_perceptron(n, max, min);
     b->X = malloc(sizeof(double) * (n) * m);
+    b->Y = malloc(sizeof(double) * m);
     b->m = m;
     b->n = n;
     b->set_features = 1;
@@ -48,7 +50,7 @@ static void set_fourier_features(const struct monitor * hmon){
     const int            n = N+1;
     const unsigned       c = hmon->current;
     const struct brain * b = hmon->userdata;
-    const long           t = hmon->timestamps[c];
+    const long           t = hmon->total;
     double *             X = &(b->X[c*n]);
     
     X[0] = 1.0;
@@ -60,7 +62,7 @@ static void set_polynomial_features(const struct monitor * hmon){
     const int            n = N+1;
     const unsigned       c = hmon->current;
     const struct brain * b = hmon->userdata;
-    const long           x = (hmon->samples[c]-hmon->mu)/(hmon->max-hmon->min); /* center and normalize */
+    const long           x = (hmon->samples[c]-hmon->mu)/(hmon->max-hmon->min); 
     double *             X = &(b->X[c*n]);
     
     X[0] = 1.0;
@@ -71,36 +73,33 @@ static void set_polynomial_features(const struct monitor * hmon){
 static double fit(struct monitor * hmon, void (* set_features)(const struct monitor*)){
     const unsigned       c = hmon->current;
     const unsigned       m = hmon->n_samples;
-    const int      n = N+1;
+    const int            n = N+1;
 
     /* store data structure in monitor */
     if(hmon->userdata == NULL){
 	hmon->userdata = new_brain(m, n, 1, -1);
     }
     
-    struct brain      * b = hmon->userdata;
+    struct brain            * b = hmon->userdata;
     struct perceptron       * p = b->p;
     double *                  X = b->X;
-    double error, present, past, goal;
+    double *                  Y = b->Y;
+    double error, future, present, past, goal;
 
-    /* Set features */
-    if(b->set_features){set_features(hmon);}
+    set_features(hmon);
 
     /* Predict FUTURE timesteps ahead */
-    b->future[b->c] = perceptron_output(p, &(X[((c+FUTURE)%m)*n]));
-    present         = perceptron_output(p, &(X[c*n]));
-    b->c            = (b->c+1)%FUTURE;
-    past            = b->future[b->c];
-    goal            = hmon->samples[c];
-    error           = 100*fabs(present-goal)/fabs(present+goal);
-    
-    /* Train only if prediction mispredict by more than 5%, and for a significant amount of samples (might be one sample)*/
-    if(c == m-1 && error > 5){
-	b->set_features = 0;
-    	perceptron_fit_by_gradiant_descent(p, X, hmon->samples, m);
+    present         = fabs(perceptron_output(p, &(X[c*n])));
+    goal            = fabs(hmon->samples[c]);
+    error           = 100*fabs(present-goal)/(present+goal);
+
+    /* Train online if error is too great */
+    if(error > 1){
+	do{
+	    memcpy(Y, hmon->samples, m*sizeof(*Y));
+	} while(perceptron_fit_by_gradiant_descent(p, X, Y, m) > 0.001);
     }
-    /* Output relative error */
-    error = 100*fabs(past-goal)/fabs(past+goal);
+    /* Output Future relative error */
     return error;
 }
 
