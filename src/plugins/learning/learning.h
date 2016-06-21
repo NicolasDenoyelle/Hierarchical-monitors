@@ -21,9 +21,10 @@ void delete_perceptron(struct perceptron * p);
  * @param Y: A vector of length m of output samples. Changed as a side effect.
  * @param Unit: A unit vector of length m.
  * @param m: The number of samples.
+ * @return The cost function of previous Theta.
  * The perceptron's features parameter are updated using gradiant descent on mean square cost function.
  **/
-void perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, double * Y, const int m);
+double perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, double * Y, const int m);
 
 /**
  * Output prediction based on input features value.
