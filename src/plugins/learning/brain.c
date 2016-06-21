@@ -5,10 +5,13 @@
 #include <hmon.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include "learning.h"
 
-#define N           32      /* Features-1: harmonics, polynomial ... */
-#define FUTURE      16      /* Timesteps in the future */
+#define N                   32      /* Features-1: harmonics, polynomial ... */
+#define FUTURE              16      /* Timesteps in the future */
+#define ERROR_THRESHOLD      1      /* Learn if prevision error is greater than this */
+#define LEARN_THRESHOLD   0.01      /* Descent gradiant while cost improvement is greater than this */
 
 struct brain{
     struct perceptron * p;
@@ -74,7 +77,7 @@ static double fit(struct monitor * hmon, void (* set_features)(const struct moni
     const unsigned       c = hmon->current;
     const unsigned       m = hmon->n_samples;
     const int            n = N+1;
-
+    double               j = DBL_MAX, J;
     /* store data structure in monitor */
     if(hmon->userdata == NULL){
 	hmon->userdata = new_brain(m, n, 1, -1);
@@ -94,10 +97,19 @@ static double fit(struct monitor * hmon, void (* set_features)(const struct moni
     error           = 100*fabs(present-goal)/(present+goal);
 
     /* Train online if error is too great */
-    if(error > 1){
-	do{
-	    memcpy(Y, hmon->samples, m*sizeof(*Y));
-	} while(perceptron_fit_by_gradiant_descent(p, X, Y, m) > 0.001);
+    if(error > ERROR_THRESHOLD){
+	if(hmon->total > hmon->n_samples){
+	    do{
+		J = j;
+		memcpy(Y, hmon->samples, m*sizeof(*Y));
+		j = perceptron_fit_by_gradiant_descent(p, X, Y, m);
+	    } while( fabs(J-j) > LEARN_THRESHOLD );
+	}
+	else{
+	    do{
+		goal = fabs(hmon->samples[c]);
+	    } while(perceptron_fit_by_gradiant_descent(p, &(X[c*n]), &goal, 1) > LEARN_THRESHOLD);
+	}
     }
     /* Output Future relative error */
     return error;
