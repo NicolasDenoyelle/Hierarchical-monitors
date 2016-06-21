@@ -1,5 +1,5 @@
 CFLAGS=-Wall -Wextra -std=gnu99 -g -I../..
-LDFLAGS=-lblas
+LDFLAGS=-lblas -lm
 
 SRC=perceptron.c brain.c
 OBJ=$(patsubst %.c, %.o, $(SRC)	)
