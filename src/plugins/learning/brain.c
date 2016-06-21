@@ -7,10 +7,7 @@
 #include <math.h>
 #include "learning.h"
 
-#define PI          3.14159265
-#define N           64      /* Harmonics */
-#define PHI         0.0     /* Phase     */
-#define T           1.0     /* Period    */
+#define N           63      /* Features-1: harmonics, polynomial ... */
 #define FUTURE      1       /* Timesteps in the future */
 
 struct brain{
@@ -29,7 +26,7 @@ struct brain{
  * @param n: the number of features.
  * @return a brain holding a perceptron to learn, a matrix of features (period, fourier factors), goal vector copy.
  **/
-struct brain * new_brain(const int m, const int n, const double max, const double min){
+static struct brain * new_brain(const int m, const int n, const double max, const double min){
     struct brain * b = malloc(sizeof(*b));
     b->p = new_perceptron(n, max, min);
     b->X = malloc(sizeof(double) * (n) * m);
@@ -43,20 +40,37 @@ struct brain * new_brain(const int m, const int n, const double max, const doubl
     return b;
 }
 
+#define PI          3.14159265
+#define PHI         0.0     /* Phase     */
+#define T           1.0     /* Period    */
 
-static void set_fourier_features(double * X, unsigned n, long t){
+static void set_fourier_features(const struct monitor * hmon){
+    const int            n = N+1;
+    const unsigned       c = hmon->current;
+    const struct brain * b = hmon->userdata;
+    const long           t = hmon->timestamps[c];
+    double *             X = &(b->X[c*n]);
+    
     X[0] = 1.0;
-    for(unsigned i=1; i<n; i++)
+    for(int i=1; i<n; i++)
 	X[i] = cos(2*PI*i*t); /* cos(2*PI*i*t/T + PHI) but T=1 and PHI=0*/
 }
 
-/**
- * Predict next sample by fitting a fourier serie.
- * Function to be used as field SAMPLES_REDUCE in monitor definition.
- **/
-double fourier_fit(struct monitor * hmon){
-    unsigned       c = hmon->current;
-    unsigned       m = hmon->n_samples;
+static void set_polynomial_features(const struct monitor * hmon){
+    const int            n = N+1;
+    const unsigned       c = hmon->current;
+    const struct brain * b = hmon->userdata;
+    const long           x = (hmon->samples[c]-hmon->mu)/(hmon->max-hmon->min); /* center and normalize */
+    double *             X = &(b->X[c*n]);
+    
+    X[0] = 1.0;
+    for(int i=1; i<n; i++)
+	X[i] = pow(x,i);
+}
+
+static double fit(struct monitor * hmon, void (* set_features)(const struct monitor*)){
+    const unsigned       c = hmon->current;
+    const unsigned       m = hmon->n_samples;
     const int      n = N+1;
 
     /* store data structure in monitor */
@@ -65,12 +79,12 @@ double fourier_fit(struct monitor * hmon){
     }
     
     struct brain      * b = hmon->userdata;
-    struct perceptron * p = b->p;
-    double            * X = b->X;
+    struct perceptron       * p = b->p;
+    double *                  X = b->X;
     double error, present, past, goal;
 
     /* Set features */
-    if(b->set_features){set_fourier_features(&(b->X[c*n]), n, hmon->timestamps[c]);}
+    if(b->set_features){set_features(hmon);}
 
     /* Predict FUTURE timesteps ahead */
     b->future[b->c] = perceptron_output(p, &(X[((c+FUTURE)%m)*n]));
@@ -89,4 +103,16 @@ double fourier_fit(struct monitor * hmon){
     error = 100*fabs(past-goal)/fabs(past+goal);
     return error;
 }
+
+/**
+ * Predict next sample by fitting a fourier serie.
+ * Function to be used as field SAMPLES_REDUCE in monitor definition.
+ **/
+double fourier_fit(struct monitor * hmon){return fit(hmon, set_fourier_features);}
+
+/**
+ * Predict next sample by fitting a polynom serie.
+ * Function to be used as field SAMPLES_REDUCE in monitor definition.
+ **/
+double polynomial_fit(struct monitor * hmon){return fit(hmon, set_polynomial_features);}
 
