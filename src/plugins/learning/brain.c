@@ -11,16 +11,16 @@
 #define N           64      /* Harmonics */
 #define PHI         0.0     /* Phase     */
 #define T           1.0     /* Period    */
+#define FUTURE      1       /* Timesteps in the future */
 
 struct brain{
     struct perceptron * p;
     double *            X; /* Features (m*n) */
-    unsigned            c; /* Index of current features */
-    double *            Y; /* Goal (m) */
-    double *            S; /* Unit vector or condition number of X */
     unsigned            n; /* Number of features */
     unsigned            m; /* Number of samples */
-    int      set_features;
+    double *       future; /* array of prediction in the future */
+    unsigned            c; /* Index of current prediction */
+    int      set_features; /* Boolean telling if it is necessary to set the features again */
 };
 
 /**
@@ -35,32 +35,19 @@ struct brain * new_brain(const int m, const int n, const double max, const doubl
     b->X = malloc(sizeof(double) * (n) * m);
     b->m = m;
     b->n = n;
-    b->Y = malloc(sizeof(double) * m);
-    b->S = Unit(m);
-    b->c = m-1;
     b->set_features = 1;
+    b->future = malloc(sizeof(double) * FUTURE);
+    for(int i = 0; i<FUTURE; i++)
+	b->future[i] = 0.0;
+    b->c = 0;
     return b;
 }
 
 
-static inline double * current_features(struct brain * b){
-    return &(b->X[b->c*b->n]);
-}
-
-static inline double * next_features(struct brain * b){
-    b->c = (b->c+1)%b->m;
-    return current_features(b);
-}
-
-static void fourier_features(struct brain * b, long t){
-    unsigned       n = b->n;
-    double *       X = next_features(b);
-    
-    /* Compute factor 0,1 */
+static void set_fourier_features(double * X, unsigned n, long t){
     X[0] = 1.0;
-    /* Compute cosinus factor */
     for(unsigned i=1; i<n; i++)
-	X[i] = cos(2*PI*i*t/T + PHI);
+	X[i] = cos(2*PI*i*t); /* cos(2*PI*i*t/T + PHI) but T=1 and PHI=0*/
 }
 
 /**
@@ -77,25 +64,29 @@ double fourier_fit(struct monitor * hmon){
 	hmon->userdata = new_brain(m, n, 1, -1);
     }
     
-    struct brain * b = hmon->userdata;
-    double pred, val = hmon->samples[c];
+    struct brain      * b = hmon->userdata;
+    struct perceptron * p = b->p;
+    double            * X = b->X;
+    double error, present, past, goal;
 
     /* Set features */
-    if(b->set_features){
-	fourier_features(b, hmon->timestamps[c]);
-    }
+    if(b->set_features){set_fourier_features(&(b->X[c*n]), n, hmon->timestamps[c]);}
+
+    /* Predict FUTURE timesteps ahead */
+    b->future[b->c] = perceptron_output(p, &(X[((c+FUTURE)%m)*n]));
+    present         = perceptron_output(p, &(X[c*n]));
+    b->c            = (b->c+1)%FUTURE;
+    past            = b->future[b->c];
+    goal            = hmon->samples[c];
+    error           = 100*fabs(present-goal)/fabs(present+goal);
     
-    /* Train only for a significant amount of samples (might be one sample)*/
-    if(hmon->current == m-1){
+    /* Train only if prediction mispredict by more than 5%, and for a significant amount of samples (might be one sample)*/
+    if(c == m-1 && error > 5){
 	b->set_features = 0;
-    	memcpy(b->Y, hmon->samples, m * sizeof(double));
-    	perceptron_fit_by_gradiant_descent(b->p, b->X, b->Y, m);
+    	perceptron_fit_by_gradiant_descent(p, X, hmon->samples, m);
     }
-    
-    /* Predict */
-    pred = perceptron_output(b->p, current_features(b));
-    val = hmon->samples[c];
     /* Output relative error */
-    return 100*fabs(pred-val)/fabs(pred+val);
+    error = 100*fabs(past-goal)/fabs(past+goal);
+    return error;
 }
 

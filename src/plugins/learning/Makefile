@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra -std=gnu99 -g -I../..
 LDFLAGS=-lblas
 
-SRC=perceptron.c utils.c fourier.c
+SRC=perceptron.c brain.c
 OBJ=$(patsubst %.c, %.o, $(SRC)	)
 LIB=learning.monitor_plugin.so
 

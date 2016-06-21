@@ -33,7 +33,3 @@ void perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X,
  **/
 double perceptron_output(struct perceptron * p, double * X);
 
-
-/***************************************************************** Utils *********************************************************************/
-double*             Unit(const int n);
-
