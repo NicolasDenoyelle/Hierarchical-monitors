@@ -481,27 +481,27 @@ static void _monitor_analyse(struct monitor * m){
 
 /* Assumes monitor array is sorted per depth */
 static void _monitor_read_analyse_per_depth(struct hmon_array * a){
-    struct monitor * m = NULL, * ma;
-    unsigned i0 = 0, i = 0, j = 0, depth = 0;
+    struct monitor * m, * child;
+    unsigned i, j = 0, depth;
 
     m = hmon_array_get(a,0);
     depth = m->location->depth;
+
     for(i=0;i<hmon_array_length(a); i++){
 	m = hmon_array_get(a,i);
-	/* Roll back to analyze previous depth */
-	if(m->location->depth!=depth){
-	    for(j=i0; j<i; j++){
-		ma = hmon_array_get(a,j);
-		_monitor_analyse(ma);
+	if(m->location->depth < depth){
+	    /* Roll back to analyze previous depth */
+	    for(; j<i; j++){
+		child = hmon_array_get(a,j);
+		_monitor_analyse(child);
 	    }
-	    depth = m->location->depth;
-	    i0 = i;
 	}
+	depth = m->location->depth;
 	/* Read monitor */
 	_monitor_read(m);
     }
-    /* Roll back to analyze last depth */
-    for(j=i0; j<i; j++)
+    /* Analyze remaining monitors */
+    for(; j<i; j++)
 	_monitor_analyse(hmon_array_get(a,j));
 }
 
