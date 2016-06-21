@@ -31,5 +31,5 @@ void perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X,
  * @param X: the input features for prediction.
  * @return A the predicted value.
  **/
-double perceptron_output(struct perceptron * p, double * X);
+double perceptron_output(const struct perceptron * p, const double * X);
 

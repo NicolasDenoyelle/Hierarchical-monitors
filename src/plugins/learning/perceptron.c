@@ -40,5 +40,5 @@ perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, doub
 }
 
 
-double perceptron_output(struct perceptron * p, double * X){return cblas_ddot(p->n, X, 1, p->Theta, 1);}
+double perceptron_output(const struct perceptron * p, const double * X){return cblas_ddot(p->n, X, 1, p->Theta, 1);}
 
