@@ -8,7 +8,7 @@
  * This file implements the basic tools to learn.
 **/
 
-#define ALPHA 0.001
+#define ALPHA 0.00001
 #define TAU   3
 
 struct perceptron{
@@ -41,7 +41,7 @@ perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, doub
     double J = 2*cblas_ddot(m,Y,1,Y,1)/m;
     if(J > p->J){p->alpha /= TAU;}
     if(J < p->J){p->alpha *= TAU;}
-    p->J = J;
+    p->J= J;
     return J;
 }
 
