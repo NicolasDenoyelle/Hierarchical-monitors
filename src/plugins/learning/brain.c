@@ -9,7 +9,7 @@
 #include "learning.h"
 
 #define N                   32      /* Features-1: harmonics, polynomial ... */
-#define FUTURE              16      /* Timesteps in the future */
+#define FUTURE               1      /* Timesteps in the future */
 #define ERROR_THRESHOLD      1      /* Learn if prevision error is greater than this */
 #define LEARN_THRESHOLD   0.01      /* Descent gradiant while cost improvement is greater than this */
 
