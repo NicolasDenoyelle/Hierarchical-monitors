@@ -9,20 +9,20 @@
 #include "learning.h"
 
 #define N                   32      /* Features-1: harmonics, polynomial ... */
-#define FUTURE               1      /* Timesteps in the future */
+#define FUTURE              16      /* Timesteps in the future */
 #define ERROR_THRESHOLD      1      /* Learn if prevision error is greater than this */
 #define LEARN_THRESHOLD   0.01      /* Descent gradiant while cost improvement is greater than this */
 
 struct brain{
     struct perceptron * p;
-    double *            X;  /* Features (m*n) */
+    double *            X; /* Features (m*n) */
     double *            Xf; /* Future features (n) */
-    double *            Y;  /* Goal (m) */
-    unsigned            n;  /* Number of features */
-    unsigned            m;  /* Number of samples */
-    double *       future;  /* array of prediction in the future */
-    unsigned            c;  /* Index of current prediction */
-    int      set_features;  /* Boolean telling if it is necessary to set the features again */
+    double *            Y; /* Goal (m) */
+    unsigned            n; /* Number of features */
+    unsigned            m; /* Number of samples */
+    double *       future; /* array of prediction in the future */
+    unsigned            c; /* Index of current prediction */
+    int      set_features; /* Boolean telling if it is necessary to set the features again */
 };
 
 /**
@@ -49,7 +49,7 @@ static struct brain * new_brain(const int m, const int n, const double max, cons
 
 #define PI          3.14159265
 #define PHI         0.0     /* Phase     */
-#define T           2.0     /* Period    */
+#define T           1.0     /* Period    */
 
 static void set_fourier_features(double *X, const unsigned n, const long t){
     X[0] = 1.0;
@@ -67,7 +67,7 @@ static double fit(struct monitor * hmon, void (* set_features)(double *, const u
     const unsigned       c = hmon->current;
     const unsigned       m = hmon->n_samples;
     const int            n = N+1;
-    const long           t = hmon->timestamps[c];
+    const long           t = hmon->total;
     double               j = DBL_MAX, J;
     /* store data structure in monitor */
     if(hmon->userdata == NULL){
@@ -89,11 +89,13 @@ static double fit(struct monitor * hmon, void (* set_features)(double *, const u
 
     /* Train online if error is too great */
     if(error > ERROR_THRESHOLD){
+	unsigned iter = 0;
 	if(hmon->total > hmon->n_samples){
 	    do{
 		J = j;
 		memcpy(Y, hmon->samples, m*sizeof(*Y));
 		j = perceptron_fit_by_gradiant_descent(p, X, Y, m);
+		iter++;
 	    } while( fabs(J-j) > LEARN_THRESHOLD );
 	}
 	else{
@@ -101,16 +103,18 @@ static double fit(struct monitor * hmon, void (* set_features)(double *, const u
 		J = j;
 		goal = hmon->samples[c];
 		j = perceptron_fit_by_gradiant_descent(p, &(X[c*n]), &goal, 1);
+		iter++;
 	    } while( fabs(J-j) > LEARN_THRESHOLD );
 	}
+	/* printf("Converged in %u iterations\n", iter); */
     }
-
+    
     set_features(b->Xf, n, t+FUTURE);
     b->future[b->c] = perceptron_output(p, b->Xf);
     b->c = (b->c+1)%FUTURE;
     past = fabs(b->future[b->c]);
     error = 100*fabs(past-goal)/(past+goal);
-    
+
     /* Output Future relative error */
     return error;
 }
