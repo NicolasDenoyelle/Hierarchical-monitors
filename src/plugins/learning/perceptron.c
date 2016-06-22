@@ -38,7 +38,11 @@ perceptron_fit_by_gradiant_descent(struct perceptron * p, const double * X, doub
 {
     cblas_dgemv(CblasRowMajor, CblasNoTrans, m, p->n, 1, X, p->n, p->Theta, 1, -1, Y, 1);
     cblas_dgemv(CblasRowMajor, CblasTrans,   m, p->n, -p->alpha/m, X, p->n, Y, 1, 1 , p->Theta, 1);
-    return 2*cblas_ddot(m,Y,1,Y,1)/m;
+    double J = 2*cblas_ddot(m,Y,1,Y,1)/m;
+    /* if(J > p->J){p->alpha /= TAU;} */
+    /* if(J < p->J){p->alpha *= TAU;} */
+    /* p->J= J; */
+    return J;
 }
 
 
