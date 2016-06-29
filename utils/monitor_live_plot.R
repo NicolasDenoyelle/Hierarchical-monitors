@@ -109,7 +109,7 @@ plot_monitors = function(frame) {
 #Script
 #options$file="toto"
 #options$histogram=T
-if (!options$interactive) {
+if (!options$dynamic) {
   pdf(options$output, family = "Helvetica", width = 10, height = 5)
   plot_monitors(read.table(options$file))
   graphics.off()
