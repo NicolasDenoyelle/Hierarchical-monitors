@@ -16,11 +16,11 @@
      * 
      * #Optional fields: 
      *   # The number of stored values for timestamps and aggregates. Default to 32.
-     *   N_SAMPLE:=128;                     
+     *   WINDOW:=128;                     
      *   # A stats_library defined in stats/stats_utils.h or a stats plugin or an arithmetique expression of events. Default to no reduce.
-     *   EVSET_REDUCE:=$0/$1;
-     *   # A stats_library defined in stats/stats_utils.h or a stats plugin to reduce samples of reduced events.
-     *   SAMPLES_REDUCE:=$0/$1;
+     *   SAMPLE_REDUCE:=$0/$1;
+     *   # A stats_library defined in stats/stats_utils.h or a stats plugin to reduce samples in WNIDOW.
+     *   WINDOW_REDUCE:=$0/$1;
      *   # Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN
      *   MAX:=0;
      *   # Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX
@@ -35,8 +35,8 @@
      *   OBJ:= L3;
      *   LIB:= hierarchical_monitor;
      *   EVSET:= PU; # The monitors on objects PU, children of each L3 are selected.
-     *   EVSET_REDUCE:=MONITOR_EVSET_SUM; # Will sum accumulated events of children monitor on PU.
-     *   SAMPLES_REDUCE:=MONITOR_STAT_ID;
+     *   SAMPLE_REDUCE:=MONITOR_EVSET_SUM; # Will sum accumulated events of children monitor on PU.
+     *   WINDOW_REDUCE:=MONITOR_STAT_ID;
      * }
      *
      **/
@@ -55,7 +55,7 @@
     int                        silent;
     double                     max;
     double                     min;
-    unsigned                   n_sample;
+    unsigned                   window;
     unsigned                   location_depth;
     struct hmon_array *        event_names;
 
@@ -68,7 +68,7 @@
 	if(code){free(code);}
 	max                    = DBL_MIN;
 	min                    = DBL_MAX;
-	n_sample               = 1;        /* default store 1 samples */
+	window                 = 1;        /* default store 1 sample */
 	accumulate             = 0;        /* default do not accumulate */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
@@ -193,7 +193,7 @@
 	    eventset_init_fini(eventset);
 
 	    /* Create monitor */
-	    new_monitor(name, obj, eventset, added_events, n_sample, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
+	    new_monitor(name, obj, eventset, added_events, window, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
 	}
 	reset_monitor_fields();
     }
@@ -213,7 +213,7 @@
     %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD MAX_FIELD MIN_FIELD PERF_LIB_FIELD EVSET_REDUCE_FIELD SAMPLES_REDUCE_FIELD N_SAMPLE_FIELD ACCUMULATE_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
+%token <str> OBJ_FIELD EVSET_FIELD MAX_FIELD MIN_FIELD PERF_LIB_FIELD WINDOW_REDUCE_FIELD SAMPLE_REDUCE_FIELD WINDOW_FIELD ACCUMULATE_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
 
 %type <str> primary_expr add_expr mul_expr event
 
@@ -245,13 +245,13 @@ field
     location_depth = obj->depth;
     free($2);
  }
-| EVSET_REDUCE_FIELD  add_expr  ';' {code = $2;}
-| EVSET_REDUCE_FIELD  NAME      ';' {evset_analysis_name = $2;}
-| SAMPLES_REDUCE_FIELD      NAME      ';' {samples_analysis_name = $2;}
+| SAMPLE_REDUCE_FIELD  add_expr  ';' {code = $2;}
+| SAMPLE_REDUCE_FIELD  NAME      ';' {evset_analysis_name = $2;}
+| WINDOW_REDUCE_FIELD  NAME     ';' {samples_analysis_name = $2;}
 | PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
 | ACCUMULATE_FIELD INTEGER   ';' {accumulate = atoi($2); free($2);}
 | SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
-| N_SAMPLE_FIELD   INTEGER   ';' {n_sample = atoi($2); free($2);}
+| WINDOW_FIELD   INTEGER   ';' {window = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}
 | min_field                      {}
 | max_field                      {}

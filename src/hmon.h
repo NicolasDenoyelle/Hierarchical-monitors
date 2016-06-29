@@ -34,7 +34,7 @@ struct monitor{
     /** The number of events per eventset **/
     unsigned n_events;
     /** The number of samples kept, the current sample index and the total amount of recorded samples **/
-    unsigned n_samples, current, total;
+    unsigned window, current, total;
     /** pointers to performance library handling event collection. Functions documentation in plugins/performance_plugin.h  **/
     int (* eventset_start)   (void *);
     int (* eventset_stop)    (void *);

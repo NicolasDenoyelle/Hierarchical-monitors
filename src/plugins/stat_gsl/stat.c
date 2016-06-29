@@ -15,6 +15,6 @@ double gsl_eventset_var(struct monitor * m){
 }
 
 double gsl_samples_var(struct monitor * m){
-    return gsl_stats_variance(m->samples, 1, m->n_samples);
+    return gsl_stats_variance(m->samples, 1, m->window);
 }
 

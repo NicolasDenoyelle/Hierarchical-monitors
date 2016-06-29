@@ -52,7 +52,7 @@ new_monitor(const char * id,
 	    hwloc_obj_t location,
 	    void * eventset, 
 	    unsigned n_events,
-	    unsigned n_samples, 
+	    unsigned window, 
 	    const char * perf_plugin,
 	    const char * events_to_sample,
 	    const char * samples_to_value,
@@ -79,7 +79,7 @@ new_monitor(const char * id,
     monitor->location = location;
     
     /* record at least 1 samples */
-    n_samples = 1 > n_samples ? 1 : n_samples; 
+    window = 1 > window ? 1 : window; 
     
 
     /* Set default attributes */
@@ -88,7 +88,7 @@ new_monitor(const char * id,
     location->userdata = monitor;
 
     monitor->eventset = eventset;
-    monitor->n_samples = n_samples;
+    monitor->window = window;
     monitor->n_events = n_events;
     monitor->events = NULL;
     monitor->timestamps = NULL;
@@ -128,11 +128,11 @@ new_monitor(const char * id,
 	monitor->samples_to_value = NULL;
 
     /* allocate arrays */
-    malloc_chk(monitor->events, n_samples*sizeof(*(monitor->events)));
-    malloc_chk(monitor->samples, n_samples*sizeof(*(monitor->samples)));
-    malloc_chk(monitor->timestamps, n_samples*sizeof(*(monitor->timestamps)));
+    malloc_chk(monitor->events, window*sizeof(*(monitor->events)));
+    malloc_chk(monitor->samples, window*sizeof(*(monitor->samples)));
+    malloc_chk(monitor->timestamps, window*sizeof(*(monitor->timestamps)));
 
-    for(unsigned i = 0;i<monitor->n_samples;i++)
+    for(unsigned i = 0;i<monitor->window;i++)
 	malloc_chk(monitor->events[i], n_events*sizeof(*(monitor->events[i])));
     
     /* reset values */
@@ -236,7 +236,7 @@ static int _monitor_location_compare(void* a, void* b){
 
 static void _monitor_delete(struct monitor * monitor){
     unsigned i;
-    for(i=0;i<monitor->n_samples;i++)
+    for(i=0;i<monitor->window;i++)
 	free(monitor->events[i]);
     free(monitor->events);
     free(monitor->samples);
@@ -343,8 +343,8 @@ void monitor_buffered_output(struct monitor * m, int force){
     unsigned i;
     /* Really output when buffer is full to avoid IO */
     pthread_mutex_lock(&(m->available));
-    if(m->current+1 == m->n_samples){
-	for(i=0;i<m->n_samples;i++){
+    if(m->current+1 == m->window){
+	for(i=0;i<m->window;i++){
 	    _monitor_output_sample(m,i);
 	}
     }
@@ -410,9 +410,9 @@ unsigned i, j;
    monitor->min = 0;
    monitor->max = 0;
    monitor->mu = 0;
-   monitor->current = monitor->n_samples-1;
+   monitor->current = monitor->window-1;
    monitor->stopped = 1;
-   for(i=0;i<monitor->n_samples;i++){
+   for(i=0;i<monitor->window;i++){
        monitor->samples[i] = 0;
        monitor->timestamps[i] = 0;
        for(j = 0; j < monitor->n_events; j++)
@@ -446,7 +446,7 @@ static int _monitor_stop(struct monitor * m){
 
 static void _monitor_read(struct monitor * m){
     if(m->state_query == ACTIVE){
-	m->current = (m->current+1)%(m->n_samples);
+	m->current = (m->current+1)%(m->window);
 	/* Read events */
 	if((m->eventset_read(m->eventset,m->events[m->current])) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
