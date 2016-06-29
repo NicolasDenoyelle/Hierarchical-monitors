@@ -11,7 +11,7 @@ logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FAL
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
-dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window*4 points will be plot and window will move by --window steps ahead every --update seconds")
+dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window points will be plot and window will move by --window/4 steps ahead every --update seconds")
 opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynOpt, histOpt))
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
 
@@ -37,15 +37,15 @@ lseq =function(from = 1, to = 100000, length.out = 6) {
     exp(seq(log(from), log(to), length.out = length.out))
   }
 read_monitors = function(frame, connexion) {
-  lines = readLines(connexion, n = options$window)
+  lines = readLines(connexion, n = options$window/4)
   for (line in lines) {
     frame_line = read.table(textConnection(line), col.names = c("name", "obj", "nano", "val"), flush = T)
     if (is.null(options$filter) || frame_line[1, 1] == options$filter) {
       frame = rbind(frame, frame_line)
     }
   }
-  if (options$dynamic && nrow(frame) > options$window*4) {
-    frame = frame[(nrow(frame)-4*options$window):nrow(frame), ]
+  if (options$dynamic && nrow(frame) > options$window) {
+    frame = frame[(nrow(frame)-options$window):nrow(frame), ]
   }
   frame
 }
