@@ -5,14 +5,14 @@ df = data.frame(name = character(0), obj = character(0), nano = numeric(0), val 
 
 #Parse options
 fileOpt = make_option(opt_str = c("-f", "--file"), type = "character", default = NULL, help = "Data set file name")
-outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (statique)")
+outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (static)")
 restrictOpt = make_option(opt_str = c("-r", "--restrict"), type = "character",default = NULL, help = "Restrict input monitor")
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
-winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (interactive)")
-updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (interactive)")
-interactiveOpt = make_option(opt_str = c("-i", "--interactive"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot shouldbe interactive")
-opt_parser = OptionParser(option_list = c(fileOpt, outOpt, restrictOpt, logOpt, winOpt, updateOpt, interactiveOpt, histOpt))
+winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
+updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
+dynamicOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window*4 points will be plot and window will move by --window steps ahead every --update seconds")
+opt_parser = OptionParser(option_list = c(fileOpt, outOpt, restrictOpt, logOpt, winOpt, updateOpt, dynamicOpt, histOpt))
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
 
 #Ask input if not provided in options
@@ -21,13 +21,13 @@ if (is.null(options$file) || options$file == "") {
 }
 
 #Check output
-if (!is.null(options$output) && options$interactive) {
+if (!is.null(options$output) && options$dynamic) {
   stop(
-    "Options --output and --interactive cannot be set simultaneously. Whether you plot statically the whole file, or you plot updated file dynamically.",
+    "Options --output and --dynamic cannot be set simultaneously. Whether you plot statically the whole file, or you plot updated file dynamically.",
     call. = FALSE
   )
 }
-if (is.null(options$output) && !options$interactive) {
+if (is.null(options$output) && !options$dynamic) {
   options$output = paste(options$file, "pdf", sep = ".")
   print(sprintf("Output to %s", options$output))
 }
@@ -37,18 +37,14 @@ lseq =function(from = 1, to = 100000, length.out = 6) {
     exp(seq(log(from), log(to), length.out = length.out))
   }
 read_monitors = function(frame, connexion) {
-  if (options$interactive){
-    lines = readLines(connexion, n = options$window)
-  } else{
-    lines = readLines(connexion)
-  }
+  lines = readLines(connexion, n = options$window)
   for (line in lines) {
-    frame_line = read.table(textConnection(line), col.names = c("name", "obj", "nano", "val"))
+    frame_line = read.table(textConnection(line), col.names = c("name", "obj", "nano", "val"), flush = T)
     if (is.null(options$restrict) || frame_line[1, 1] == options$restrict) {
       frame = rbind(frame, frame_line)
     }
   }
-  if (options$interactive && nrow(frame) > options$window*4) {
+  if (options$dynamic && nrow(frame) > options$window*4) {
     frame = frame[(nrow(frame)-4*options$window):nrow(frame), ]
   }
   frame
@@ -96,13 +92,13 @@ plot_monitors = function(frame) {
           lty = 1,
           panel.first = abline(h = yticks, v = xticks, col = "darkgray",lty = 3)
         )
-        if(options$interactive){
+        if(options$dynamic){
           legend("topright", legend = objs, col = 1:length(objs), pch = 1)
         } else {
           legend("topright", legend = c(obj), col = c(i))
         }
     }
-    if(options$interactive){
+    if(options$dynamic){
       if(i!=length(objs)){par(new=TRUE, ann=FALSE, xaxt="n", yaxt="n")}
       else{par(xaxt="s", yaxt="s", ann=TRUE)}
     }
