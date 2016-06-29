@@ -6,35 +6,22 @@
 # }
 
 ## Get miss balance on L2 cache.
-# L2_miss_PU{
-# 	OBJ:=PU;
-# 	EVSET:=PAPI_L2_DCM;
-# 	PERF_LIB:=papi;
-# 	SILENT:=1;
-# }
-# L2_miss{
-# 	OBJ:=L2;
-# 	EVSET:=L2_miss_PU;
-# 	PERF_LIB:=accumulate;
-# 	SILENT:=1;
-# }
-# L2_balance{
-# 	OBJ:=Machine;
-# 	EVSET:=L2_miss;
-# 	PERF_LIB:=hierarchical;
-# 	EVSET_REDUCE:=gsl_eventset_var;
-# 	SILENT:=0;
-# }
-
-## Try to predict samples by fitting a fourier serie.
-fourier_fit_relative_error{
+L2_miss_PU{
 	OBJ:=PU;
-	PERF_LIB:=papi;
 	EVSET:=PAPI_L2_DCM;
-	EVSET_REDUCE:=$0;
-	SAMPLES_REDUCE:=fourier_fit;
-	N_SAMPLES:=2;
+	PERF_LIB:=papi;
+	SILENT:=1;
 }
-
-
-
+L2_miss{
+	OBJ:=L2;
+	EVSET:=L2_miss_PU;
+	PERF_LIB:=accumulate;
+	SILENT:=1;
+}
+L2_balance{
+	OBJ:=Machine;
+	EVSET:=L2_miss;
+	PERF_LIB:=hierarchical;
+	SAMPLE_REDUCE:=gsl_eventset_var;
+}
+  
