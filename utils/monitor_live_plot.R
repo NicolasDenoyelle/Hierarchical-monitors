@@ -4,20 +4,20 @@ library("optparse")
 df = data.frame(name = character(0), obj = character(0), nano = numeric(0), val = numeric(0))
 
 #Parse options
-fileOpt = make_option(opt_str = c("-f", "--file"), type = "character", default = NULL, help = "Data set file name")
+inOpt = make_option(opt_str = c("-i", "--input"), type = "character", default = NULL, help = "Data set input file")
 outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (static)")
-restrictOpt = make_option(opt_str = c("-r", "--restrict"), type = "character",default = NULL, help = "Restrict input monitor")
+filterOpt = make_option(opt_str = c("-f", "--filter"), type = "character",default = NULL, help = "Filter input monitor")
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
 dynamicOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window*4 points will be plot and window will move by --window steps ahead every --update seconds")
-opt_parser = OptionParser(option_list = c(fileOpt, outOpt, restrictOpt, logOpt, winOpt, updateOpt, dynamicOpt, histOpt))
+opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynamicOpt, histOpt))
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
 
 #Ask input if not provided in options
-if (is.null(options$file) || options$file == "") {
-  options$file = readline(prompt = "Input file: ")
+if (is.null(options$input) || options$input == "") {
+  options$input = readline(prompt = "Input file: ")
 }
 
 #Check output
@@ -28,7 +28,7 @@ if (!is.null(options$output) && options$dynamic) {
   )
 }
 if (is.null(options$output) && !options$dynamic) {
-  options$output = paste(options$file, "pdf", sep = ".")
+  options$output = paste(options$input, "pdf", sep = ".")
   print(sprintf("Output to %s", options$output))
 }
 
@@ -40,7 +40,7 @@ read_monitors = function(frame, connexion) {
   lines = readLines(connexion, n = options$window)
   for (line in lines) {
     frame_line = read.table(textConnection(line), col.names = c("name", "obj", "nano", "val"), flush = T)
-    if (is.null(options$restrict) || frame_line[1, 1] == options$restrict) {
+    if (is.null(options$filter) || frame_line[1, 1] == options$filter) {
       frame = rbind(frame, frame_line)
     }
   }
@@ -70,9 +70,9 @@ plot_monitors = function(frame) {
     data = subset(frame, frame[, 2] == objs[i])
     if (options$histogram) {
       if(i==1){
-        plot(hist(data[, 4], 100, main = paste(options$file, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
+        plot(hist(data[, 4], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
       } else {
-        plot(hist(data[, 4], 100, main = paste(options$file, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
+        plot(hist(data[, 4], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
       }
     } else{
         l = ""
@@ -107,14 +107,12 @@ plot_monitors = function(frame) {
 }
 
 #Script
-#options$file="toto"
-#options$histogram=T
 if (!options$dynamic) {
   pdf(options$output, family = "Helvetica", width = 10, height = 5)
-  plot_monitors(read.table(options$file))
+  plot_monitors(read.table(options$input))
   graphics.off()
 } else {
-  stream = fifo(options$file, open = "r")
+  stream = fifo(options$input, open = "r")
   x11(xpos = 0, ypos = 0)
   repeat {
     df = read_monitors(df, stream)
