@@ -15,7 +15,7 @@ The configuration of a monitor let you choose:
 * its depth location on topology, 
 * its eventset ABI implementation (see performance plugins), 
 * its eventset, 
-* the length of its eventsets history, 
+* a window size of samples to store,
 * a function to reduce eventset to a sample (instruction, cycles -> instructions/cycles) (see stat plugins)
 * a function to analyze samples and compute the monitor value. (see stat plugins)
 
