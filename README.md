@@ -126,18 +126,16 @@ L3_balance{
 * Code sample:
 
 ```
-#include "hmon.h"
-#include <sys/types.h>
-#include <unistd.h>
+#include <hmon.h>
 
 int main(){
-    monitor_lib_init(NULL, "output_file");
-    monitors_import("my_monitors_path");
-    monitors_attach(getpid(), -1);
+    monitor_lib_init(NULL, NULL, "output_test");
+    monitors_import("../example_monitor");
     monitors_start();
-    monitors_update(-1);
-    /* Code here */
-    monitors_update(-1);
+    monitors_update();
+    sleep(1);
+    monitors_update();
+    monitors_output(monitor_output, 1);
     monitor_lib_finalize();
     return 0;
 }

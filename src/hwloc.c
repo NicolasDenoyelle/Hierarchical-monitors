@@ -79,7 +79,8 @@ hwloc_obj_t location_parse(char* location){
     char * idx;
     int logical_index;
 
-    name = strtok(location,":");
+    char * loc = strdup(location);
+    name = strtok(loc,":");
     if(name==NULL){return NULL;}
     err = hwloc_type_sscanf_as_depth(name, &type, monitors_topology, &depth);
     if(err == HWLOC_TYPE_DEPTH_UNKNOWN){
@@ -93,6 +94,7 @@ hwloc_obj_t location_parse(char* location){
     logical_index = 0;
     idx = strtok(NULL,":");
     if(idx!=NULL){logical_index = atoi(idx);}
+    free(loc);
     return hwloc_get_obj_by_depth(monitors_topology,depth,logical_index);
 }
 
