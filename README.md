@@ -42,7 +42,7 @@ Several implementations are already available:
 listed in environment: `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` (stat_default is loaded by default),
 containing functions with prototype: `double <name>(struct monitor *)`,
 loaded at library initialization, 
-and which function <name> might be loaded to perform the task of reducing monitor's events to a sample or samples history to a synthetic value.
+and which function <name> might be loaded to perform the task of reducing monitor's events to a sample or samples window to a synthetic value.
 
 ## Requirements:
 
