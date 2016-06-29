@@ -4,6 +4,8 @@ This utility help set up monitors to capture events and match them with the mach
 
 ![](E5-2650.png?raw=true)
 
+This output of a [previous implementation](https://github.com/NicolasDenoyelle/dynamic_lstopo) of the library with lstopo (hwloc) shows monitors on topology object with value and color.
+
 ## Description
 
 A monitor is a counter, located somewhere on the machine topology, recording events, and aggregating 
