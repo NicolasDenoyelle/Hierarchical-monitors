@@ -313,7 +313,7 @@ void monitors_start(){
 void monitors_update(){
     /* Make monitors unavailable */
     for(unsigned i = 0; i< hmon_array_length(monitors); i++)
-	pthread_mutex_lock(&(((struct monitor *)hmon_array_get(monitors,i))->available));
+	pthread_mutex_trylock(&(((struct monitor *)hmon_array_get(monitors,i))->available));
     /* Get timestamp */
     clock_gettime(CLOCK_MONOTONIC, &monitors_current_time);
     /* Trigger monitors */
@@ -447,6 +447,7 @@ static int _monitor_stop(struct monitor * m){
 }
 
 static void _monitor_read(struct monitor * m){
+    pthread_mutex_trylock(&(m->available));
     if(m->state_query == ACTIVE){
 	m->current = (m->current+1)%(m->window);
 	/* Read events */
