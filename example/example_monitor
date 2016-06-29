@@ -1,0 +1,27 @@
+## Find monitor read events resolution by running utility with refresh set to 1.
+# resolution{
+# 	OBJ:=Machine;
+# 	PERF_LIB:=fake;
+# 	EVSET:=FAKE_MONITOR;
+# }
+
+## Get miss balance on L2 cache.
+L2_miss_PU{
+	OBJ:=PU;
+	EVSET:=PAPI_L2_DCM;
+	PERF_LIB:=papi;
+	SILENT:=1;
+}
+L2_miss{
+	OBJ:=L2;
+	EVSET:=L2_miss_PU;
+	PERF_LIB:=accumulate;
+	SILENT:=1;
+}
+L2_balance{
+	OBJ:=Machine;
+	EVSET:=L2_miss;
+	PERF_LIB:=hierarchical;
+	SAMPLE_REDUCE:=gsl_eventset_var;
+}
+  
