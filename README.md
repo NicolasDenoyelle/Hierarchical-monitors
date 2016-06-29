@@ -54,7 +54,7 @@ and which function <name> might be loaded to perform the task of reducing monito
 If you don't have one of them you will have to remove them from line `PERF_PLUGINS` in Makefile.
 
 * monitors using papi and maqao are system wide.
-You must ave permission to read performance counters system wide. 
+You must have permission to read performance counters system wide. 
 It can be achieved by running the command: `echo "-1" > /proc/sys/kernel/perf_event_paranoid` as root.
 
 * bison and lex for monitor importer.
