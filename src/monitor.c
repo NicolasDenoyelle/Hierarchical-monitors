@@ -208,6 +208,7 @@ int monitor_lib_init(hwloc_topology_t topo, char * restrict_obj, char * output){
     /* Restrict topology to first group and set an array of monitor per core */
     if(restrict_obj == NULL){restrict_location = hwloc_get_root_obj(monitors_topology);}
     else{restrict_location = location_parse(restrict_obj);}
+    
     ncores = hwloc_get_nbobjs_by_type(monitors_topology, HWLOC_OBJ_CORE);
     malloc_chk(core_monitors, sizeof(*core_monitors) * ncores);
 
