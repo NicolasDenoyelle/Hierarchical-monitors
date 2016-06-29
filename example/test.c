@@ -1,7 +1,7 @@
 #include <hmon.h>
 
 int main(){
-    monitor_lib_init(NULL, NULL, "output_test");
+    monitor_lib_init(NULL, NULL, "/dev/stdout");
     monitors_import("./example_monitor");
     monitors_start();
     monitors_update();
