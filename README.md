@@ -89,13 +89,13 @@ L3_miss_pu{
 	EVSET:=PAPI_L3_TCM;                   #Compulsory.
 
 #other optional fields
-       #EVSET_REDUCE:=$0/$1;                  #No event reduction for this monitor.	
-       #N_SAMPLES:=4;	                      #Default to 32. (history of samples length)
+       #SAMPLE_REDUCE:=$0/$1;                  #No event reduction for this monitor.	
+       #WINDOW:=4;	                      #Default to 32. (history of samples length)
        #ACCUMULATE:=0;                        #Default to 0.  (accumulate if > 0)
        SILENT:=1;                             #Default to 0.  (print if == 0)
        #MAX:=0;                               #Default to DBL_MIN.  (Preset maximum value of sample)
        #MIN:=0;                               #Default to DBL_MAX.  (Preset minimum value of sample)
-       #SAMPLES_REDUCE:=monitor_samples_last; #No sample reduction.
+       #WINDOW_REDUCE:=monitor_samples_last; #No sample reduction.
 }
 
 #This monitor accumulate L3 miss on each L3
@@ -111,7 +111,7 @@ L3_balance{
 	OBJ:=Machine;
 	PERF_LIB:=hierarchical;
 	EVSET:=L3_miss;                       #Read each L3 cache miss value.
-	SAMPLES_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
+	WINDOW_REDUCE:=gsl_stat_var;         #Not yet implemented in any plugin but would compute variance of L3 cache miss to check cache pressure balance
 }
 
 ```

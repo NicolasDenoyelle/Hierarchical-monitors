@@ -103,9 +103,9 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\t\tOBJ:= PU;                         # Depth where to map monitors. One monitor per obj at this depth is created.\n");
     printf("\t\tPERF_LIB:=papi;                   # Performance library to read counters. Can be a file of type path/<name>.monitor_plugin.so or <name> if plugin <name>.monitor_plugin.so is findable by dlopen.\n");
     printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; # A list of events defined by PERF_LIB.\n");     
-    printf("\t\tN_SAMPLE:=128;                    # The buffer size for timestamps, samples and events. Default to 32.\n");
-    printf("\t\tEVSET_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or a function name loadable in a stat plugin.\n");
-    printf("\t\tSAMPLES_REDUCE:=monitor_samples_last; # A function loadable in a stat plugin.\n");
+    printf("\t\tWINDOW:=128;                    # The buffer size for timestamps, samples and events. Default to 32.\n");
+    printf("\t\tSAMPLE_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or a function name loadable in a stat plugin.\n");
+    printf("\t\tWINDOW_REDUCE:=monitor_samples_last; # A function loadable in a stat plugin.\n");
     printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
@@ -113,8 +113,8 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\tMONITOR_REDUCE{\n");
     printf("\t\tOBJ:= L3;\n");
     printf("\t\tPERF_LIB:= hierarchical;\n");
-    printf("\t\tEVSET:=MONITOR_NAME;              # The monitors MONITOR_NAME child of each monitor MONITOR_REDUCE are selected and there eventset will be accumulated hierarchically\n");
-    printf("\t\tEVSET_REDUCE:=$0/$1;              # Reduce the same way as children\n\t}\n\n");
+    printf("\t\tEVSET:=MONITOR_NAME;               # The monitors MONITOR_NAME child of each monitor MONITOR_REDUCE are selected and there eventset will be accumulated hierarchically\n");
+    printf("\t\tSAMPLE_REDUCE:=$0/$1;              # Reduce the same way as children\n\t}\n\n");
     printf("/!\\ Though monitors' thread and memory are mapped to the specified hwloc object, it is the responsibility of the library PERF_LIB to make sure that eventset initialization on this object will lead to value relative to this object. As an example, you can check default PAPI implementation papi.monitor_plugin.so which performs cpu binding.\n");
 }
 
