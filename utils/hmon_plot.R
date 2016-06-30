@@ -14,7 +14,7 @@ histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", defaul
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
 dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window points will be plot and window will move by --window/4 steps ahead every --update seconds")
-opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt))
+opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt, titleOpt))
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
 
 #Ask input if not provided in options
