@@ -6,6 +6,7 @@ df = data.frame(name = character(0), obj = character(0), nano = numeric(0), val 
 #Parse options
 inOpt = make_option(opt_str = c("-i", "--input"), type = "character", default = NULL, help = "Data set input file")
 outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (static)")
+titleOpt = make_option(opt_str = c("-t", "--title"), type = "character", default = NULL, help = "Plot title")
 filterOpt = make_option(opt_str = c("-f", "--filter"), type = "character",default = NULL, help = "Filter input monitor")
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
 colOpt = make_option(opt_str = c("-y", "--column"), type = "integer", default = 4, help = "Use column --column instead of column 4 as Y values to plot")
@@ -51,6 +52,7 @@ read_monitors = function(frame, connexion) {
   frame
 }
 plot_monitors = function(frame) {
+  if(!is.null(options$title)){t = options$title} else if(!is.null(options$restrict)){t = options$restrict} else {t = options$input}
   ymax = max(frame[, options$column],  na.rm = TRUE)
   ymin = min(frame[, options$column],  na.rm = TRUE)
   if (!options$histogram) {
@@ -72,15 +74,16 @@ plot_monitors = function(frame) {
     data = subset(frame, frame[, 2] == objs[i])
     if (options$histogram) {
       if(i==1){
-        plot(hist(data[, options$column], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
+        plot(hist(data[, options$column], 100, main = paste(t, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
       } else {
-        plot(hist(data[, options$column], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
+        plot(hist(data[, options$column], 100, main = paste(t, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
       }
     } else{
+
         plot(
           x = data[,3],
           y = data[,options$column],
-          main = options$file,
+	  main = t,
           log = if(options$log){"y"} else {""},
           type = 'p',
           col = i,
@@ -102,12 +105,11 @@ plot_monitors = function(frame) {
       else{par(xaxt="s", yaxt="s", ann=TRUE)}
     }
   }
-  dev.flush()
 }
 
 #Script
 if (!options$dynamic) {
-  pdf(options$output, family = "Helvetica", width = 10, height = 5)
+  pdf(options$output, family = "Helvetica", width = 10, height = 5, title=options$file)
   plot_monitors(read.table(options$input))
   graphics.off()
 } else {
