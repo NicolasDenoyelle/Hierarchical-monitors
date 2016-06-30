@@ -8,11 +8,12 @@ inOpt = make_option(opt_str = c("-i", "--input"), type = "character", default = 
 outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (static)")
 filterOpt = make_option(opt_str = c("-f", "--filter"), type = "character",default = NULL, help = "Filter input monitor")
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
+colOpt = make_option(opt_str = c("-y", "--column"), type = "integer", default = 4, help = "Use column --column instead of column 4 as Y values to plot")
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
 dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window points will be plot and window will move by --window/4 steps ahead every --update seconds")
-opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynOpt, histOpt))
+opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt))
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
 
 #Ask input if not provided in options
@@ -39,7 +40,7 @@ lseq =function(from = 1, to = 100000, length.out = 6) {
 read_monitors = function(frame, connexion) {
   lines = readLines(connexion, n = options$window/4)
   for (line in lines) {
-    frame_line = read.table(textConnection(line), col.names = c("name", "obj", "nano", "val"), flush = T)
+    frame_line = read.table(textConnection(line), flush = T)
     if (is.null(options$filter) || frame_line[1, 1] == options$filter) {
       frame = rbind(frame, frame_line)
     }
@@ -50,8 +51,8 @@ read_monitors = function(frame, connexion) {
   frame
 }
 plot_monitors = function(frame) {
-  ymax = max(frame[, 4],  na.rm = TRUE)
-  ymin = min(frame[, 4],  na.rm = TRUE)
+  ymax = max(frame[, options$column],  na.rm = TRUE)
+  ymin = min(frame[, options$column],  na.rm = TRUE)
   if (!options$histogram) {
     xmin =  min(frame[, 3], na.rm = TRUE)
     xmax = max(frame[, 3], na.rm = TRUE)
@@ -60,6 +61,7 @@ plot_monitors = function(frame) {
       yticks = seq(from = ymin, to = ymax, by = (ymax - ymin) / 10)
       ylabels = yticks
     } else {
+      ymin = max(c(ymin,1))
       yticks = lseq(from = ymin, to = ymax, length.out = log10(ymax / ymin))
       ylabels = sapply(yticks, function(i) as.expression(bquote(10 ^ .(round(log10(i))))))
     }
@@ -70,20 +72,17 @@ plot_monitors = function(frame) {
     data = subset(frame, frame[, 2] == objs[i])
     if (options$histogram) {
       if(i==1){
-        plot(hist(data[, 4], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
+        plot(hist(data[, options$column], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i)
       } else {
-        plot(hist(data[, 4], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
+        plot(hist(data[, options$column], 100, main = paste(options$input, obj, sep=":"), xlab="", xlim = c(ymin,ymax)), col = i, add=T)
       }
     } else{
-        l = ""
-        if(options$log){l="y"}
         plot(
           x = data[,3],
-          y = data[,4],
-          main = options$title,
-          log = l,
+          y = data[,options$column],
+          main = options$file,
+          log = if(options$log){"y"} else {""},
           type = 'p',
-          pch = 1,
           col = i,
           xlab = "nanoseconds",
           ylab = data[1,1],
