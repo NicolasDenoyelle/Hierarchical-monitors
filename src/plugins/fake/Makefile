@@ -1,4 +1,4 @@
-LDFLAGS=-L../.. -lhwloc -lhmon -llprof
+LDFLAGS=-L../.. -lhwloc -lhmon
 
 fake.monitor_plugin.so: fake_monitor.c
 	$(CC) $(CFLAGS) --shared $^ -o $@ -fPIC $(LDFLAGS)
