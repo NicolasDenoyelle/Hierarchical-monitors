@@ -68,7 +68,11 @@ plot_monitors = function(frame) {
       ylabels = sapply(yticks, function(i) as.expression(bquote(10 ^ .(round(log10(i))))))
     }
   }
-  objs = unique(frame[, 2])
+
+  monitors = unique(frame[, c(1:2)])
+  names = monitors[,1]
+  objs = monitors[,2]
+  
   for (i in 1:length(objs)) {
     obj = as.character(objs[i])
     data = subset(frame, frame[, 2] == objs[i])
@@ -95,7 +99,7 @@ plot_monitors = function(frame) {
           panel.first = abline(h = yticks, v = xticks, col = "darkgray",lty = 3)
         )
         if(options$dynamic){
-          legend("topright", legend = objs, col = 1:length(objs), pch = 1)
+          legend("topright", legend = paste(names,objs,sep=":"), col = 1:length(objs), pch = 1)
         } else {
           legend("topright", legend = c(obj), col = c(i))
         }
