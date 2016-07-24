@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra -std=gnu99 -g -I../..
-LDFLAGS=-lblas -lm -llapacke
+LDFLAGS= #-lblas -lm -llapacke
 
-SRC=perceptron.c brain.c
+SRC=kmean.c #perceptron.c brain.c
 OBJ=$(patsubst %.c, %.o, $(SRC)	)
 LIB=learning.monitor_plugin.so
 

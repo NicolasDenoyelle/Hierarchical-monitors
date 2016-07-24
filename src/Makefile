@@ -11,7 +11,7 @@ MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
 PLUGINS=fake accumulate hierarchical papi #maqao
-STAT_PLUGINS=stat_default stat_gsl #learning
+STAT_PLUGINS=stat_default stat_gsl learning
 PLUGINS+=$(foreach p, $(STAT_PLUGINS), $(p))
 CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS)\""
 
