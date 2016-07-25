@@ -27,6 +27,10 @@ struct monitor{
     void * eventset;
     /** events: history of collected events. n_samples * eventset_size.**/
     long long ** events;
+    /** events: maximums of collected events. eventset_size.**/
+    long long * events_max;
+    /** events: minimums of collected events. eventset_size.**/
+    long long * events_min;
     /** samples: n_samples (aggregated events). **/
     double * samples;
     /* The timestamp of each sample */

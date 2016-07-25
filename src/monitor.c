@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <pthread.h>
+#include <float.h>
 #include "hmon.h"
 
 #define ACTIVE   1
@@ -91,6 +92,8 @@ new_monitor(const char * id,
     monitor->window = window;
     monitor->n_events = n_events;
     monitor->events = NULL;
+    monitor->events_max = NULL;
+    monitor->events_min = NULL;
     monitor->timestamps = NULL;
     monitor->state_query = ACTIVE;
     monitor->userdata = NULL;
@@ -129,11 +132,23 @@ new_monitor(const char * id,
 
     /* allocate arrays */
     malloc_chk(monitor->events, window*sizeof(*(monitor->events)));
+    malloc_chk(monitor->events_max, n_events*sizeof(*(monitor->events_max)));
+    malloc_chk(monitor->events_min, n_events*sizeof(*(monitor->events_max)));
+	
     malloc_chk(monitor->samples, window*sizeof(*(monitor->samples)));
     malloc_chk(monitor->timestamps, window*sizeof(*(monitor->timestamps)));
 
     for(unsigned i = 0;i<monitor->window;i++)
 	malloc_chk(monitor->events[i], n_events*sizeof(*(monitor->events[i])));
+
+    /* initialize statistical values */
+    for(unsigned i=0; i<n_events;i++){
+	monitor->events_max[i] = LONG_MIN;
+	monitor->events_min[i] = LONG_MAX;
+    }
+    monitor->max = DBL_MIN;
+    monitor->min = DBL_MAX;
+    monitor->mu = 0;
     
     /* reset values */
     _monitor_reset(monitor);
@@ -241,6 +256,8 @@ static void _monitor_delete(struct monitor * monitor){
     for(i=0;i<monitor->window;i++)
 	free(monitor->events[i]);
     free(monitor->events);
+    free(monitor->events_max);
+    free(monitor->events_min);
     free(monitor->samples);
     free(monitor->timestamps);
     free(monitor->id);
@@ -461,6 +478,7 @@ static void _monitor_read(struct monitor * m){
 
 static void _monitor_analyse(struct monitor * m){
     if(m->state_query == ACTIVE){
+	m->total = m->total+1; 
 	/* Save timestamp */
 	m->timestamps[m->current] = tspec_diff((&monitors_start_time), (&monitors_current_time));
 	/* Reduce events */
@@ -476,8 +494,11 @@ static void _monitor_analyse(struct monitor * m){
 	    m->value = sample;
 	m->min  = MIN(m->min, sample);
 	m->max  = MAX(m->max, sample);
-	m->mu   = (sample + m->total*m->mu) / (m->total+1);
-	m->total = m->total+1; 
+	m->mu   = (sample + (m->total-1)*m->mu) / (m->total);
+	for(unsigned i = 0; i<m->n_events; i++){
+	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
+	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
+	}
     }
     pthread_mutex_unlock(&(m->available));
 }
