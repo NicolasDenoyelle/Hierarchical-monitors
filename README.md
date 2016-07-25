@@ -85,6 +85,7 @@ L3_miss_pu{
        #SAMPLE_REDUCE:=$0/$1;                 #No event reduction for this monitor.	
        #WINDOW:=4;	                      #Default to 1. (history of samples length)
        #ACCUMULATE:=0;                        #Default to 0.  (accumulate if > 0)
+       #NORMALIZE:=0;                         #Default to 0.  (normalize events if > 0)
        SILENT:=1;                             #Default to 0.  (print if == 0)
        #MAX:=0;                               #Default to DBL_MIN.  (Preset maximum value of sample)
        #MIN:=0;                               #Default to DBL_MAX.  (Preset minimum value of sample)

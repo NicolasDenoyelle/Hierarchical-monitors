@@ -109,6 +109,7 @@ static void usage(char* argv0, struct perf_option ** options)
     printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to 0.\n");
     printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
+    printf("\t\tNORMALIZE:=1;                     # Set if monitor should normalize its events before analysis. Default to 0 (false).\n");
     printf("\t\tOUTPUT:=/dev/stdout;              # Set a specific output for this monitor (default to --output option).\n\t}\n\n");
     printf("\tMONITOR_REDUCE{\n");
     printf("\t\tOBJ:= L3;\n");
