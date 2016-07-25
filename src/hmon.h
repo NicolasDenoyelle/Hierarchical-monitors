@@ -26,7 +26,7 @@ struct monitor{
     /** eventsets, set of collected event **/
     void * eventset;
     /** events: history of collected events. n_samples * eventset_size.**/
-    long long ** events;
+    double ** events;
     /** events: maximums of collected events. eventset_size.**/
     long long * events_max;
     /** events: minimums of collected events. eventset_size.**/
@@ -43,7 +43,7 @@ struct monitor{
     int (* eventset_start)   (void *);
     int (* eventset_stop)    (void *);
     int (* eventset_reset)   (void *);
-    int (* eventset_read)    (void *, long long *);
+    int (* eventset_read)    (void *, double *);
     int (* eventset_destroy) (void *);
     /** The function to aggregate events: into samples **/
     double (* events_to_sample)(struct monitor *);

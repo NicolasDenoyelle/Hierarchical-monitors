@@ -130,7 +130,7 @@ int monitor_eventset_reset(void * eventset){
     return 0;
 }
 
-int monitor_eventset_read(void* eventset, long long * values){
+int monitor_eventset_read(void* eventset, double * values){
     struct maqao_eventset * set = (struct maqao_eventset *) eventset;
     unsigned int i = 0;
     for(i=0;i<set->n_events;i++)

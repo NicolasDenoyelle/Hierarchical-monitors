@@ -126,7 +126,7 @@ int monitor_eventset_reset(void * monitor_eventset){
     return 0;
 }
 
-int monitor_eventset_read(void * monitor_eventset, long long * values){
+int monitor_eventset_read(void * monitor_eventset, double * values){
     struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
     struct monitor * m;
     for(unsigned i = 0; i< hmon_array_length(set->child_events); i++){

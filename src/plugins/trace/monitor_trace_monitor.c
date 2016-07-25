@@ -82,7 +82,7 @@ int monitor_eventset_start(__attribute__ ((unused)) void * monitor_eventset){ret
 int monitor_eventset_stop(__attribute__ ((unused)) void * monitor_eventset){return 0;}
 int monitor_eventset_reset(__attribute__ ((unused)) void * monitor_eventset){return 0;}
 
-int monitor_eventset_read(void * monitor_eventset, long long * values){
+int monitor_eventset_read(void * monitor_eventset, double * values){
     struct monitor_trace_eventset * evset = (struct monitor_trace_eventset *)monitor_eventset;
     long timestamp;
     double vals[evset->n_events];

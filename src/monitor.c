@@ -405,7 +405,7 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     }
     else{
 	for(j=0;j<m->n_events;j++)
-	    fprintf(monitors_output_file,"%lld ", m->events[i][j]);
+	    fprintf(monitors_output_file,"%lf ", m->events[i][j]);
     }
     fprintf(monitors_output_file,"\n");
 }
@@ -481,6 +481,12 @@ static void _monitor_analyse(struct monitor * m){
 	m->total = m->total+1; 
 	/* Save timestamp */
 	m->timestamps[m->current] = tspec_diff((&monitors_start_time), (&monitors_current_time));
+	/* set events max and min before analysis */
+	for(unsigned i = 0; i<m->n_events; i++){
+	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
+	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
+	}
+
 	/* Reduce events */
 	if(m->events_to_sample != NULL)
 	    m->samples[m->current] = m->events_to_sample(m);
@@ -495,10 +501,6 @@ static void _monitor_analyse(struct monitor * m){
 	m->min  = MIN(m->min, sample);
 	m->max  = MAX(m->max, sample);
 	m->mu   = (sample + (m->total-1)*m->mu) / (m->total);
-	for(unsigned i = 0; i<m->n_events; i++){
-	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
-	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
-	}
     }
     pthread_mutex_unlock(&(m->available));
 }

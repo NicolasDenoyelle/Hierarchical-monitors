@@ -125,7 +125,7 @@ int monitor_eventset_reset(void * monitor_eventset){
 }
 
     
-int monitor_eventset_read(void * monitor_eventset, long long * values){
+int monitor_eventset_read(void * monitor_eventset, double * values){
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
     unsigned j,c;
     struct monitor * m = hmon_array_get(set->child_events,0);
