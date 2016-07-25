@@ -231,13 +231,15 @@ int monitor_eventset_reset(void * eventset){
     return 0;
 }
 
-int monitor_eventset_read(void* eventset, long long * values){
+int monitor_eventset_read(void* eventset, double * values){
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
-    int err = PAPI_read(evset->evset, values);
+    int err = PAPI_read(evset->evset, evset->values);
     if(err != PAPI_OK){
 	PAPI_handle_error(err);
 	return -1;
     }
+    unsigned i;
+    for(i=0;i<evset->n_events;i++){values[i] = (double)evset->values[i];}
     return 0;
 }
 
