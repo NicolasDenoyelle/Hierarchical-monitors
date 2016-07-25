@@ -108,7 +108,7 @@ static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vec
 double timestep_split(struct monitor * m){
     double separator;
     unsigned i, j, idx, n_samples = m->window>m->total ? m->total:m->window;
-    double t0, tf, event_max, event_min;
+    double t0, tf;
     gsl_vector ** samples = malloc(sizeof(*samples)*n_samples);
     gsl_vector ** centroids = m->userdata;
     
@@ -117,14 +117,11 @@ double timestep_split(struct monitor * m){
     for(i=0;i<n_samples;i++){
 	samples[i] = gsl_vector_calloc(m->n_events+1);
 	idx = (m->current-i)%m->window;
-	/* Feature normalization */
+	/* time normalization */
 	if(tf!=t0){gsl_vector_set(samples[i], 0, (double)(m->timestamps[idx]-t0)/(tf-t0));}
 	else{gsl_vector_set(samples[i], 0, 0);}
-	for(j=0;j<m->n_events;j++){
-	    event_max = m->events_max[j]; event_min = m->events_min[j];
-	    if(event_min != event_max){gsl_vector_set(samples[i], j+1, (double)(m->events[idx][j])/(event_max));}
-	    else{gsl_vector_set(samples[i], j+1, (double)(m->events[idx][j])/event_max);}
-	}
+	/* others features are assumed to be normalized */
+	for(j=0;j<m->n_events;j++){gsl_vector_set(samples[i], j+1, m->events[idx][j]);}
     }
 
     /* centroids alloc */
