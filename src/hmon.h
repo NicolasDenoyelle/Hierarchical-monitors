@@ -49,6 +49,8 @@ struct monitor{
     double (* events_to_sample)(struct monitor *);
     /** The function to aggregate samples: into value **/
     double (* samples_to_value)(struct monitor *);
+    /** are events normalized ? **/
+    int normalize;
     /** If stopped do not stop twice **/
     int stopped;
     /** 1:ACTIVE, 0:SLEEPING **/

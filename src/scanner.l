@@ -46,6 +46,7 @@ void count();
 "WINDOW_REDUCE:="  { count(); /* fprintf(stderr,"WINDOW_REDUCE_FIELD\n"); */   return(WINDOW_REDUCE_FIELD);};
 "WINDOW:="         { count(); /* fprintf(stderr,"WINDOW_FIELD\n"); */          return(WINDOW_FIELD);};
 "ACCUMULATE:="     { count(); /* fprintf(stderr,"ACCUMULATE_FIELD\n"); */      return(ACCUMULATE_FIELD);};
+"NORMALIZE:="     { count(); /* fprintf(stderr,"NORMALIZE_FIELD\n"); */        return(NORMALIZE_FIELD);};
 "SILENT:="         { count(); /* fprintf(stderr,"SILENT_FIELD\n"); */          return(SILENT_FIELD);};
 {name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */      yylval.str = strdup(yytext); return(NAME);};
 {attribute}        { count(); /* fprintf(stderr,"ATTRIBUTE:%s\n", yytext); */ yylval.str = strdup(yytext); return(ATTRIBUTE);};

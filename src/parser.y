@@ -27,6 +27,8 @@
      *   MIN:=0;
      *   # Set if LIB should accumulate events values along time. Default to 0 (false).
      *   ACCUMULATE:=1;
+     *   # Set if events should be normalized. Default to 0 (false).
+     *   NORMALIZE:=1;
      *   # Set if monitor should print output. Default to 0 (prints output).
      *   SILENT:=1;
      * }
@@ -41,7 +43,7 @@
      *
      **/
 
-    extern struct monitor * new_monitor(char*, hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int);
+    extern struct monitor * new_monitor(char*, hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int, int);
 
     /* Default fields */
     const char * default_perf_lib = "fake"; 
@@ -52,6 +54,7 @@
     char *                     samples_analysis_name;
     char *                     code;
     int                        accumulate;
+    int                        normalize;
     int                        silent;
     double                     max;
     double                     min;
@@ -70,6 +73,7 @@
 	min                    = DBL_MAX;
 	window                 = 1;        /* default store 1 sample */
 	accumulate             = 0;        /* default do not accumulate */
+	normalize              = 0;        /* default do not normalize */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
 	perf_plugin_name       = NULL;
@@ -193,7 +197,7 @@
 	    eventset_init_fini(eventset);
 
 	    /* Create monitor */
-	    new_monitor(name, obj, eventset, added_events, window, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
+	    new_monitor(name, obj, eventset, added_events, window, perf_plugin_name, evset_analysis_name, samples_analysis_name, normalize, silent);
 	}
 	reset_monitor_fields();
     }
@@ -213,7 +217,7 @@
     %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD MAX_FIELD MIN_FIELD PERF_LIB_FIELD WINDOW_REDUCE_FIELD SAMPLE_REDUCE_FIELD WINDOW_FIELD ACCUMULATE_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
+%token <str> OBJ_FIELD EVSET_FIELD MAX_FIELD MIN_FIELD PERF_LIB_FIELD WINDOW_REDUCE_FIELD SAMPLE_REDUCE_FIELD WINDOW_FIELD NORMALIZE_FIELD ACCUMULATE_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
 
 %type <str> primary_expr add_expr mul_expr event
 
@@ -250,6 +254,7 @@ field
 | WINDOW_REDUCE_FIELD  NAME     ';' {samples_analysis_name = $2;}
 | PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
 | ACCUMULATE_FIELD INTEGER   ';' {accumulate = atoi($2); free($2);}
+| NORMALIZE_FIELD INTEGER   ';' {normalize = atoi($2); free($2);}
 | SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
 | WINDOW_FIELD   INTEGER   ';' {window = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}

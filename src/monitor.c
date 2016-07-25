@@ -57,6 +57,7 @@ new_monitor(const char * id,
 	    const char * perf_plugin,
 	    const char * events_to_sample,
 	    const char * samples_to_value,
+	    int normalize,
 	    int silent)
 {
     struct monitor * monitor;
@@ -97,7 +98,8 @@ new_monitor(const char * id,
     monitor->timestamps = NULL;
     monitor->state_query = ACTIVE;
     monitor->userdata = NULL;
-
+    monitor->normalize = normalize;
+    
     /* Load perf plugin functions */
     struct monitor_plugin * plugin = monitor_plugin_load(perf_plugin, MONITOR_PLUGIN_PERF);
     if(plugin == NULL){
@@ -485,6 +487,7 @@ static void _monitor_analyse(struct monitor * m){
 	for(unsigned i = 0; i<m->n_events; i++){
 	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
 	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
+	    if(m->normalize){m->events[m->current][i] = m->events[m->current][i]/(m->events_max[i]-m->events_min[i]);}
 	}
 
 	/* Reduce events */
