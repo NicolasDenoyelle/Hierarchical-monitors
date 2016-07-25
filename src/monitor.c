@@ -487,7 +487,11 @@ static void _monitor_analyse(struct monitor * m){
 	for(unsigned i = 0; i<m->n_events; i++){
 	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
 	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
-	    if(m->normalize){m->events[m->current][i] = m->events[m->current][i]/(m->events_max[i]-m->events_min[i]);}
+	    if(m->normalize){
+		if(m->events_max[i]!=m->events_min[i])
+		    m->events[m->current][i] = (m->events[m->current][i]-m->events_min[i])/(m->events_max[i]-m->events_min[i]);
+		else m->events[m->current][i] = 1;
+	    }
 	}
 
 	/* Reduce events */
