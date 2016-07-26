@@ -58,7 +58,7 @@ static void adjust_centroids(const unsigned * colors,
     }
 }
 
-#define KMEAN_THRESHOLD 0.1
+#define KMEAN_THRESHOLD 0.001
 static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vector ** centroids, const unsigned n_centroids){
      unsigned i; 
     /* if more centroids than sample, then set centroids to samples. */
@@ -69,10 +69,7 @@ static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vec
     }
 
     /* centroids init */
-    for(i=0; i<n_centroids; i++){
-	if(i%2){gsl_vector_memcpy(centroids[i], samples[i]);}
-	else{gsl_vector_memcpy(centroids[i], samples[n_samples-1-i]);}
-    }
+    for(i=0; i<n_centroids; i++){gsl_vector_memcpy(centroids[i], samples[i]);}
 
        
     /* algorithm */
@@ -82,16 +79,16 @@ static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vec
     double c_norm = 2*KMEAN_THRESHOLD;
     
     while(c_norm > KMEAN_THRESHOLD){
-	gsl_vector_set_zero(c);
 	/* colorize samples */
 	colorize_samples(colors, n_colors, samples, n_samples, (const gsl_vector**)centroids, n_centroids);
 	/* move centroids */
+	gsl_vector_set_zero(c);
 	for(i=0; i<n_centroids; i++){gsl_vector_add(c,centroids[i]);}
 	adjust_centroids((const unsigned *)colors, (const unsigned *)n_colors, samples, n_samples, centroids, n_centroids);
 	for(i=0; i<n_centroids; i++){gsl_vector_sub(c,centroids[i]);}
 	c_norm = gsl_blas_dnrm2(c);
     }
-    
+
     gsl_vector_free(c);
     free(colors);
     free(n_colors);
@@ -99,13 +96,13 @@ static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vec
 
 
 #define N_CENTROIDS 2
-
+#define SEP_THRESHOLD 0.1
 /**
  * Perform K-mean clustering into 2 clusters on timestamps and samples, and output timestamp boundary between clusters.
  * @param m: the monitor used for clustering
  * @return The timestamp boundary
  **/
-double timestep_split(struct monitor * m){
+double centroid_clustering(struct monitor * m){
     double separator;
     unsigned i, j, idx, n_samples = m->window>m->total ? m->total:m->window;
     double t0, tf;
@@ -137,6 +134,7 @@ double timestep_split(struct monitor * m){
     
     /**** This part assumes N_CENTROIDS = 2 */
     separator = gsl_vector_get(centroids[0],0)+gsl_vector_get(centroids[1],0)-0.5;
+    /* if(separator-SEP_THRESHOLD < 0.5 && separator+SEP_THRESHOLD > 0.5){separator = 0.5;} */
     /**** end N_CENTROIDS = 2 */
 
     /* Cleanup */
