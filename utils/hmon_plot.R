@@ -111,6 +111,7 @@ plot_monitors <- function(frame){
     ann=TRUE
   }
   monitors = unique(frame[, c(1,2)])
+  monitors = monitors[order(monitors[,2]),]
   objs = monitors[,2]
   names = monitors[,1]
   for (i in 1:length(objs)) {
@@ -157,7 +158,9 @@ if (!options$dynamic) {
   x11(xpos = 0, ypos = 0)
   repeat {
     df = read_monitors(df, stream)
-    par(mfrow = c(length(unique(df[,2])),1))
+    if(options$split){
+       par(mfrow = c(length(unique(df[,2])),1))
+    }
     plot_monitors(df)
     Sys.sleep(options$update)
   }
