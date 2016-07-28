@@ -8,11 +8,12 @@ filterOpt = make_option(opt_str = c("-f", "--filter"), type = "character",defaul
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
 colOpt = make_option(opt_str = c("-y", "--column"), type = "integer", default = 4, help = "Use column --column instead of column 4 as Y values to plot")
 splitOpt = make_option(opt_str = c("-s", "--split"), type = "logical", default = FALSE,action = "store_true", help = "split one plot per monitor")
+clusterOpt = make_option(opt_str = c("-c", "--cluster"), type = "integer", default = 1, help = "If split option is enabled, compute two clusters and colorize plot with a color per cluster")
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
 dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window points will be plot and window will move by --window/4 steps ahead every --update seconds")
-opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, splitOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt, titleOpt))
+opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, splitOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt, titleOpt, clusterOpt))
 
 #Functions
 lseq =function(from = 1, to = 100000, length.out = 6) {
@@ -64,6 +65,11 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
   } else {
     ymin = max(c(ymin,1))
     yticks = lseq(from = ymin, to = ymax, length.out = log10(ymax / ymin))
+  }
+  if(options$cluster>1 && options$split){
+    points = scale(frame[,3:ncol(frame)], center=TRUE, scale=TRUE)
+    km = kmeans(x = points, centers = options$cluster, iter.max = 20)
+    col = km$cluster
   }
 
   obj = frame[1,2];  monitor = frame[1,1];
