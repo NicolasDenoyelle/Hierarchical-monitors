@@ -1,148 +1,169 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <float.h>
-#include <math.h>
 #include <gsl/gsl_vector_double.h>
+#include <gsl/gsl_vector_ulong.h>
 #include <gsl/gsl_blas.h>
+
 #include "../../hmon.h"
 
-static void print_vector(const gsl_vector * v){
+static void gsl_vector_print(const gsl_vector * v){
     unsigned i;
     printf("[%lf", gsl_vector_get(v,0));
     for(i=1;i<v->size;i++){printf(", %lf", gsl_vector_get(v,i));}
     printf("]");
 }
 
-static void colorize_samples(unsigned * colors,
-		     unsigned * centroid_n_colors,
-		     const gsl_vector ** samples, 
-		     const unsigned n_samples,
-		     const gsl_vector ** centroids,
-		     const unsigned n_centroids)
-{
-    unsigned i, j, color_assign;
+static void gsl_vector_normalize(gsl_vector * v){
+    double max  = gsl_vector_max(v);
+    double min = gsl_vector_min(v);
+    double mu = gsl_stats_mean(v->data, 1, v->size);
+    gsl_vector_add_constant(v, -mu);
+    gsl_vector_scale(v,1/(max-min));
+}
+
+struct centroids{
+    unsigned m, n, k;
+    gsl_vector       * points;    /* vector of m*n element with stride n */
+    gsl_vector       * centroids; /* vector of k*n element with stride n */
+    gsl_vector_ulong * col;       /* points colors: size=m */
+    gsl_vector_ulong * ncol;      /* points per centroid: size=k */
+};
+
+struct centroids * new_centroids(const unsigned m, const unsigned n, const unsigned k);
+void               delete_centroids(struct centroids * c);
+void               centroids_set(struct centroids * c, double * points, size_t offset, unsigned n);
+void               centroids_init(struct centroids * c);
+void               centroids_color(struct centroids * c);
+void               centroids_center(struct centroids * c);
+
+struct centroids * new_centroids(const unsigned m, const unsigned n, const unsigned k){
+    struct centroids * c = malloc(sizeof(*c));
+    c->m=m; c->n=n; c->k=k;
+    c->points    = gsl_vector_alloc(m*n);
+    c->centroids = gsl_vector_alloc(k*n);
+    c->col       = gsl_vector_ulong_alloc(m);
+    c->ncol      = gsl_vector_ulong_alloc(k);
+    return c;
+}
+
+void delete_centroids(struct centroids * c){
+    free(c->col);
+    free(c->ncol);
+    gsl_vector_free(c->points);
+    gsl_vector_free(c->centroids);
+}
+
+void centroids_set(struct centroids * c, double * points, size_t offset, unsigned n){
+    unsigned i;
+    gsl_vector_view feature;
+    void * data = &(c->points->data[c->m*offset]);
+    memcpy(data, points, n*c->m*sizeof(*points));
+    for(i = 0; i < n; i++){
+	feature = gsl_vector_subvector_with_stride(c->points, offset+i*c->m, 1, c->m);
+	gsl_vector_normalize(&feature.vector);
+    }
+}
+
+void centroids_init(struct centroids * c){
+    unsigned i;
+    for(i=0;i<c->k;i++){
+	gsl_vector_view centroid = gsl_vector_subvector_with_stride(c->centroids, i, c->k, c->n);
+	gsl_vector_view point = gsl_vector_subvector_with_stride(c->points, rand()%c->m, c->k, c->n);
+	gsl_vector_memcpy(&centroid.vector, &point.vector);
+    }
+}
+
+void centroids_color(struct centroids * c){
+    unsigned i, j, color_assign = 0;
     double distance_min, distance;
     /* store difference between sample and centroid */
-    gsl_vector * difference = gsl_vector_calloc(samples[0]->size); 
-    for(i=0;i<n_centroids;i++){centroid_n_colors[i] = 0;}
-    for(i=0;i<n_samples;i++){
-	distance_min = DBL_MAX;
-	for(j=0;j<n_centroids;j++){
-	    gsl_vector_memcpy(difference, samples[i]);
-	    gsl_vector_sub (difference,  centroids[j]);
-	    gsl_blas_ddot(difference, difference, &distance);
-	    if(distance < distance_min){
-		distance_min=distance;
-		color_assign = j;
-	    }
-	}
-	colors[i] = color_assign;
-	centroid_n_colors[color_assign]++;
-    }
-    gsl_vector_free(difference);
-}
-
-static void adjust_centroids(const unsigned * colors,
-			       const unsigned * centroid_n_colors,
-			       const gsl_vector ** samples, 
-			       const unsigned n_samples,
-			       gsl_vector ** centroids,
-			       const unsigned n_centroids)
-{
-    unsigned i;
-    for(i=0; i<n_centroids; i++){gsl_vector_set_zero(centroids[i]);}
-    for(i=0; i<n_samples; i++){gsl_vector_add(centroids[colors[i]],samples[i]);}
-    for(i=0; i<n_centroids; i++){
-	if(centroid_n_colors[i]){gsl_vector_scale(centroids[i], 1.0/(double)centroid_n_colors[i]);}
-	else{gsl_vector_set_zero(centroids[i]);}
-    }
-}
-
-#define KMEAN_THRESHOLD 0.001
-static void kmean(const gsl_vector ** samples, const unsigned n_samples, gsl_vector ** centroids, const unsigned n_centroids){
-     unsigned i; 
-    /* if more centroids than sample, then set centroids to samples. */
-    if(n_centroids >= n_samples){
-	for(i=0; i<n_samples; i++){gsl_vector_memcpy(centroids[i], samples[i]);}
-	for(i=n_samples; i< n_centroids; i++){gsl_vector_set_zero(centroids[i]);}
-	return;
-    }
-
-    /* centroids init */
-    for(i=0; i<n_centroids; i++){gsl_vector_memcpy(centroids[i], samples[i]);}
-
-       
-    /* algorithm */
-    unsigned * colors   = malloc(sizeof(*colors)*n_samples);
-    unsigned * n_colors = malloc(sizeof(*n_colors)*n_centroids);
-    gsl_vector * c = gsl_vector_alloc(centroids[0]->size);
-    double c_norm = 2*KMEAN_THRESHOLD;
     
-    while(c_norm > KMEAN_THRESHOLD){
-	/* colorize samples */
-	colorize_samples(colors, n_colors, samples, n_samples, (const gsl_vector**)centroids, n_centroids);
-	/* move centroids */
-	gsl_vector_set_zero(c);
-	for(i=0; i<n_centroids; i++){gsl_vector_add(c,centroids[i]);}
-	adjust_centroids((const unsigned *)colors, (const unsigned *)n_colors, samples, n_samples, centroids, n_centroids);
-	for(i=0; i<n_centroids; i++){gsl_vector_sub(c,centroids[i]);}
-	c_norm = gsl_blas_dnrm2(c);
-    }
+    gsl_vector * diff = gsl_vector_calloc(c->n);
+    gsl_vector_ulong_set_zero(c->ncol);
 
-    gsl_vector_free(c);
-    free(colors);
-    free(n_colors);
+    for(i=0;i<c->m;i++){
+	gsl_vector_view point = gsl_vector_subvector_with_stride(c->points, i, c->m, c->n);
+	distance_min = DBL_MAX;
+	for(j=0;j<c->k;j++){
+	    gsl_vector_view centroid = gsl_vector_subvector_with_stride(c->centroids, j, c->k, c->n);
+	    gsl_vector_memcpy(diff, &point.vector);
+	    gsl_vector_sub (diff,  &centroid.vector);
+	    gsl_blas_ddot(diff, diff, &distance);
+	    if(distance < distance_min){distance_min=distance; color_assign=j;}
+	}
+	gsl_vector_ulong_set(c->col, i, color_assign);
+	gsl_vector_ulong_set(c->ncol, color_assign, 1+gsl_vector_ulong_get(c->ncol, color_assign));
+    }
+    gsl_vector_free(diff);
 }
 
+void centroids_center(struct centroids * c){
+    unsigned i;
+    gsl_vector_set_zero(c->centroids);
+    for(i=0; i<c->m; i++){
+	unsigned long color = gsl_vector_ulong_get(c->col,i);
+	gsl_vector_view centroid = gsl_vector_subvector_with_stride(c->centroids, color, c->k, c->n);
+	gsl_vector_view point = gsl_vector_subvector_with_stride(c->points, i, c->m, c->n);
+	gsl_vector_add(&centroid.vector, &point.vector);
+    }
+    for(i=0; i<c->k; i++){
+	unsigned long ncol = gsl_vector_ulong_get(c->ncol, i);
+	gsl_vector_view centroid = gsl_vector_subvector_with_stride(c->centroids, i, c->k, c->n);
+	if(ncol){gsl_vector_scale(&centroid.vector, 1.0/(double)ncol);}
+    }
+}
+    
+#define KMEAN_ITER 10
+static void kmean(struct centroids * c){
+    unsigned iter = KMEAN_ITER;
+    
+    /* if more centroids than sample, then set centroids to samples. */
+    if(c->k >= c->m){
+	gsl_vector_set_zero(c->centroids);
+	memcpy(c->centroids->data, c->points->data, c->m*sizeof(double));
+	 return;
+    }
+    
+    centroids_init(c);
+    while(iter--){
+	centroids_color(c);
+	centroids_center(c);
+    }
+}
 
-#define N_CENTROIDS 2
-#define SEP_THRESHOLD 0.1
+#define K 2
 /**
- * Perform K-mean clustering into 2 clusters on timestamps and samples, and output timestamp boundary between clusters.
+ * Perform K-mean clustering into K clusters on timestamps and events, and output timestamp boundary between clusters.
  * @param m: the monitor used for clustering
  * @return The timestamp boundary
  **/
-double centroid_clustering(struct monitor * m){
-    double separator;
-    unsigned i, j, idx, n_samples = m->window>m->total ? m->total:m->window;
-    double t0, tf;
-    gsl_vector ** samples = malloc(sizeof(*samples)*n_samples);
-    gsl_vector ** centroids = m->userdata;
-    
-    t0 = m->timestamps[(m->current+1)%m->window];
-    tf = m->timestamps[m->current];
-    for(i=0;i<n_samples;i++){
-	samples[i] = gsl_vector_calloc(m->n_events+1);
-	idx = (m->current-i)%m->window;
-	/* time normalization */
-	if(tf!=t0){gsl_vector_set(samples[i], 0, (double)(m->timestamps[idx]-t0)/(tf-t0));}
-	else{gsl_vector_set(samples[i], 0, 0);}
-	/* others features are assumed to be normalized */
-	for(j=0;j<m->n_events;j++){gsl_vector_set(samples[i], j+1, m->events[idx][j]);}
+double centroid_clustering(struct monitor * hmon){
+    unsigned long separator = 0;
+    unsigned i, m = hmon->window, n = hmon->n_events+1;
+
+    /* initialize centroids */
+    struct centroids *c = hmon->userdata;
+    if(c == NULL){
+	c = new_centroids(m, n, K);
+	hmon->userdata=c;
     }
 
-    /* centroids alloc */
-    if(centroids == NULL){
-	centroids = m->userdata = malloc(sizeof(*centroids)*N_CENTROIDS);
-	for(i=0; i< N_CENTROIDS; i++){
-	    centroids[i] = gsl_vector_alloc(m->n_events+1);
-	}
-    }
+    /* Set events into centroids points */
+    double * timestamps = malloc(m*sizeof(timestamps));
+    for(i=0;i<m;i++){timestamps[i] = (double)hmon->timestamps[i];}
+    centroids_set(c, timestamps, 0, 1);
+    centroids_set(c, hmon->events, 1, n-1);
+    free(timestamps);
 
     /* centroids move */
-    kmean((const gsl_vector**)samples, n_samples, centroids, N_CENTROIDS);
+    kmean(c);
     
-    /**** This part assumes N_CENTROIDS = 2 */
-    separator = gsl_vector_get(centroids[0],0)+gsl_vector_get(centroids[1],0)-0.5;
-    /* if(separator-SEP_THRESHOLD < 0.5 && separator+SEP_THRESHOLD > 0.5){separator = 0.5;} */
-    /**** end N_CENTROIDS = 2 */
-
-    /* Cleanup */
-    /* for(i=0;i<N_CENTROIDS;i++){gsl_vector_free(centroids[i]);} */
-    /* free(centroids); */
-    for(i=0;i<n_samples;i++){gsl_vector_free(samples[i]);}
-    free(samples);
-    return separator;
+    /**** The remaining part assumes K = 2 */
+    separator = gsl_vector_ulong_get(c->col, 0);
+    for(i=0;i<m;i++){
+	if(gsl_vector_ulong_get(c->col,i)!=separator){return timestamps[i];}
+	else{separator = gsl_vector_ulong_get(c->col, i);}
+    }
+    return -1;
 }
-
 
