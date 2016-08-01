@@ -2,43 +2,33 @@
 
 
 double monitor_samples_last(struct monitor * monitor){
-    return monitor->samples[monitor->current];
+    return monitor->samples[monitor->last];
 }
 
 double monitor_evset_max(struct monitor * monitor){
-    unsigned c = monitor->current, n = monitor->n_events;
-    double max = monitor->events[c][--n];
+    unsigned n = monitor->n_events;
+    double * events = &(monitor->events[monitor->last*n]);
+    double max = events[--n];
     while(n-->0)
-	max = max > monitor->events[c][n] ? max : monitor->events[c][n];
+	max = max > events[n] ? max : events[n];
     return max;
 }
 
 double monitor_evset_min(struct monitor * monitor){
-    unsigned c = monitor->current, n = monitor->n_events;
-    double min = monitor->events[c][--n];
+    unsigned n = monitor->n_events;
+    double * events = &(monitor->events[monitor->last*n]);
+    double min = events[--n];
     while(n-->0)
-	min = min < monitor->events[c][n] ? min : monitor->events[c][n];
+	min = min < events[n] ? min : events[n];
     return min;
 }
 
 double monitor_evset_sum(struct monitor * monitor){
     double result = 0;
-    unsigned c = monitor->current, n = monitor->n_events;
+    unsigned n = monitor->n_events;
+    double * events = &(monitor->events[monitor->last*n]);
     while(n--)
-	result+=monitor->events[c][n];
+	result+=events[n];
     return result;
 }
-
-double monitor_normalized_evset_sum(struct monitor * monitor){
-    double result = 0;
-    unsigned c = monitor->current, n = monitor->n_events;
-    while(n--){
-	if(monitor->events_min[n]!=monitor->events_max[n]){
-	    double range = monitor->events_max[n] - monitor->events_min[n];
-	    result+=(monitor->events[c][n] - monitor->events_min[n])/range;
-	} else {result += 1;}
-    }
-    return result/(double)(monitor->n_events);
-}
-
 
