@@ -25,20 +25,16 @@ struct monitor{
     double value, min, max, mu;
     /** eventsets, set of collected event **/
     void * eventset;
-    /** events: history of collected events. n_samples * eventset_size.**/
-    double ** events;
-    /** events: maximums of collected events. eventset_size.**/
-    long long * events_max;
-    /** events: minimums of collected events. eventset_size.**/
-    long long * events_min;
+    /** events: history of collected events. n_events * window.**/
+    double * events;
+    /** The number of events per eventset **/
+    unsigned n_events;
     /** samples: n_samples (aggregated events). **/
     double * samples;
     /* The timestamp of each sample */
     long * timestamps;
-    /** The number of events per eventset **/
-    unsigned n_events;
     /** The number of samples kept, the current sample index and the total amount of recorded samples **/
-    unsigned window, current, total;
+    unsigned window, last, total;
     /** pointers to performance library handling event collection. Functions documentation in plugins/performance_plugin.h  **/
     int (* eventset_start)   (void *);
     int (* eventset_stop)    (void *);
@@ -49,8 +45,6 @@ struct monitor{
     double (* events_to_sample)(struct monitor *);
     /** The function to aggregate samples: into value **/
     double (* samples_to_value)(struct monitor *);
-    /** are events normalized ? **/
-    int normalize;
     /** If stopped do not stop twice **/
     int stopped;
     /** 1:ACTIVE, 0:SLEEPING **/
