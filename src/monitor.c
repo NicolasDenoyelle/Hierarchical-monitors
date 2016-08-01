@@ -57,7 +57,6 @@ new_monitor(const char * id,
 	    const char * perf_plugin,
 	    const char * events_to_sample,
 	    const char * samples_to_value,
-	    int normalize,
 	    int silent)
 {
     struct monitor * monitor;
@@ -93,12 +92,9 @@ new_monitor(const char * id,
     monitor->window = window;
     monitor->n_events = n_events;
     monitor->events = NULL;
-    monitor->events_max = NULL;
-    monitor->events_min = NULL;
     monitor->timestamps = NULL;
     monitor->state_query = ACTIVE;
     monitor->userdata = NULL;
-    monitor->normalize = normalize;
     
     /* Load perf plugin functions */
     struct monitor_plugin * plugin = monitor_plugin_load(perf_plugin, MONITOR_PLUGIN_PERF);
@@ -133,21 +129,10 @@ new_monitor(const char * id,
 	monitor->samples_to_value = NULL;
 
     /* allocate arrays */
-    malloc_chk(monitor->events, window*sizeof(*(monitor->events)));
-    malloc_chk(monitor->events_max, n_events*sizeof(*(monitor->events_max)));
-    malloc_chk(monitor->events_min, n_events*sizeof(*(monitor->events_max)));
-	
+    malloc_chk(monitor->events, window*n_events*sizeof(*(monitor->events)));
     malloc_chk(monitor->samples, window*sizeof(*(monitor->samples)));
     malloc_chk(monitor->timestamps, window*sizeof(*(monitor->timestamps)));
 
-    for(unsigned i = 0;i<monitor->window;i++)
-	malloc_chk(monitor->events[i], n_events*sizeof(*(monitor->events[i])));
-
-    /* initialize statistical values */
-    for(unsigned i=0; i<n_events;i++){
-	monitor->events_max[i] = LONG_MIN;
-	monitor->events_min[i] = LONG_MAX;
-    }
     monitor->max = DBL_MIN;
     monitor->min = DBL_MAX;
     monitor->mu = 0;
@@ -254,12 +239,7 @@ static int _monitor_location_compare(void* a, void* b){
 
 
 static void _monitor_delete(struct monitor * monitor){
-    unsigned i;
-    for(i=0;i<monitor->window;i++)
-	free(monitor->events[i]);
     free(monitor->events);
-    free(monitor->events_max);
-    free(monitor->events_min);
     free(monitor->samples);
     free(monitor->timestamps);
     free(monitor->id);
@@ -364,13 +344,13 @@ void monitor_buffered_output(struct monitor * m, int force){
     unsigned i;
     /* Really output when buffer is full to avoid IO */
     pthread_mutex_lock(&(m->available));
-    if(m->current+1 == m->window){
+    if(m->last+1 == m->window){
 	for(i=0;i<m->window;i++){
 	    _monitor_output_sample(m,i);
 	}
     }
     else if(force){
-	for(i=0;i<=m->current;i++){
+	for(i=0;i<=m->last;i++){
 	    _monitor_output_sample(m,i);
 	}
     }
@@ -381,11 +361,11 @@ void monitor_buffered_output(struct monitor * m, int force){
 void monitor_output(struct monitor * m, int wait){
     if(wait){
 	pthread_mutex_lock(&(m->available));
-	_monitor_output_sample(m, m->current);
+	_monitor_output_sample(m, m->last);
 	pthread_mutex_unlock(&(m->available));
     }
     else
-	_monitor_output_sample(m, m->current);
+	_monitor_output_sample(m, m->last);
 }
 
 
@@ -396,6 +376,7 @@ void monitors_output(void (* monitor_output_method)(struct monitor*, int), int f
 
 static void _monitor_output_sample(struct monitor * m, unsigned i){
     unsigned j;
+    double * events = &(m->events[i*m->n_events]);
     fprintf(monitors_output_file,"%s ",    m->id);
     fprintf(monitors_output_file,"%s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
     fprintf(monitors_output_file,"%ld ",   m->timestamps[i]);
@@ -407,7 +388,7 @@ static void _monitor_output_sample(struct monitor * m, unsigned i){
     }
     else{
 	for(j=0;j<m->n_events;j++)
-	    fprintf(monitors_output_file,"%lf ", m->events[i][j]);
+	    fprintf(monitors_output_file,"%lf ", events[j]);
     }
     fprintf(monitors_output_file,"\n");
 }
@@ -426,19 +407,20 @@ static void _monitor_update_state(struct monitor * m){
 
 
 static void _monitor_reset(struct monitor * monitor){
-unsigned i, j;
-   monitor->value = 0;
-   monitor->min = 0;
-   monitor->max = 0;
-   monitor->mu = 0;
-   monitor->current = monitor->window-1;
-   monitor->stopped = 1;
-   for(i=0;i<monitor->window;i++){
-       monitor->samples[i] = 0;
-       monitor->timestamps[i] = 0;
-       for(j = 0; j < monitor->n_events; j++)
-	   monitor->events[i][j] = 0;
-   }
+    unsigned i;
+    monitor->value = 0;
+    monitor->min = 0;
+    monitor->max = 0;
+    monitor->mu = 0;
+    monitor->last = monitor->window-1;
+    monitor->stopped = 1;
+    for(i=0;i<monitor->window;i++){
+	monitor->samples[i] = 0;
+	monitor->timestamps[i] = 0;
+    }
+    for(i=0;i<monitor->window*monitor->n_events;i++){
+	monitor->events[i] = 0;
+    }
 }
 
 
@@ -468,9 +450,9 @@ static int _monitor_stop(struct monitor * m){
 static void _monitor_read(struct monitor * m){
     pthread_mutex_trylock(&(m->available));
     if(m->state_query == ACTIVE){
-	m->current = (m->current+1)%(m->window);
+	m->last = (m->last+1)%(m->window);
 	/* Read events */
-	if((m->eventset_read(m->eventset,m->events[m->current])) == -1){
+	if((m->eventset_read(m->eventset,&(m->events[m->last*m->n_events]))) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
 		    hwloc_type_name(m->location->type), m->location->logical_index);
 	    _monitor_remove(m);
@@ -482,24 +464,14 @@ static void _monitor_analyse(struct monitor * m){
     if(m->state_query == ACTIVE){
 	m->total = m->total+1; 
 	/* Save timestamp */
-	m->timestamps[m->current] = tspec_diff((&monitors_start_time), (&monitors_current_time));
-	/* set events max and min before analysis */
-	for(unsigned i = 0; i<m->n_events; i++){
-	    m->events_max[i] = MAX(m->events_max[i], m->events[m->current][i]);
-	    m->events_min[i] = MIN(m->events_min[i], m->events[m->current][i]);
-	    if(m->normalize){
-		if(m->events_max[i]!=m->events_min[i])
-		    m->events[m->current][i] = (m->events[m->current][i]-m->events_min[i])/(m->events_max[i]-m->events_min[i]);
-		else m->events[m->current][i] = 1;
-	    }
-	}
+	m->timestamps[m->last] = tspec_diff((&monitors_start_time), (&monitors_current_time));
 
 	/* Reduce events */
 	if(m->events_to_sample != NULL)
-	    m->samples[m->current] = m->events_to_sample(m);
+	    m->samples[m->last] = m->events_to_sample(m);
 	else if(m->n_events == 1)
-	    m->samples[m->current] = m->events[m->current][0];
-	double sample = m->samples[m->current];
+	    m->samples[m->last] = m->events[m->last*m->n_events];
+	double sample = m->samples[m->last];
 	/* Analyse samples */
 	if(m->samples_to_value != NULL)
 	    m->value = m->samples_to_value(m);
