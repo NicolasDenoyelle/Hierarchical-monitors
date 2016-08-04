@@ -68,6 +68,7 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
   }
   if(options$cluster>1 && options$split){
     points = scale(frame[,3:ncol(frame)], center=TRUE, scale=TRUE)
+    points[1] = points[1]*(ncol(frame)-3)
     km = kmeans(x = points, centers = options$cluster, iter.max = 20)
     col = km$cluster
   }
@@ -162,12 +163,13 @@ if (!options$dynamic) {
   df = data.frame(name = character(0), obj = character(0), nano = numeric(0), val = numeric(0))
   stream = fifo(options$input, open = "r")
   x11(xpos = 0, ypos = 0)
+  df = read_monitors(df, stream)
+  if(options$split){
+     par(mfrow = c(length(unique(df[,2])),1), mar=rep(2,4))	
+  }
   repeat {
-    df = read_monitors(df, stream)
-    if(options$split){
-       par(mfrow = c(length(unique(df[,2])),1))
-    }
     plot_monitors(df)
     Sys.sleep(options$update)
+    df = read_monitors(df, stream)
   }
 }
