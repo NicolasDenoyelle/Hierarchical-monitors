@@ -73,6 +73,7 @@ fake{
 %	 monitor_events_mean
 %	 monitor_events_sum
 %	 monitor_events_min
+%	 monitor_events_max
 
 %default PERF_LIB (some may not be available):
 %	 papi
