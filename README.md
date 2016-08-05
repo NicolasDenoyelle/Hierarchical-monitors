@@ -18,7 +18,7 @@ This output of a [previous implementation](https://github.com/NicolasDenoyelle/d
   * `HWLOC_API_VERSION     0x00020000`
 
 * `HWLOC_COMPONENT_ABI   5`
-* papi, or maqao(lprof) to build default plugins ABI implementation.
+* papi, or maqao(lprof) to build hardware performance counters plugin.
 If you don't have one of them you will have to remove them from line `PERF_PLUGINS` in [Makefile](./src/Makefile).
 
 * monitors using papi and maqao are system wide.
@@ -53,7 +53,7 @@ The configuration of a monitor let you choose:
 
 * (Compulsory) Its events.
 
-* (Optional) A reduction function to apply on events. (See stat plugins).
+* (Optional) A reduction function to apply on events. (See reduction plugins).
 
 * (Optional) The length of the history of events.
 
@@ -66,19 +66,20 @@ INS_per_CYC{
 	OBJ:=PU;
 	PERF_LIB:=papi;	
 	EVSET:=PAPI_TOT_CYC, PAPI_TOT_INS;
-	REDUCTION:=$0=$1/$0;
+	REDUCTION:=$1/$0;
 }
 ```
 ## Usage
 
 ### Utility
-The utility let you monitor the machine or a part of a machine restricted to a program execution domain, along time. 
+The utility let you monitor the machine or a part of a machine restricted to a program execution domain, along time.
+
 `hmon -h` will output utility help.
 
 ### Library
-The header <hmon.h> stands as the library documentation.
+The header file `hmon.h` stands as the library documentation.
 
-A code snippet is given (here)[./example/test/c].
+A code snippet is given [here](example/test.c).
 
 * Include `"hmon.h"` into the files calling the monitor library.
 
@@ -86,7 +87,7 @@ A code snippet is given (here)[./example/test/c].
 
 ### Plot Script
 
-The plot script is not installed and is located (here)[./utils/hmon_plot.R].
+The plot script is not installed and is located [here](utils/hmon_plot.R).
 
 Use the command `Rscript hmon_plot.R -h` to output usage help of the script.
 
@@ -111,7 +112,7 @@ Here is a brief description of each:
 One can also implement its own performance plugin with this instructions:
 
 A performance plugin is a file with pattern name: `<name>.monitor_plugin.so` loadable with dlopen.
-The plugin must implement the (performance plugin interface)[./src/plugins/performance_interface.h].
+The plugin must implement the [performance plugin interface](./src/plugins/performance_interface.h).
 
 ## Events Reduction
 Events reduction can be done by defining arithmetic expressions of output or using a statistic plugins.
@@ -126,26 +127,26 @@ $j and $k may also be integer or flaoting point values.
 * Reduction plugin must follow the syntax `n_output#function`
 Where `n_output` is the output array size writtable by the function, and `function` is a function name loadable in a reduction plugin
 
-Here is a list of default available reduction plugins:
-** monitor_evset_var: output the variance of the events.
-** monitor_events_var: output the variance of stored events for each event type.
-** monitor_events_mean: output the mean of stored events for each event type.
-** monitor_events_sum: output the sum of stored events for each event type.
-** monitor_events_min: output the min of stored events for each event type.
-** monitor_events_max: output the max of stored events for each event type.
+Here is a list of default available reduction functions:
+
+**  monitor_evset_var: output the variance of the events.
+
+**  monitor_events_var: output the variance of stored events for each event type.
+
+**  monitor_events_mean: output the mean of stored events for each event type.
+
+**  monitor_events_sum: output the sum of stored events for each event type.
+
+**  monitor_events_min: output the min of stored events for each event type.
+
+**  monitor_events_max: output the max of stored events for each event type.
 
 Reduction plugins compiled with the library are automatically loaded.
+
 Custom reduction plugins must have the name pattern: `<name>.monitor_plugin.so`,
-Must be referenced in environment variable as `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` ,
+must be referenced in environment variable as `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` ,
 and loadable with dlopen.
+
 Function defined and loadable in the plugin must have the following protoype:
 `void function(hmatrix in, unsigned row_offset, double * out, unsigned out_size)`
-
- Statistic plugins,
-listed in environment: `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` (stat_default is loaded by default),
-containing functions with prototype: `double <name>(struct monitor *)`,
-loaded at library initialization, 
-and which function <name> might be loaded to perform the task of reducing monitor's events to a sample or samples window to a synthetic value.
-
-
 
