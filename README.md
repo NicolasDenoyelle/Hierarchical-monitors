@@ -49,11 +49,11 @@ The configuration of a monitor let you choose:
 * (Compulsory) Its depth location on topology: PU,CORE, L1d, L1i, L2, ...
   as long as it is parsable by the function [hwloc_type_sscanf_as_depth](https://github.com/open-mpi/hwloc/blob/master/hwloc/traversal.c#L320) from hwloc library.
 
-* (Compulsory) The library which the events come from. (see [performance plugins][Choosing Events Source]).
+* (Compulsory) The library which the events come from. (see [performance plugins](#Choosing Events Source)).
 
 * (Compulsory) Its events.
 
-* (Optional) A reduction function to apply on events. (See [reduction plugins][Reducing Events]	).
+* (Optional) A reduction function to apply on events. (See [reduction plugins](#Reducing Events)).
 
 * (Optional) The length of the history of events.
 
