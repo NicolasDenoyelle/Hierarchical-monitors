@@ -1,4 +1,4 @@
-#include "../../monitor_utils.h"
+#include "../../hmon_utils.h"
 #include "../performance_plugin.h"
 
 #define FAKE_NAME "FAKE_MONITOR"
@@ -12,7 +12,7 @@ char ** monitor_events_list(int * n_events){
     return ret;
 }
 
-int monitor_eventset_init(void ** monitor_eventset, __attribute__ ((unused)) hwloc_obj_t location, __attribute__ ((unused)) int accumulate){
+int monitor_eventset_init(void ** monitor_eventset, __attribute__ ((unused)) hwloc_obj_t location){
     int * n_fake_events;
     malloc_chk(n_fake_events, sizeof(int));
     *n_fake_events = 0;

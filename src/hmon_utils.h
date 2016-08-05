@@ -4,25 +4,7 @@
 #include <hwloc.h>
 #include <stdio.h>
 
-/************************************************ Array utils **************************************************/
-
-struct hmon_array * new_hmon_array          (size_t elem_size, unsigned max_elem, void (*delete_element)(void*));
-struct hmon_array * hmon_array_dup          (struct hmon_array *);
-void           delete_hmon_array       (struct hmon_array *);
-void           empty_hmon_array        (struct hmon_array *);
-unsigned       hmon_array_length       (struct hmon_array *);
-void *         hmon_array_get          (struct hmon_array *, unsigned);
-void *         hmon_array_set          (struct hmon_array *, unsigned, void *);
-void *         hmon_array_pop          (struct hmon_array *);
-void           hmon_array_push         (struct hmon_array *, void *);
-void *         hmon_array_remove       (struct hmon_array *, int);
-void           hmon_array_insert       (struct hmon_array *, unsigned, void *);
-unsigned       hmon_array_insert_sorted(struct hmon_array * array, void * element, int (* compare)(void*, void*));
-void           hmon_array_sort         (struct hmon_array * array, int (* compare)(void*, void*));
-int            hmon_array_find         (struct hmon_array * array, void * key, int (* compare)(void*, void*));
-
 /*********************************************** hwloc utils ***************************************************/
-
 int          location_cpubind(hwloc_obj_t);
 int          location_membind(hwloc_obj_t);
 char *       location_name   (hwloc_obj_t);

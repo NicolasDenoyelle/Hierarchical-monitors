@@ -1,4 +1,6 @@
 #include "../../hmon.h"
+#include "../../hmon_utils.h"
+#include <string.h>
 
 /**
  * Eventset: set of monitors on object of the same type, below a common location.
@@ -7,7 +9,7 @@
 
 struct accumulate_eventset{
     hwloc_obj_t location;
-    struct hmon_array * child_events;
+    harray child_events;
 };
 
 
@@ -16,15 +18,18 @@ char ** monitor_events_list(int * n_events){
     char ** names = malloc(sizeof(*names) * depth); 
     *n_events=0;
 
-    for(unsigned i = 0; i< hmon_array_length(monitors); i++){
-	struct monitor * m  = hmon_array_get(monitors,i);
-	if(m->location->depth < depth){
-	    depth = m->location->depth;
-	    names[n++] = strdup(m->id);
+    for(unsigned i=0; i<depth; i++){
+	hwloc_obj_t obj = hwloc_get_obj_by_depth(monitors_topology, i, 0);
+	harray _monitors = obj->userdata;
+	if(_monitors != NULL){
+	    for(unsigned j = 0; j<harray_length(_monitors); j++){
+		hmon m  = harray_get(_monitors,i);
+		names[n++] = strdup(m->id);
+	    }
 	}
     }
-
     *n_events = n;
+
     if(n==0){
 	free(names);
 	return NULL;
@@ -32,11 +37,11 @@ char ** monitor_events_list(int * n_events){
     return names;
 }
 
-int monitor_eventset_init(void ** monitor_eventset, hwloc_obj_t location, __attribute__ ((unused)) int accumulate){
+int monitor_eventset_init(void ** monitor_eventset, hwloc_obj_t location){
     struct accumulate_eventset *  set;
     malloc_chk(set, sizeof(*set));
     set->location = location;
-    set->child_events =  new_hmon_array(sizeof(struct monitor *), 4, NULL);
+    set->child_events =  new_harray(sizeof(hmon), 4, NULL);
     *monitor_eventset = (void *)set;
     return 0;
 }
@@ -45,7 +50,7 @@ int monitor_eventset_destroy(void * eventset){
     if(eventset == NULL)
 	return 0;
     struct accumulate_eventset * set = (struct accumulate_eventset *) eventset;
-    delete_hmon_array(set->child_events);
+    delete_harray(set->child_events);
     free(set);
     return 1;
 }
@@ -53,40 +58,41 @@ int monitor_eventset_destroy(void * eventset){
 int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
 {
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
-    struct monitor * child_event = NULL;
+    harray child_events = NULL;
     hwloc_obj_t child_obj;
-    
+    unsigned i;
     if(event==NULL || monitor_eventset == NULL)
 	return -1;
 
-    /* Check eventset is empty */
-    if(hmon_array_length(set->child_events) > 0){
-        child_event = hmon_array_get(set->child_events,0);
-	fprintf(stderr, "Event %s already exist at location %s:%d.\n", 
-		child_event->id, hwloc_type_name(set->location->type), set->location->logical_index);
-	fprintf(stderr, "Accumulate monitor does not allow to add several events.\n");
-	return -1;
-    }
-    /* Look if event exists */
-    child_obj = set->location->first_child;
+    /* Decend fist children to look if event exists */
+    child_obj = set->location;
     while(child_obj != NULL){
-	child_event = child_obj->userdata;
-	if(child_event != NULL && !strcmp(child_event->id, event))
-	    break;
+	child_events = child_obj->userdata;
+	if(child_events != NULL){
+	    for(i = 0; i<harray_length(child_events); i++){
+		hmon m  = harray_get(child_events,i);
+		if(!strcmp(m->id, event)){
+		    goto add_events;
+		}
+	    }
+	}
 	child_obj = child_obj->first_child;
     }
-    
-    /* event does not exists*/
-    if(child_obj == NULL || child_event==NULL || strcmp(child_event->id, event)){
-	fprintf(stderr, "Unrecognized event name %s, expected defined monitor name, deeper than %s.\n", event, hwloc_type_name(set->location->type));
-	return -1;
+
+    /* Exit failure */
+    fprintf(stderr, "Unrecognized event name %s, expected defined monitor name, deeper than %s.\n", event, hwloc_type_name(set->location->type));
+    return -1;
+
+    /* Add events to eventset */
+ add_events:;
+    unsigned nbobjs = hwloc_get_nbobjs_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth);
+    for(unsigned j = 0; j<nbobjs; j++){
+	child_events = hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth, j)->userdata;
+	harray_push(set->child_events, harray_get(child_events, i));
     }
-    /* Event exists, add events */
-    for(unsigned i = 0; i<hwloc_get_nbobjs_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth); i++){
-	hmon_array_push(set->child_events,hwloc_get_obj_inside_cpuset_by_depth(monitors_topology, set->location->cpuset, child_obj->depth, i)->userdata);
-    }
-    
-    return child_event->n_events;
+
+    hmon m = harray_get(child_events, i);
+    return m->events.cols-1;
 }
 
 int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
@@ -113,12 +119,12 @@ int monitor_eventset_stop(__attribute__ ((unused)) void * monitor_eventset){
 /**
  * Reset to default events, samples, values ...
  **/
-extern void monitor_reset(struct monitor *);
+extern void monitor_reset(hmon);
 
 int monitor_eventset_reset(void * monitor_eventset){
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
-    for(unsigned i = 0; i< hmon_array_length(set->child_events); i++){
-	struct monitor * m  = hmon_array_get(set->child_events,i);
+    for(unsigned i = 0; i< harray_length(set->child_events); i++){
+	hmon m  = harray_get(set->child_events,i);
 	monitor_reset(m);
     }
     return 0;
@@ -128,18 +134,22 @@ int monitor_eventset_reset(void * monitor_eventset){
 int monitor_eventset_read(void * monitor_eventset, double * values){
     struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
     unsigned j;
-    struct monitor * m = hmon_array_get(set->child_events,0);
+    hmon m;
     double * events;
-    pthread_mutex_lock(&(m->available));
-    events = &(m->events[m->last*m->n_events]);
-    for(j=0; j<m->n_events; j++){values[j] = events[j];}
-    pthread_mutex_unlock(&(m->available));
-    for(unsigned i = 1; i< hmon_array_length(set->child_events); i++){
-	m  = hmon_array_get(set->child_events,i);
-	pthread_mutex_lock(&(m->available));
-	events = &(m->events[m->last*m->n_events]);
-	for(j=0; j<m->n_events; j++){values[j] += events[j];}
-	pthread_mutex_unlock(&(m->available));
+    
+    m = harray_get(set->child_events,0);
+    _monitor_read(m);
+    _monitor_reduce(m);
+    events = hmat_get_row(m->events, m->last);
+    for(j=0; j<m->events.cols-1; j++){values[j] = events[j];}
+    
+    for(unsigned i = 1; i< harray_length(set->child_events); i++){
+	m  = harray_get(set->child_events,i);
+	/* make sure m is up to date */
+	_monitor_read(m);
+	_monitor_reduce(m);
+	events = hmat_get_row(m->events, m->last);
+	for(j=0; j<m->events.cols-1; j++){values[j] += events[j];}
     }
 
     return 0;

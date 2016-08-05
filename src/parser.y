@@ -5,90 +5,66 @@
 #include <float.h>
 #include <dlfcn.h>
 #include "hmon.h"
+#include "hmon_utils.h"
 
     /**
-     * #Commentary
-     *
-     * MONITOR {
-     *   OBJ:= PU:0..3;                     # name:logical_index where to map monitors. Can be a range of OBJ;
-     *   PERF_LIB:= PAPI_monitor;           # Performance library to read counters
-     *   EVSET:= PAPI_L1_DCM, PAPI_L1_DCA;  # A list of events defined by PERF_LIB
-     * 
-     * #Optional fields: 
-     *   # The number of stored values for timestamps and aggregates. Default to 32.
-     *   WINDOW:=128;                     
-     *   # A stats_library defined in stats/stats_utils.h or a stats plugin or an arithmetique expression of events. Default to no reduce.
-     *   SAMPLE_REDUCE:=$0/$1;
-     *   # A stats_library defined in stats/stats_utils.h or a stats plugin to reduce samples in WNIDOW.
-     *   WINDOW_REDUCE:=$0/$1;
-     *   # Preset a maximum monitor value to keep in monitor structure. Default to DBL_MIN
-     *   MAX:=0;
-     *   # Preset a minimum monitor value to keep in monitor structure. Default to DBL_MAX
-     *   MIN:=0;
-     *   # Set if LIB should accumulate events values along time. Default to 0 (false).
-     *   ACCUMULATE:=1;
-     *   # Set if monitor should print output. Default to 0 (prints output).
-     *   SILENT:=1;
+     * %test monitor
+     * fake{
+     * OBJ:=PU;
+     * PERF_LIB:=fake;
+     * EVSET:=FAKE_MONITOR;
+     * WINDOW:=1;
+     * %syntax: output0=input1 OP inputk... , output1=...
+     * %REDUCTION:=$0=$1/2+$0/2, $1=$1*$0/2;
+     * %this reduction output the variance of events. Syntax: number_of_output#function
+     * REDUCTION:=1#monitor_evset_var;
      * }
-     *
-     * MONITOR_REDUCE {
-     *   OBJ:= L3;
-     *   LIB:= hierarchical_monitor;
-     *   EVSET:= PU; # The monitors on objects PU, children of each L3 are selected.
-     *   SAMPLE_REDUCE:=MONITOR_EVSET_SUM; # Will sum accumulated events of children monitor on PU.
-     *   WINDOW_REDUCE:=MONITOR_STAT_ID;
-     * }
-     *
-     **/
-
-    extern struct monitor * new_monitor(char*, hwloc_obj_t, void*, unsigned, unsigned, const char*, const char*, const char*, int);
+    **/
+    
+    extern struct monitor * new_monitor(const char*,hwloc_obj_t,harray,unsigned,unsigned,const char*,const char*,int);
 
     /* Default fields */
     const char * default_perf_lib = "fake"; 
 
     /* User fields */
     char *                     perf_plugin_name;
-    char *                     evset_analysis_name;
-    char *                     samples_analysis_name;
+    char *                     reduction_plugin_name;
+    char *                     reduction_code;
+    unsigned                   n_reductions;
     char *                     code;
-    int                        accumulate;
     int                        silent;
-    double                     max;
-    double                     min;
     unsigned                   window;
     unsigned                   location_depth;
-    struct hmon_array *        event_names;
+    harray                     event_names;
 
 
     /* This function is called for each newly parsed monitor */
     static void reset_monitor_fields(){
 	if(perf_plugin_name){free(perf_plugin_name);}
-	if(samples_analysis_name){free(samples_analysis_name);}
-	if(evset_analysis_name){free(evset_analysis_name);}
-	if(code){free(code);}
-	max                    = DBL_MIN;
-	min                    = DBL_MAX;
+	if(reduction_code){free(reduction_code);}
+	if(reduction_plugin_name){free(reduction_plugin_name);}
 	window                 = 1;        /* default store 1 sample */
-	accumulate             = 0;        /* default do not accumulate */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
+	n_reductions           = 0;
 	perf_plugin_name       = NULL;
-	evset_analysis_name    = NULL;
-	samples_analysis_name  = NULL;
-	code                   = NULL;
-	empty_hmon_array(event_names); 
+	reduction_plugin_name  = NULL;
+	reduction_code         = NULL;
+	empty_harray(event_names); 
     }
 
     /* This function is called once before parsing */
     static void import_init(){
-	event_names = new_hmon_array(sizeof(char*),8,free);
+	event_names = new_harray(sizeof(char*),8,free);
 	reset_monitor_fields();
     }
 
     /* This function is called once after parsing */
     static void import_finalize(){
 	/* cleanup */
-	delete_hmon_array(event_names);
+	if(reduction_code){free(reduction_code);}
+	if(reduction_plugin_name){free(reduction_plugin_name);}
+	delete_harray(event_names);
     }
 
     static char * concat_expr(int n, ...){
@@ -107,93 +83,37 @@
 	return ret;
     }
 
-    static void print_avail_events(struct monitor_plugin * lib){
-	char ** (* events_list)(int *) = monitor_plugin_load_fun(lib, "monitor_events_list", 1);
-	if(events_list == NULL)
-	    return;
-
-	int n = 0;
-	char ** avail = events_list(&n);
-	printf("List of available events:\n");
-	while(n--){
-	    printf("\t%s\n",avail[n]);
-	    free(avail[n]);
+    static char * concat_and_replace(int del, int n, ...){
+	va_list ap;
+	size_t c = 0, size = 0;
+	va_start(ap,n);
+	for(int i=0;i<n;i++){size += 1+strlen(va_arg(ap, char*));}
+	char * ret = malloc(size); memset(ret,0,size);
+	va_start(ap,n);
+	for(int i=0;i<n;i++){
+	    char * str = va_arg(ap, char*);
+	    c += sprintf(ret+c, "%s", str);
+	    if(i==del){free(str);}
 	}
-	free(avail);
+	return ret;      
     }
-
+    
     /* Finalize monitor creation */
-    static void monitor_create(char * name){
+    static void monitor_create(char * id){
 	hwloc_obj_t obj = NULL;
-	void * eventset = NULL;
-	struct monitor_plugin * perf_lib = NULL;
-	int    (* eventset_init)(void **, hwloc_obj_t, int);
-	int    (* eventset_init_fini)(void*);
-	int    (* eventset_destroy)(void*);
-	int    (* add_named_event)(void*, char*);
-	unsigned j, n;
-	int err, added_events;
-	char * reduce_code = NULL;
+	char * model_plugin = reduction_plugin_name;
 
-	/* Load dynamic library */
-	if(!perf_plugin_name){perf_plugin_name = strdup(default_perf_lib);}
-	perf_lib =  monitor_plugin_load(perf_plugin_name, MONITOR_PLUGIN_PERF);
-	if(perf_lib == NULL){
-	    fprintf(stderr, "Failed to load %s performance library.\n", name);
-	    return;
-	}
-	eventset_init      = monitor_plugin_load_fun(perf_lib, "monitor_eventset_init",      1);
-	eventset_init_fini = monitor_plugin_load_fun(perf_lib, "monitor_eventset_init_fini", 1);
-	add_named_event    = monitor_plugin_load_fun(perf_lib, "monitor_eventset_add_named_event",    1);
-	eventset_destroy   = monitor_plugin_load_fun(perf_lib, "monitor_eventset_destroy",   1);
-	
 	/* Build reduction on events */
-	if(code){	    
-	    reduce_code = concat_expr(6,"#include <hmon.h>\n", "double ", name, "(struct monitor * monitor){return ", code, ";}\n");
-	    monitor_stat_plugin_build(name, reduce_code);
-	    free(reduce_code);
-	    evset_analysis_name = strdup(name);
+	if(reduction_code != NULL){
+	    reduction_code = concat_and_replace(3,4, "\ndouble ", id, "(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size){\n", reduction_code);
+	    reduction_code = concat_and_replace(1,2, "#include \"hmon.h\"\n\n", reduction_code);
+	    monitor_stat_plugin_build(id, reduction_code);
+	    model_plugin = id;
 	}
 	
 	/* Build one monitor per location */
-	
 	while((obj = hwloc_get_next_obj_by_depth(monitors_topology, location_depth, obj)) != NULL){
-	    if(obj->userdata != NULL){
-		char * name = location_name(obj);
-		fprintf(stderr, "Can't define a monitor on obj %s, because a monitor is already defined there\n", name);
-		free(name);
-		continue;
-	    }
-
-	    /* Initialize this->eventset */
-	    if(eventset_init(&eventset, obj, accumulate)==-1){
-		monitor_print_err( "failed to initialize %s eventset\n", name);
-		return;
-	    }
-
-	    /* Add events */
-	    n = hmon_array_length(event_names);
-	    added_events = 0;
-	    for(j=0;j<n;j++){
-		err = add_named_event(eventset,(char*)hmon_array_get(event_names,j));
-		if(err == -1){
-		    monitor_print_err("failed to add event %s to %s eventset\n", (char*)hmon_array_get(event_names,j), name);
-		    print_avail_events(perf_lib);
-		    exit(EXIT_FAILURE);
-		}
-		added_events += err;
-	    }
-	    
-	    if(added_events==0){
-		eventset_destroy(eventset);
-		continue;
-	    }
-	
-	    /* Finalize eventset initialization */
-	    eventset_init_fini(eventset);
-
-	    /* Create monitor */
-	    new_monitor(name, obj, eventset, added_events, window, perf_plugin_name, evset_analysis_name, samples_analysis_name, silent);
+	    new_monitor(id, obj, event_names, window, n_reductions, perf_plugin_name, model_plugin, silent);
 	}
 	reset_monitor_fields();
     }
@@ -213,9 +133,9 @@
     %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD MAX_FIELD MIN_FIELD PERF_LIB_FIELD WINDOW_REDUCE_FIELD SAMPLE_REDUCE_FIELD WINDOW_FIELD ACCUMULATE_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
+%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
 
-%type <str> primary_expr add_expr mul_expr event
+%type <str> primary_expr add_expr mul_expr event 
 
 %union{
     char * str;
@@ -230,7 +150,12 @@ monitor_list
 ;
 
 monitor
-: NAME '{' field_list '}' { monitor_create($1); free($1);}
+: NAME '{' field_list '}' {
+    if(reduction_plugin_name == NULL && reduction_code != NULL){
+	reduction_plugin_name = $1;
+    }
+    monitor_create($1);
+ }
 ;
 
 field_list
@@ -245,31 +170,16 @@ field
     location_depth = obj->depth;
     free($2);
  }
-| SAMPLE_REDUCE_FIELD  add_expr  ';' {code = $2;}
-| SAMPLE_REDUCE_FIELD  NAME      ';' {evset_analysis_name = $2;}
-| WINDOW_REDUCE_FIELD  NAME     ';' {samples_analysis_name = $2;}
+| REDUCTION_FIELD  reduction ';'
 | PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
-| ACCUMULATE_FIELD INTEGER   ';' {accumulate = atoi($2); free($2);}
 | SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
-| WINDOW_FIELD   INTEGER   ';' {window = atoi($2); free($2);}
+| WINDOW_FIELD     INTEGER   ';' {window = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}
-| min_field                      {}
-| max_field                      {}
-;
-
-max_field
-: MAX_FIELD REAL    ';' { max = (double)atof($2); free($2);}
-| MAX_FIELD INTEGER ';' { max = (double)atoi($2); free($2);}
-;
-
-min_field
-: MIN_FIELD REAL    ';' { min = (double)atof($2); free($2);}
-| MIN_FIELD INTEGER ';' { min = (double)atoi($2); free($2);}
 ;
 
 event_list
-: event                {hmon_array_push(event_names,$1);}
-| event ',' event_list {hmon_array_push(event_names,$1);}
+: event                {harray_push(event_names,$1);}
+| event ',' event_list {harray_push(event_names,$1);}
 ;
 
 event
@@ -277,27 +187,46 @@ event
 | NAME ATTRIBUTE {$$=concat_expr(2,$1,$2); free($1); free($2);}
 ;
 
+reduction
+: INTEGER '#' NAME {reduction_plugin_name = $3; n_reductions = atoi($1); free($1);}
+| assignement_list{
+    reduction_code = concat_and_replace(1,2,"double * row_in  = hmat_get_row(in,  row_offset);\n", reduction_code);
+    reduction_code = concat_and_replace(0,2, reduction_code, "}\n");
+  }
+;
+
+assignement_list
+: assignement
+| assignement ',' assignement_list
+;
+
+assignement
+: add_expr {
+    if(reduction_code==NULL){reduction_code=strdup("");}
+    char out[128]; memset(out,0,sizeof(out));
+    snprintf(out, sizeof(out), "out[%d]=", n_reductions);
+    reduction_code = concat_and_replace(0, 4, reduction_code, out, $1, ";\n");
+    free($1);
+    n_reductions++;
+  }
+;
+
 add_expr
-: mul_expr              { $$ = $1; }
-| add_expr '+' mul_expr { $$ = concat_expr(3,$1,"+",$3); free($1); free($3);}
-| add_expr '-' mul_expr { $$ = concat_expr(3,$1,"-",$3); free($1); free($3);}
+: mul_expr              { $$ = $1;}
+| add_expr '+' mul_expr { $$ = concat_expr(3, $1,"+", $3); free($1); free($3);}
+| add_expr '-' mul_expr { $$ = concat_expr(3, $1,"-", $3); free($1); free($3);}
 ;
    
 mul_expr
 : primary_expr {$$ = $1;}
-| mul_expr '*' primary_expr { $$ = concat_expr(3,$1,"*",$3); free($1); free($3);}
-| mul_expr '/' primary_expr { $$ = concat_expr(3,$1,"/",$3); free($1); free($3);}
+| mul_expr '*' primary_expr { $$ = concat_expr(3, $1,"*", $3); free($1); free($3);}
+| mul_expr '/' primary_expr { $$ = concat_expr(3, $1,"/", $3); free($1); free($3);}
 ;
 
-primary_expr 
-: VAR {
-    char hmon_array_index[strlen($1)]; 
-    memset(hmon_array_index,0,sizeof(hmon_array_index)); 
-    snprintf(hmon_array_index,sizeof(hmon_array_index),"%s",$1+1);
-    free($1);
-    $$ = concat_expr(3,"(double)(monitor->events[monitor->last][",hmon_array_index,"])");}
-| REAL    {$$ = $1;}
+primary_expr
+: VAR {$$ = concat_expr(3,"row_in[",$1+1,"]"); free($1);}
 | INTEGER {$$ = $1;}
+| REAL {$$ = $1;}
 ;
 
 %%

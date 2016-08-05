@@ -1,58 +1,109 @@
 #ifndef MONITOR_H
 #define MONITOR_H
 
-#include "monitor_utils.h"
+#include <hwloc.h>
 
-extern struct hmon_array *   monitors;
-extern hwloc_topology_t monitors_topology;
-extern unsigned         monitors_topology_depth;
-extern hwloc_cpuset_t   monitors_running_cpuset;
+/************************************************ Matrix utils **************************************************/
+typedef struct hmon_matrix{
+    double * data;
+    unsigned rows;
+    unsigned cols;
+} hmatrix;
 
+hmatrix  new_hmatrix(unsigned rows, unsigned cols);
+hmatrix  no_hmatrix();
+int      hmat_is_NULL(hmatrix mat);
+void     delete_hmatrix(hmatrix mat);
+double * hmat_get_data(hmatrix mat);
+double   hmat_get(const hmatrix mat, const unsigned row, const unsigned col);
+double * hmat_get_row(hmatrix mat, const unsigned row);
+void     hmat_set(const double value, hmatrix mat, const unsigned row, const unsigned col);
+void     hmat_set_row(const double * values, hmatrix mat, const unsigned row);
+void     hmat_zero(hmatrix mat);
+/***************************************************************************************************************/
+
+
+/************************************************ Array utils **************************************************/
+typedef struct hmon_array{
+    void **  cell;
+    unsigned length;
+    unsigned allocated_length;
+    void     (*delete_element)(void*);
+} * harray;
+
+harray         new_harray          (size_t elem_size, unsigned max_elem, void (*delete_element)(void*));
+harray         harray_dup          (harray);
+void           delete_harray       (harray);
+void           empty_harray        (harray);
+unsigned       harray_length       (harray);
+void *         harray_get          (harray, unsigned);
+void **        harray_get_data(harray harray);
+void *         harray_set          (harray, unsigned, void *);
+void *         harray_pop          (harray);
+void           harray_push         (harray, void *);
+void *         harray_remove       (harray, int);
+void           harray_insert       (harray, unsigned, void *);
+unsigned       harray_insert_sorted(harray array, void * element, int (* compare)(void*, void*));
+void           harray_sort         (harray array, int (* compare)(void*, void*));
+int            harray_find         (harray array, void * key, int (* compare)(void*, void*));
+int            harray_find_unsorted(harray harray, void * key);
+/***************************************************************************************************************/
+
+
+/************************************************ Monitor ******************************************************/
 /**
- * A monitor is an object recording performance values for a certain topology node.
+ * A hierarchical monitor (hmon) is an object recording performance values for a certain topology node.
  * Monitors are stored on nodes of the topology. Monitors on the same node are read sequentially.
  * Performance values are collected and computed with user defined libraries.
  * The monitor library help initializing a set of monitors and read them simultaneously.
  * It monitors the whole system.
  * @brief Struct to hold hardware events value.
  **/
-struct monitor{
+typedef struct hmon{
     /** identifier **/
     char * id;
     /** node where values are recorded **/
     hwloc_obj_t location;
-    /** the monitor value: aggregated samples, max samples, min samples, mean samples **/
-    double value, min, max, mu;
-    /** eventsets, set of collected event **/
-    void * eventset;
-    /** events: history of collected events. n_events * window.**/
-    double * events;
-    /** The number of events per eventset **/
-    unsigned n_events;
-    /** samples: n_samples (aggregated events). **/
-    double * samples;
-    /* The timestamp of each sample */
-    long * timestamps;
-    /** The number of samples kept, the current sample index and the total amount of recorded samples **/
+
+    /* The number of stored updates, the index of latest update, and the total number of updates */
     unsigned window, last, total;
+
+    /** monitor input: eventsets, set of collected event. Last element of each line is the timestamp **/
+    void   * eventset;
+    hmatrix  events;
+
+    /** monitor output: events reduction **/
+    double * samples, * max, * min;
+    unsigned n_samples;
+    void (* model)(hmatrix events, unsigned last, double * samples, unsigned n_samples);
+    
     /** pointers to performance library handling event collection. Functions documentation in plugins/performance_plugin.h  **/
     int (* eventset_start)   (void *);
     int (* eventset_stop)    (void *);
     int (* eventset_reset)   (void *);
     int (* eventset_read)    (void *, double *);
     int (* eventset_destroy) (void *);
-    /** The function to aggregate events: into samples **/
-    double (* events_to_sample)(struct monitor *);
-    /** The function to aggregate samples: into value **/
-    double (* samples_to_value)(struct monitor *);
+    
     /** If stopped do not stop twice **/
     int stopped;
     /** 1:ACTIVE, 0:SLEEPING **/
     int state_query;
+    /** another monitor depend on this one and is in charge for updating it **/
+    struct hmon * depend;
     /** Not available while reading events **/
     pthread_mutex_t available;
+
+    /* Set to NULL, unused by the library, but maybe by some plugins */
     void * userdata;
-};
+} * hmon;
+/***************************************************************************************************************/
+
+
+/************************************************ Monitor lib **************************************************/
+extern harray           monitors;
+extern hwloc_topology_t monitors_topology;
+extern unsigned         monitors_topology_depth;
+extern hwloc_cpuset_t   monitors_running_cpuset;
 
 /**
  * Initialize the library.
@@ -108,21 +159,21 @@ void monitors_update();
  * @param m, the monitor to print.
  * @param force, a flag to tell whether we have to print the buffer content even if it is not full.
  **/
-void monitor_buffered_output(struct monitor * m, int force);
+void monitor_buffered_output(hmon m, int force);
 
 /**
  * print monitor current: location, timestamp, events, min_value, value, max_value.
  * @param m, the monitor to print.
  * @param wait_availability, wait monitor availibility
  **/
-void monitor_output(struct monitor * m, int wait_availability);
+void monitor_output(hmon m, int wait_availability);
 
 /**
  * print all printable monitors using a one of the method to print a single monitor.
  * @param monitor_output_method, the method to print monitors among the method to print a single monitor.
  * @param flag, the flag to pass to the monitor_output_method.
  **/
-void monitors_output(void (* monitor_output_method)(struct monitor*, int), int flag);
+void monitors_output(void (* monitor_output_method)(hmon, int), int flag);
 
 /**
  * Additionnaly to print text file using update, one can display monitors on topology.
@@ -133,6 +184,16 @@ void monitor_display_all(int verbose);
  * Delete all structure built during the library usage.
  **/
 void monitor_lib_finalize();
+/***************************************************************************************************************/
 
+/******************************************** Library internal functions ***************************************/
+void        _monitor_delete        (hmon);
+void        _monitor_reset         (hmon);
+void        _monitor_remove        (hmon);
+void        _monitor_read          (hmon);
+void        _monitor_reduce        (hmon);
+int         _monitor_start         (hmon);
+int         _monitor_stop          (hmon);
+/***************************************************************************************************************/
 #endif //MONITOR_H
 

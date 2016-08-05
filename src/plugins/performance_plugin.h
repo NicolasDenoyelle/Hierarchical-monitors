@@ -19,10 +19,9 @@ char ** monitor_events_list(int * n_counters);
  * !!! To be implemented by a user library.
  * @param monitor_eventset, the structure containing the set of variable to initialize.
  * @param The hardware location where monitor_eventset will be initialized.
- * @param A boolean telling whether this interface will accumulate results upon monitor_eventset_read calls.
  * @return 0 on succes, -1 on error.
  */
-int monitor_eventset_init(void ** monitor_eventset, hwloc_obj_t location, int accumulate);
+int monitor_eventset_init(void ** monitor_eventset, hwloc_obj_t location);
 /**
  * Function to call during monitor_recorder destruction to delete monitor's local variables from the performance library.
  * !!! To be implemented by a user library. Sample in PAPI_monitors.c

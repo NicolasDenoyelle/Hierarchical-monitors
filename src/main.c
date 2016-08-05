@@ -5,6 +5,7 @@
 #include <sys/timerfd.h>
 
 #include "hmon.h"
+#include "hmon_utils.h"
 
 static int timerfd;
 static fd_set in_fds, in_fds_original;
@@ -23,23 +24,75 @@ union perf_option_value{
 
 struct perf_option{
     const char * name;
+    const char * short_name;
     const char * arg;
+    const char * desc;
     int type;
     union perf_option_value value;
     const char * def_val;
     int set;
 };
 
-static struct perf_option help_opt =    {.name = "--help" ,   .arg = "",                          .type = OPT_TYPE_BOOL,   .value.int_value = 0,      .def_val = "0",           .set = 0};
-static struct perf_option input_opt =   {.name = "--input",   .arg = "<perf_group_file>",         .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "NULL",        .set = 0};
-static struct perf_option output_opt =  {.name = "--output",  .arg = "<output_file>",             .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "/dev/stdout", .set = 0};
-static struct perf_option restrict_opt =  {.name = "--restrict",  .arg = "<hwloc_obj:index>",     .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "Machine:0", .set = 0};
-static struct perf_option trace_opt =   {.name = "--trace",   .arg = "<perf_trace_file>",         .type = OPT_TYPE_STRING, .value.str_value = NULL,   .def_val = "NULL",        .set = 0};
-static struct perf_option pid_opt =     {.name = "--pid",     .arg = "<pid (-1= whole-machine)>", .type = OPT_TYPE_INT,    .value.int_value = -1,     .def_val = "-1",          .set = 0};
-static struct perf_option refresh_opt = {.name = "--refresh", .arg = "<refresh_usec>",            .type = OPT_TYPE_INT,    .value.int_value = 100000, .def_val = "100000",      .set = 0};
-static struct perf_option display_opt = {.name = "--display-topology", .arg = "",                 .type = OPT_TYPE_INT,    .value.int_value = 0,      .def_val = "0",           .set = 0};
+static struct perf_option help_opt =    {.name = "--help",
+					 .short_name = "-h",
+					 .arg = "",
+					 .desc = "Print this help message",
+					 .type = OPT_TYPE_BOOL,
+					 .value.int_value = 0,
+					 .def_val = "0",
+					 .set = 0};
 
-#define n_opt 8
+static struct perf_option input_opt =   {.name = "--input",
+					 .short_name = "-i",
+					 .arg = "<monitor_file>",
+					 .desc = "Input monitors description",
+					 .type = OPT_TYPE_STRING,
+					 .value.str_value = NULL,
+					 .def_val = "NULL",
+					 .set = 0};
+
+static struct perf_option output_opt =  {.name = "--output",
+					 .short_name = "-o",
+					 .arg = "<output_file>",
+					 .desc = "File where to write trace output",
+					 .type = OPT_TYPE_STRING,
+					 .value.str_value = NULL,
+					 .def_val = "/dev/stdout",
+					 .set = 0};
+
+static struct perf_option restrict_opt =  {.name = "--restrict",
+					   .short_name = "-r",
+					   .arg = "<hwloc_obj:index>",
+					   .desc = "Contain hmon on a subset of machine cores.",
+					   .type = OPT_TYPE_STRING, .value.str_value = NULL,
+					   .def_val = "Machine:0", .set = 0};
+
+static struct perf_option pid_opt =     {.name = "--pid",
+					 .short_name = "-p",
+					 .arg = "<pid>",
+					 .desc = "Restrict monitors on pid domain and stop monitoring when pid finished.",
+					 .type = OPT_TYPE_INT,
+					 .value.int_value = -1,
+					 .def_val = "-1",
+					 .set = 0};
+
+static struct perf_option refresh_opt = {.name = "--frequency",
+					 .short_name = "-f",
+					 .arg = "<usec>",
+					 .desc = "Update monitors every -f micro seconds.",
+					 .type = OPT_TYPE_INT,
+					 .value.int_value = 100000,
+					 .def_val = "100000",
+					 .set = 0};
+
+static struct perf_option display_opt = {.name = "--display-topology",
+					 .short_name = "-d",
+					 .arg = "",
+					 .desc = "Display first element output of last monitor on each object, on topology.",
+					 .type = OPT_TYPE_BOOL,
+					 .value.int_value = 0,
+					 .def_val = "0",
+					 .set = 0};
 
 static unsigned set_option(struct perf_option * opt, const char * val){
     switch(opt->type){
@@ -76,60 +129,33 @@ static unsigned set_option(struct perf_option * opt, const char * val){
  }
 
 
-static void usage(char* argv0, struct perf_option ** options)
+static void usage(char* argv0, struct perf_option ** options, unsigned n_opt)
 {
     unsigned i;
-    printf("%s <opt> <opt_arg> -- bin <bin_args...> \n",argv0);
-    printf("Available options:\n");
+    printf("%s <opt> (<opt_arg>) ... -- bin (<bin_args...>) \n\n",argv0);
+    printf("Options:\n");
     
     for(i=0;i<n_opt;i++){
-	printf("\t%s %s: default=%s\n",options[i]->name, options[i]->arg, options[i]->def_val);
+	printf("\t%s,%-20s %-20s",options[i]->short_name, options[i]->name, options[i]->arg);
+	if(options[i]->type != OPT_TYPE_BOOL){printf(":default=%-16s", options[i]->def_val);}
+	else{printf("%25s", "");}
+	printf(" %s\n", options[i]->desc);
     }
-
-    printf("Plugins:\n");
-    printf("You can use plugins both for event collection and monitor analysis\n");
-    printf("Plugins file must have a pattern name: <plugin>.monitor_plugin.so\n");
-    printf("Providing <plugin> or pattern name, or full path will search the plugin in location findable by dlopen\n");
-    printf("There are two kinds of plugins:\n");
-    printf("\t* Event collection plugins defined in PERF_LIB field of the monitors.\n");
-    printf("\t* And stat library to aggregate events into samples and samples into value, defined in a double colon separated list in MONITOR_STAT_PLUGINS environment. The default stat_default plugin is automatically loaded\n");
-    
-    printf("Monitor input:\n");
-    printf("\t$>%s --input my_perf_group.txt\n",argv0);
-    printf("\tWill output to stdout the monitoring of the whole machine using the events settings in \"my_perf_group.txt\"\n"); 
     printf("\n");
-    printf("Input file syntaxe:\n");
-    printf("\tMONITOR_NAME{\n");
-    printf("\t\tOBJ:= PU;                         # Depth where to map monitors. One monitor per obj at this depth is created.\n");
-    printf("\t\tPERF_LIB:=papi;                   # Performance library to read counters. Can be a file of type path/<name>.monitor_plugin.so or <name> if plugin <name>.monitor_plugin.so is findable by dlopen.\n");
-    printf("\t\tEVSET:= PAPI_L1_DCM, PAPI_L1_DCA; # A list of events defined by PERF_LIB.\n");     
-    printf("\t\tWINDOW:=128;                    # The buffer size for timestamps, samples and events. Default to 32.\n");
-    printf("\t\tSAMPLE_REDUCE:=$0/$1;              # An arithmetic expression of events in EVSET, or a function name loadable in a stat plugin.\n");
-    printf("\t\tWINDOW_REDUCE:=monitor_samples_last; # A function loadable in a stat plugin.\n");
-    printf("\t\tMAX:=0;                           # Preset a maximum monitor value to keep in monitor structure. Default to 0.\n");
-    printf("\t\tMIN:=0;                           # Preset a minimum monitor value to keep in monitor structure. Default to 0.\n");
-    printf("\t\tACCUMULATE:=1;                    # Set if PERF_LIB should accumulate events values along time. Default to 0 (false).\n");
-    printf("\t\tOUTPUT:=/dev/stdout;              # Set a specific output for this monitor (default to --output option).\n\t}\n\n");
-    printf("\tMONITOR_REDUCE{\n");
-    printf("\t\tOBJ:= L3;\n");
-    printf("\t\tPERF_LIB:= hierarchical;\n");
-    printf("\t\tEVSET:=MONITOR_NAME;               # The monitors MONITOR_NAME child of each monitor MONITOR_REDUCE are selected and there eventset will be accumulated hierarchically\n");
-    printf("\t\tSAMPLE_REDUCE:=$0/$1;              # Reduce the same way as children\n\t}\n\n");
-    printf("/!\\ Though monitors' thread and memory are mapped to the specified hwloc object, it is the responsibility of the library PERF_LIB to make sure that eventset initialization on this object will lead to value relative to this object. As an example, you can check default PAPI implementation papi.monitor_plugin.so which performs cpu binding.\n");
 }
 
 int
 main (int argc, char *argv[])
 {
+    const unsigned n_opt = 7;
     struct perf_option * options[n_opt];
     options[0] = &input_opt;
     options[1] = &output_opt;
     options[2] = &refresh_opt;
     options[3] = &help_opt;
     options[4] = &pid_opt;
-    options[5] = &trace_opt;
-    options[6] = &display_opt;
-    options[7] = &restrict_opt;
+    options[5] = &display_opt;
+    options[6] = &restrict_opt;
     char * runnable = NULL;
     char ** run_args = NULL;
 
@@ -141,7 +167,7 @@ main (int argc, char *argv[])
 	argv++;
 	for(i=0;i<n_opt;i++){
 	    struct perf_option * opt = options[i];
-	    if (!strcmp(argv[0], opt->name)){
+	    if (!strcmp(argv[0], opt->name) || !strcmp(argv[0], opt->short_name)){
 		int optarg = set_option(opt, argv[1]);
 		argc-=(optarg);
 		argv+=(optarg);
@@ -156,14 +182,14 @@ main (int argc, char *argv[])
 	}
 	/* no option was recognized: exit */
 	monitor_print_err( "Bad option %s\n\n", argv[0]);
-	usage(argv0,options);
+	usage(argv0,options, n_opt);
 	exit(EXIT_SUCCESS);
     opt_continue:;
     }
 
     /* check for help */
     if(help_opt.set){
-	usage(argv0,options);
+	usage(argv0,options, n_opt);
 	exit(EXIT_SUCCESS);
     }
 
@@ -208,13 +234,9 @@ main (int argc, char *argv[])
 
     /* Monitors initialization */
     monitor_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
-
-    if(trace_opt.set)
-	setenv("MONITOR_TRACE_PATH",trace_opt.value.str_value,1);
-
     monitors_import(input_opt.value.str_value);
 
-    if(hmon_array_length(monitors) == 0){
+    if(harray_length(monitors) == 0){
 	monitor_print_err( "No monitor defined. Leaving.\n");
 	monitor_lib_finalize();
 	exit(EXIT_SUCCESS);

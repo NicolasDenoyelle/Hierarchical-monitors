@@ -1,11 +1,12 @@
-#include "monitor_utils.h"
+#include "hmon_utils.h"
+#include "hmon.h"
 #include <dirent.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
 
-static struct hmon_array * perf_plugins = NULL;
-static struct hmon_array * stat_plugins = NULL;
+static harray perf_plugins = NULL;
+static harray stat_plugins = NULL;
 
 /* #ifndef STAT_PLUGINS */
 /* #define STAT_PLUGINS "stat_default" */
@@ -22,8 +23,8 @@ static void delete_monitor_plugin(void * plugin){
 
 static void __attribute__((constructor)) plugins_init(){
     /* Greeting new plugins */
-    perf_plugins = new_hmon_array(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
-    stat_plugins = new_hmon_array(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
+    perf_plugins = new_harray(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
+    stat_plugins = new_harray(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
 
     /* Checking for stat plugins */
     char * plugins_env = getenv("MONITOR_STAT_PLUGINS");
@@ -45,22 +46,22 @@ static void __attribute__((constructor)) plugins_init(){
 
 
 static void __attribute__((destructor)) plugins_at_exit(){
-    delete_hmon_array(perf_plugins);
-    delete_hmon_array(stat_plugins);
+    delete_harray(perf_plugins);
+    delete_harray(stat_plugins);
 }
 
 
 static struct monitor_plugin * monitor_plugin_lookup(const char * name, int type){
     struct monitor_plugin * p;
     if(type == MONITOR_PLUGIN_STAT){
-	for(unsigned i=0; i<hmon_array_length(stat_plugins); i++){
-	    p=hmon_array_get(stat_plugins,i);
+	for(unsigned i=0; i<harray_length(stat_plugins); i++){
+	    p=harray_get(stat_plugins,i);
 	    if(!strcmp(p->id,name)){return p;}
 	}
     }
     else if(type == MONITOR_PLUGIN_PERF){
-	for(unsigned i=0; i<hmon_array_length(perf_plugins); i++){
-	    p=hmon_array_get(perf_plugins,i);
+	for(unsigned i=0; i<harray_length(perf_plugins); i++){
+	    p=harray_get(perf_plugins,i);
 	    if(!strcmp(p->id,name)){return p;}
 	}
     }
@@ -71,7 +72,7 @@ static struct monitor_plugin * monitor_plugin_lookup(const char * name, int type
 struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
     struct monitor_plugin * p = NULL;
     char * prefix_name , * cpy_name;
-    char path[256];
+    char path[256]; memset(path,0,sizeof(path));
 
     /* Search if library already exists */
     if((p = monitor_plugin_lookup(name, plugin_type)) != NULL){return p;}
@@ -94,10 +95,10 @@ struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
     p->id = strdup(name);
     switch(plugin_type){
     case MONITOR_PLUGIN_STAT:
-	hmon_array_push(stat_plugins, p);
+	harray_push(stat_plugins, p);
 	break;
     case MONITOR_PLUGIN_PERF:
-	hmon_array_push(perf_plugins, p);
+	harray_push(perf_plugins, p);
 	break;
     default:
 	delete_monitor_plugin(p);
@@ -119,11 +120,11 @@ void * monitor_plugin_load_fun(struct monitor_plugin * plugin, const char * name
 
 void monitor_stat_plugins_list(){
     struct monitor_plugin * p;
-    if(hmon_array_length(stat_plugins)>0){
-	p=hmon_array_get(stat_plugins,0);
+    if(harray_length(stat_plugins)>0){
+	p=harray_get(stat_plugins,0);
 	fprintf(stderr, "%s", p->id);
-	for(unsigned i=1; i<hmon_array_length(stat_plugins); i++){
-	    p=hmon_array_get(stat_plugins,i);
+	for(unsigned i=1; i<harray_length(stat_plugins); i++){
+	    p=harray_get(stat_plugins,i);
 	    fprintf(stderr, ", %s", p->id);
 	}
 	fprintf(stderr, "\n");
@@ -134,8 +135,8 @@ void monitor_stat_plugins_list(){
 void * monitor_stat_plugins_lookup_function(const char * name){
     struct monitor_plugin * p;
     void * fun = NULL;
-    for(unsigned i=0; i<hmon_array_length(stat_plugins); i++){
-	p=hmon_array_get(stat_plugins,i);
+    for(unsigned i=0; i<harray_length(stat_plugins); i++){
+	p=harray_get(stat_plugins,i);
 	fun = monitor_plugin_load_fun(p,name,0);
 	if(fun != NULL)
 	    return fun;

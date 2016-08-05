@@ -1,27 +1,87 @@
-## Find monitor read events resolution by running utility with refresh set to 1.
-# resolution{
-# 	OBJ:=Machine;
-# 	PERF_LIB:=fake;
-# 	EVSET:=FAKE_MONITOR;
-# }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                            EXAMPLES                           %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-## Get miss balance on L2 cache.
-L2_miss_PU{
+%test monitor
+fake{
 	OBJ:=PU;
-	EVSET:=PAPI_L2_DCM;
-	PERF_LIB:=papi;
-	SILENT:=1;
+	PERF_LIB:=fake;
+	EVSET:=FAKE_MONITOR;
 }
-L2_miss{
-	OBJ:=L2;
-	EVSET:=L2_miss_PU;
-	PERF_LIB:=accumulate;
-	SILENT:=1;
-}
-L2_balance{
-	OBJ:=Machine;
-	EVSET:=L2_miss;
-	PERF_LIB:=hierarchical;
-	SAMPLE_REDUCE:=gsl_eventset_var;
-}
-  
+
+%accumulate each event from children of each OBJ.
+%accumulate{
+%	OBJ:=Machine;
+%	PERF_LIB:=accumulate;
+%	EVSET:=fake;
+%}
+
+%make an input eventset on OBJ, out of children monitors' output.
+%hierarchical{
+%	OBJ:=Machine;
+%	PERF_LIB:=hierarchical;
+%	EVSET:=fake;
+%}
+
+%manually reduce input event into output samples (assumes 2 PU per Core)
+%reduction{
+%	OBJ:=Core;
+%	PERF_LIB:=hierarchical;
+%	EVSET:=fake;
+%       %syntax: output0=input1 OP inputk... , output1=...
+%	REDUCTION:= $1/2+$0/2, $1*$0/2;
+%}
+
+%% Get miss balance on L2 caches
+% L2_MISS_PU{
+% 	OBJ:=PU;
+%       PERF_LIB:=papi;	
+% 	EVSET:=PAPI_L2_DCM;
+% 	SILENT:=0;
+% }
+
+% L2_MISS_L2{
+% 	OBJ:=L2;
+% 	EVSET:=L2_MISS_PU;
+% 	PERF_LIB:=accumulate;
+% 	SILENT:=1;
+% }
+
+% L2_balance{
+% 	OBJ:=Machine;
+% 	EVSET:=L2_MISS_L2;
+% 	PERF_LIB:=hierarchical;
+%       %this reduction output the variance of events. Syntax: number_of_output#function
+% 	REDUCTION:=1#monitor_evset_var;
+% }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                             HELP                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%fields list
+%      OBJ: Topology object where to set a monitor.
+%      PERF_LIB: Performance library to gather events.
+%      EVSET: List of events from PERF_LIB to gather.
+%      REDUCTION: Compute output samples out of input events.
+%      WINDOW: Keep track of events WINDOW(default=1) times before overwritting.
+%      SILENT: 0 don't print monitor, 1(default) print monitor.
+
+%default REDUCTION functions (some may not be available):
+%	 monitor_evset_var
+%	 monitor_events_var
+%	 monitor_events_mean
+%	 monitor_events_sum
+%	 monitor_events_min
+
+%default PERF_LIB (some may not be available):
+%	 papi
+%	 hierarchical
+%	 accumulate
+%	 maqao
+%	 fake
+
+%EVSET depend on PERF_LIB value. Usually list of available events is dumped when EVSET field is filled with unavailable event.
+%Certain framework like PAPI also provides tools to list events.
+
+

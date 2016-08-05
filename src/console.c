@@ -15,7 +15,6 @@ static unsigned get_term_width(){
 
 static inline void clear_term(){system("clear");}
 
-
 /* 
  * No verbose
  * L2 [:::::::   ][           ][::         ][           ]
@@ -29,11 +28,12 @@ static inline void clear_term(){system("clear");}
 
 void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     hwloc_obj_t obj;
-    struct monitor * monitor;
+    harray arr;
+    hmon monitor;
     char * obj_content;
     int nc, fill, width;
     unsigned i, n_obj;
-    double val, scale;
+    double val, scale, min, max;
 
     n_obj = hwloc_get_nbobjs_by_depth(monitors_topology, depth);
 
@@ -44,20 +44,23 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     obj_content = malloc(width+1);
 
     for(i=0;i<n_obj;i++){
-	obj = hwloc_get_obj_by_depth(monitors_topology,depth, i);	
-	monitor = obj->userdata;
+	obj = hwloc_get_obj_by_depth(monitors_topology,depth, i);
+	arr = obj->userdata;
+	monitor = harray_get(arr, harray_length(arr)-1);
 	memset(obj_content,0,width+1);
 	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,monitors_running_cpuset)){
-	    if(monitor->max == monitor->min){
+	    val = monitor->samples[0];
+	    max = monitor->max[0];
+	    min = monitor->min[0];
+	    if(max == min){
 		fill=width;
 	    }
 	    else{
-		val = monitor->value - monitor->min;
-		scale = monitor->max - monitor->min;
+		scale = max - min;
 		fill =  val * width / scale;
 	    }
 	    if(verbose){
-		nc = snprintf(obj_content, fill, "%lf", monitor->value);
+		nc = snprintf(obj_content, fill, "%lf", val);
 		nc = nc>fill ? fill : nc;
 		snprintf(obj_content+nc, width-nc, "%.*s", fill-nc, FILL_STR);
 	    }

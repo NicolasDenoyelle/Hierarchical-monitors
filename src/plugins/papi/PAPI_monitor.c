@@ -1,12 +1,11 @@
 #include <string.h>
 #include <papi.h>
 #include "../performance_plugin.h"
-#include "../../monitor_utils.h"
+#include "../../hmon_utils.h"
 
 extern hwloc_topology_t monitors_topology;
 
 struct PAPI_eventset{
-    int (*PAPI_stop_counting)(int, long long *);
     int evset;
     unsigned n_events;
     long long * values;
@@ -160,17 +159,13 @@ int PAPI_monitor_match_location_component(hwloc_obj_t location){
     return -1;
 }
     
-int monitor_eventset_init(void ** eventset, hwloc_obj_t location, int accumulate){
+int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
     struct PAPI_eventset * evset;
     malloc_chk(evset, sizeof (*evset));
     *eventset = evset;
     evset->n_events=0;
     evset->evset = PAPI_NULL;
     evset->values = NULL;
-    if(accumulate)
-	evset->PAPI_stop_counting = PAPI_accum;
-    else
-	evset->PAPI_stop_counting = PAPI_stop;
     PAPI_call_check(PAPI_create_eventset(&evset->evset), PAPI_OK, -1, "Eventset creation failed: ");
 
     /* assign eventset to a component */

@@ -25,8 +25,8 @@ void               gsl_vector_print(const gsl_vector * v);
  * @param m: the monitor used for clustering
  * @return The timestamp barycentre
  **/
-double centroid_clustering(struct monitor * hmon){
-    unsigned i, m = hmon->window, n = hmon->n_events+1;
+double centroid_clustering(hmon hmon){
+    unsigned m = hmon->events.rows, n = hmon->events.cols;
 
     /* initialize centroids */
     struct centroids *c = hmon->userdata;
@@ -36,11 +36,7 @@ double centroid_clustering(struct monitor * hmon){
     }
 
     /* Set events into centroids points */
-    double * timestamps = malloc(m*sizeof(timestamps));
-    for(i=0;i<m;i++){timestamps[i] = n*(double)hmon->timestamps[i];}
-    centroids_set(c, timestamps, 0, 1);
-    centroids_set(c, hmon->events, 1, n-1);
-    free(timestamps);
+    centroids_set(c, hmon->events.data, 0, n-1);
     
     /* centroids move */
     kmean(c, KMEAN_ITER);

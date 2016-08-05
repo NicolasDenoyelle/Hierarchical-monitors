@@ -1,138 +1,143 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include "monitor_utils.h"
+#include "hmon.h"
+#include "hmon_utils.h"
 
-/* An hmon_array of objects */
-struct hmon_array{
-    void **  cell;
-    unsigned length;
-    unsigned allocated_length;
-    void     (*delete_element)(void*);
-};
+/* An harray of objects */
 
-struct hmon_array * 
-new_hmon_array(size_t elem_size, unsigned max_elem, void (*delete_element)(void*)){
+harray 
+new_harray(size_t elem_size, unsigned max_elem, void (*delete_element)(void*)){
     unsigned i;
-    struct hmon_array * hmon_array;
-    malloc_chk(hmon_array, sizeof(*hmon_array));
-    malloc_chk(hmon_array->cell, elem_size*max_elem);
+    harray array;
+    malloc_chk(array, sizeof(*array));
+    malloc_chk(array->cell, elem_size*max_elem);
     for(i=0;i<max_elem;i++){
-	hmon_array->cell[i] = NULL;
+	array->cell[i] = NULL;
     }
-    hmon_array->length = 0;
-    hmon_array->allocated_length = max_elem;
-    hmon_array->delete_element = delete_element;
-    return hmon_array;
+    array->length = 0;
+    array->allocated_length = max_elem;
+    array->delete_element = delete_element;
+    return array;
 }
 
-struct hmon_array * hmon_array_dup(struct hmon_array * hmon_array)
+harray harray_dup(harray array)
 {
     unsigned i;
-    struct hmon_array * copy;
-    copy = new_hmon_array(sizeof(*(hmon_array->cell)), hmon_array->allocated_length, hmon_array->delete_element);
-    memcpy(copy->cell, hmon_array->cell,sizeof(*(hmon_array->cell))*hmon_array->length);
-    copy->length = hmon_array->length;
-    for(i=copy->length; i<hmon_array->allocated_length; i++)
+    harray copy;
+    copy = new_harray(sizeof(*(array->cell)), array->allocated_length, array->delete_element);
+    memcpy(copy->cell, array->cell,sizeof(*(array->cell))*array->length);
+    copy->length = array->length;
+    for(i=copy->length; i<array->allocated_length; i++)
 	copy->cell[i] = NULL;
     return copy;
 }
 
 void 
-delete_hmon_array(struct hmon_array * hmon_array){
+delete_harray(harray array){
     unsigned i;
-    if(hmon_array==NULL)
+    if(array==NULL)
 	return;
-    if(hmon_array->delete_element!=NULL){
-	for(i=0;i<hmon_array->length;i++){
-	    if(hmon_array->cell[i]!=NULL)
-		hmon_array->delete_element(hmon_array->cell[i]);
+    if(array->delete_element!=NULL){
+	for(i=0;i<array->length;i++){
+	    if(array->cell[i]!=NULL)
+		array->delete_element(array->cell[i]);
 	}
     }
-    free(hmon_array->cell);
-    free(hmon_array);
+    free(array->cell);
+    free(array);
 }
 
 void 
-empty_hmon_array(struct hmon_array * hmon_array){
+empty_harray(harray array){
     unsigned i;
-    if(hmon_array==NULL)
+    if(array==NULL)
 	return;
-    if(hmon_array->delete_element!=NULL){
-	for(i=0;i<hmon_array->length;i++){
-	    if(hmon_array->cell[i]!=NULL)
-		hmon_array->delete_element(hmon_array->cell[i]);
+    if(array->delete_element!=NULL){
+	for(i=0;i<array->length;i++){
+	    if(array->cell[i]!=NULL)
+		array->delete_element(array->cell[i]);
 	}
     }
-    hmon_array->length = 0;
+    array->length = 0;
 }
 
-static void hmon_array_chk_length(struct hmon_array * hmon_array, unsigned length){
-    if(length>=hmon_array->allocated_length){
-	while((hmon_array->allocated_length*=2)<length);
-	realloc_chk(hmon_array->cell,sizeof(*(hmon_array->cell))*hmon_array->allocated_length);
-	memset(&(hmon_array->cell[hmon_array->length]), 0, sizeof(*hmon_array->cell) * (hmon_array->allocated_length-hmon_array->length));
+static void harray_chk_length(harray array, unsigned length){
+    if(length>=array->allocated_length){
+	while((array->allocated_length*=2)<length);
+	realloc_chk(array->cell,sizeof(*(array->cell))*array->allocated_length);
+	memset(&(array->cell[array->length]), 0, sizeof(*array->cell) * (array->allocated_length-array->length));
     }
 }
 
-void * hmon_array_get(struct hmon_array * hmon_array, unsigned i){
-    if(hmon_array==NULL){return NULL;}
-    if(i>=hmon_array->length){return NULL;}
-    else{return hmon_array->cell[i];}
+void * harray_get(harray array, unsigned i){
+    if(array==NULL){return NULL;}
+    if(i>=array->length){return NULL;}
+    else{return array->cell[i];}
 }
 
-void * hmon_array_set(struct hmon_array * hmon_array, unsigned i, void * element){
+void ** harray_get_data(harray array){
+    return array->cell;
+}
+
+void * harray_set(harray array, unsigned i, void * element){
     void * ret;
-    hmon_array_chk_length(hmon_array,i);
-    ret = hmon_array->cell[i];
-    hmon_array->cell[i] = element;
-    if(hmon_array->length<=i){hmon_array->length = i+1;}
+    harray_chk_length(array,i);
+    ret = array->cell[i];
+    array->cell[i] = element;
+    if(array->length<=i){array->length = i+1;}
     return ret;
 }
 
-inline unsigned hmon_array_length(struct hmon_array * hmon_array){
-    return hmon_array->length;
+inline unsigned harray_length(harray array){
+    return array->length;
 }
 
-inline void hmon_array_push(struct hmon_array * hmon_array, void * element){
-    hmon_array_set(hmon_array,hmon_array->length,element);
+inline void harray_push(harray array, void * element){
+    harray_set(array,array->length,element);
 }
 
-void * hmon_array_pop(struct hmon_array * hmon_array){
-    if(hmon_array->length == 0){return NULL;}
-    hmon_array->length--;
-    return hmon_array->cell[hmon_array->length];
+void * harray_pop(harray array){
+    if(array->length == 0){return NULL;}
+    array->length--;
+    return array->cell[array->length];
 }
 
-void hmon_array_insert(struct hmon_array * hmon_array, unsigned i, void * element){
-    if(i>=hmon_array->length){return;}
-    hmon_array_chk_length(hmon_array, hmon_array->length+1);
-    hmon_array->length++;
-    memmove(&hmon_array->cell[i+1], &hmon_array->cell[i], (hmon_array->length-i-1)*sizeof(*hmon_array->cell));
-    hmon_array->cell[i] = element;
+void harray_insert(harray array, unsigned i, void * element){
+    if(i>=array->length){return;}
+    harray_chk_length(array, array->length+1);
+    array->length++;
+    memmove(&array->cell[i+1], &array->cell[i], (array->length-i-1)*sizeof(*array->cell));
+    array->cell[i] = element;
 }
 
-void * hmon_array_remove(struct hmon_array * hmon_array, int i){
+void * harray_remove(harray array, int i){
     void * ret;
-    if(i<0 || (unsigned)i >= hmon_array->length){return NULL;}
-    else{ret = hmon_array->cell[i];}
-    if(hmon_array->length){
-	memmove(&hmon_array->cell[i], &hmon_array->cell[i+1], (hmon_array->length-i-1)*sizeof(*hmon_array->cell));
-	hmon_array->length--;
+    if(i<0 || (unsigned)i >= array->length){return NULL;}
+    else{ret = array->cell[i];}
+    if(array->length){
+	memmove(&array->cell[i], &array->cell[i+1], (array->length-i-1)*sizeof(*array->cell));
+	array->length--;
     }	
     return ret;
 }
 
-int hmon_array_find(struct hmon_array * hmon_array, void * key, int (* compare)(void*, void*)){
-    void * found = bsearch(&key,hmon_array->cell, hmon_array->length, sizeof(*(hmon_array->cell)), (__compar_fn_t)compare);
+int harray_find(harray array, void * key, int (* compare)(void*, void*)){
+    void * found = bsearch(&key,array->cell, array->length, sizeof(*(array->cell)), (__compar_fn_t)compare);
     if(found == NULL){return -1;}
-    return (found - (void*)hmon_array->cell) / sizeof(*(hmon_array->cell));
+    return (found - (void*)array->cell) / sizeof(*(array->cell));
 }
 
-unsigned hmon_array_insert_sorted(struct hmon_array * hmon_array, void * element, int (* compare)(void*, void*)){
-    unsigned insert_index = hmon_array->length/2;
-    unsigned left_bound = 0,right_bound = hmon_array->length-1;
-    int comp = compare(element, hmon_array->cell[insert_index]);
+int harray_find_unsorted(harray array, void * key){
+    for(unsigned i = 0; i<harray_length(array); i++){
+	if(harray_get(array, i) == key){return (int)i;}
+    }
+    return -1;
+}
+
+
+unsigned harray_insert_sorted(harray array, void * element, int (* compare)(void*, void*)){
+    unsigned insert_index = array->length/2;
+    unsigned left_bound = 0,right_bound = array->length-1;
+    int comp = compare(element, array->cell[insert_index]);
     while(comp || (insert_index > left_bound && insert_index < right_bound)){
 	if(comp > 0){
 	    left_bound = insert_index;
@@ -142,13 +147,13 @@ unsigned hmon_array_insert_sorted(struct hmon_array * hmon_array, void * element
 	    right_bound = insert_index;
 	    insert_index -= (insert_index - left_bound)/2;
 	}
-	comp = compare(element, hmon_array->cell[insert_index]);
+	comp = compare(element, array->cell[insert_index]);
     }
-    hmon_array_insert(hmon_array, insert_index, element);
+    harray_insert(array, insert_index, element);
     return insert_index;
 }
 
-inline void hmon_array_sort(struct hmon_array * hmon_array, int (* compare)(void*, void*)){
-    qsort(hmon_array->cell, hmon_array->length, sizeof(*(hmon_array->cell)), (__compar_fn_t)compare);
+inline void harray_sort(harray array, int (* compare)(void*, void*)){
+    qsort(array->cell, array->length, sizeof(*(array->cell)), (__compar_fn_t)compare);
 }
 
