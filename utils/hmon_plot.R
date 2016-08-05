@@ -66,7 +66,7 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
     ymin = max(c(ymin,1))
     yticks = lseq(from = ymin, to = ymax, length.out = log10(ymax / ymin))
   }
-  if(options$cluster>1 && options$split){
+  if(options$cluster>1){
     points = scale(frame[,3:ncol(frame)], center=TRUE, scale=TRUE)
     points[1] = points[1]*(ncol(frame)-3)
     km = kmeans(x = points, centers = options$cluster, iter.max = 20)
@@ -129,7 +129,9 @@ plot_monitors <- function(frame){
     }
   }
   if(!options$split){
-     legend("topleft", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
+     if(options$cluster==0){
+       legend("topleft", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
+     }
      title(main=get_title(), ylab="monitors value", xlab="nanoseconds")
      axis(1, at=xticks)
      axis(2, at=yticks)
