@@ -16,8 +16,7 @@ This output of a [previous implementation](https://github.com/NicolasDenoyelle/d
 
 * hwloc with defined values or above: 
   * `HWLOC_API_VERSION     0x00020000`
-
-* `HWLOC_COMPONENT_ABI   5`
+  * `HWLOC_COMPONENT_ABI   5`
 * papi, or maqao(lprof) to build hardware performance counters plugin.
 If you don't have one of them you will have to remove them from line `PERF_PLUGINS` in [Makefile](./src/Makefile).
 
