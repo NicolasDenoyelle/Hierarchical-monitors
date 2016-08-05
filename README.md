@@ -90,7 +90,8 @@ The plot script is not installed and is located [here](utils/hmon_plot.R).
 
 Use the command `Rscript hmon_plot.R -h` to output usage help of the script.
 
-Here is an example of plot output, of L2 misses accumulation along time and clustering result:
+Below is an example of plot output, on an application producing L2 miss phases.
+L2 misses accumulation was recorded along time, and clustered in the plot script.
 
 ![](./utils/L2_miss.out.png?raw=true)
 
