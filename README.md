@@ -92,7 +92,7 @@ The plot script is not installed and is located [here](utils/hmon_plot.R).
 Use the command `Rscript hmon_plot.R -h` to output usage help of the script.
 
 
-## Performance Plugins:
+## Choosing Events Source:
 
 Several performance plugins (fake, accumulate, hierarchical, papi, maqao) are implemented as base for `PERF_LIB` field in monitor
 definition.
@@ -114,7 +114,7 @@ One can also implement its own performance plugin with this instructions:
 A performance plugin is a file with pattern name: `<name>.monitor_plugin.so` loadable with dlopen.
 The plugin must implement the [performance plugin interface](./src/plugins/performance_interface.h).
 
-## Events Reduction
+## Reducing Events
 Events reduction can be done by defining arithmetic expressions of output or using a statistic plugins.
 
 * Arithmetic expressions must follow the syntax $j op $k op ...
