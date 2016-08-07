@@ -37,7 +37,7 @@ fake{
 % 	OBJ:=PU;
 %       PERF_LIB:=papi;	
 % 	EVSET:=PAPI_L2_DCM;
-% 	SILENT:=0;
+% 	SILENT:=1;
 % }
 
 % L2_MISS_L2{
@@ -53,6 +53,15 @@ fake{
 % 	PERF_LIB:=hierarchical;
 %       %this reduction output the variance of events. Syntax: number_of_output#function
 % 	REDUCTION:=1#monitor_evset_var;
+% }
+
+%% Make clusters out of points an output points label
+% clusters {
+% 	 OBJ:=Machins;
+% 	 EVSET:=L2_MISS_PU;
+% 	 PERF_LIB:=accumulate;
+% 	 WINDOW:=8;
+% 	 REDUCTION:=8#clustering;
 % }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
