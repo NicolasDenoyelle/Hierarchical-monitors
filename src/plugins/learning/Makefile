@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra -std=gnu99 -g -I../..
 LDFLAGS=-lm -lgsl -lblas
 
-SRC=kmean.c clustering.c
+SRC=features.c kmean.c clustering.c
 
 OBJ=$(patsubst %.c, %.o, $(SRC)	)
 LIB=learning.monitor_plugin.so
