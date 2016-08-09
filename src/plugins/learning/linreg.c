@@ -6,19 +6,19 @@
 
 #define MAX_ITER 100
 
-inline double h(const gsl_vector * x, const gsl_vector * Theta){
+double h(const gsl_vector * x, const gsl_vector * Theta){
     double ret; gsl_blas_ddot(x,Theta,&ret); return ret;
 }
 
-inline void h_y(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
+void h_y(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
     gsl_blas_dgemv(CblasNoTrans, 1, X, Theta, -1, y);
 }
 
-inline double h_y2(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
+double h_y2(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
     double ret; h_y(X,Theta,y); gsl_blas_ddot(y,y,&ret); return ret;
 }
 
-inline double h_y2_regularized(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y, const double lambda){
+double h_y2_regularized(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y, const double lambda){
     double reg; gsl_blas_ddot(Theta,Theta,&reg); return h_y2(X,Theta,y) + lambda*reg;
 }
 
@@ -46,7 +46,7 @@ void dlsq(const gsl_vector * Theta, void * params, gsl_vector * dTheta){
     gsl_vector_memcpy(hypothesis_y,model->y);
     h_y(model->X, Theta, hypothesis_y);
     gsl_vector_memcpy(dTheta,Theta);
-    gsl_blas_dgemv(CblasNoTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
+    gsl_blas_dgemv(CblasTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
     gsl_vector_free(hypothesis_y);
 }
 
@@ -60,7 +60,7 @@ void lsqdlsq (const gsl_vector * Theta, void * params, double * cost, gsl_vector
     gsl_vector_memcpy(hypothesis_y,model->y);    
     *cost  = 0.5*h_y2_regularized(model->X, Theta, hypothesis_y, model->lambda);
     gsl_vector_memcpy(dTheta,Theta);
-    gsl_blas_dgemv(CblasNoTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
+    gsl_blas_dgemv(CblasTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
     gsl_vector_free(hypothesis_y);
 }
 
@@ -86,17 +86,17 @@ void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     gsl_multimin_function_fdf objective = {lsq, dlsq, lsqdlsq, model->n, model};
     model->X = X; model->y = y;
 
-    for(unsigned i=0; i<X->size1; i++){
-	gsl_multimin_fdfminimizer_set(model->s, &objective, model->Theta, 0.01, 1e-4);
-
-	iter = MAX_ITER;
-	while(iter--&& status == GSL_CONTINUE){
-	    status = gsl_multimin_fdfminimizer_iterate(model->s);
-	    if(status){break;}
-	    status = gsl_multimin_test_gradient(model->s->gradient, 1e-3);
-	    if (status == GSL_SUCCESS){break;}
+    gsl_multimin_fdfminimizer_set(model->s, &objective, model->Theta, 0.01, 1e-4);
+    iter = MAX_ITER;
+    while(iter--&& status == GSL_CONTINUE){
+	status = gsl_multimin_fdfminimizer_iterate(model->s);
+	if(status){break;}
+	status = gsl_multimin_test_gradient(model->s->gradient, 1e-3);
+	if (status == GSL_SUCCESS){
+	    break;
 	}
     }
+    gsl_vector_memcpy(model->Theta, gsl_multimin_fdfminimizer_x(model->s));
 }
 
 inline double linear_model_predict(const lm model, const gsl_vector * x){

@@ -73,16 +73,17 @@ fake{
 % 	REDUCTION:=$1/$0, $2/$0;
 % }
 
-%% Output least square fit's parameters when fitting accumulated events to first event.
+%% Output least square fit's parameters when fitting accumulated events and matchinf first event.
 % lsq_fit{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=hierarchical;
 % 	EVSET:=accumulation;
 % 	REDUCTION:=2#lsq_fit;
+% 	WINDOW:=16;
 % }
 
 %% Make clusters out of raw_events.
-% clusters {
+% clusters{
 % 	 OBJ:=Machine;
 % 	 PERF_LIB:=hierarchical;
 % 	 EVSET:=raw_events;
