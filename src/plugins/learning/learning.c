@@ -27,7 +27,7 @@ void clustering(hmatrix events, __attribute__ ((unused)) unsigned last, double *
 /* fit a linear model out of events */
 void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * samples, unsigned n_samples){
     /* Fit full matrix only */
-    if(last < events.rows-1){printf("fit in %d samples\n", events.rows-last-1); return;}
+    if(last < events.rows-1){return;}
     
     /* Normalize events */
     gsl_matrix * normalized_events = to_gsl_matrix(events.data, events.rows, events.cols);
@@ -42,7 +42,7 @@ void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * sa
     linear_model_fit(model, &X.matrix, &y.vector);
     
     /* Output model parameters */
-    for(unsigned i=0; i<events.rows && i<n_samples; i++){samples[i] = gsl_vector_get(model->Theta, i);}
+    for(unsigned i=0; i<model->Theta->size && i<n_samples; i++){samples[i] = gsl_vector_get(model->Theta, i);}
 
     /* Cleanup */
     delete_linear_model(model);
