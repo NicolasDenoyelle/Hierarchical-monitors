@@ -41,15 +41,15 @@ void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * sa
     gsl_matrix_const_view X = gsl_matrix_const_submatrix(normalized_events, 0, 1, normalized_events->size1, n_samples-1);
 
     /* Build the model */
-    lm model = *userdata;
-    if(model == NULL){model = *userdata = new_linear_model(n_samples-1, LAMBDA);}
-    linear_model_fit(model, &X.matrix, &y.vector);
+    lm lm = *userdata;
+    if(lm == NULL){lm = *userdata = new_linear_model(n_samples-1, LAMBDA);}
+    linear_model_fit(lm, &X.matrix, &y.vector);
     
     /* Output model parameters */
-    for(unsigned i=1; i<model->Theta->size && i<n_samples; i++){samples[i] = gsl_vector_get(model->Theta, i);}
+    for(unsigned i=1; i<n_samples; i++){samples[i] = gsl_vector_get(lm->Theta, i-1);}
 
     /* Cleanup */
-    /* delete_linear_model(model); */
+    /* delete_linear_model(lm); */
 }
 
 
