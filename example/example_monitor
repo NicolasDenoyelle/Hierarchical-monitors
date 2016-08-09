@@ -2,28 +2,28 @@
 %%                            EXAMPLES                           %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%test monitor
+%% test monitor
 fake{
 	OBJ:=PU;
 	PERF_LIB:=fake;
 	EVSET:=FAKE_MONITOR;
 }
 
-%accumulate each event from children of each OBJ.
+%% accumulate each event from children of each OBJ.
 %accumulate{
 %	OBJ:=Machine;
 %	PERF_LIB:=accumulate;
 %	EVSET:=fake;
 %}
 
-%make an input eventset on OBJ, out of children monitors' output.
+%% make an input eventset on OBJ, out of children monitors' output.
 %hierarchical{
 %	OBJ:=Machine;
 %	PERF_LIB:=hierarchical;
 %	EVSET:=fake;
 %}
 
-%manually reduce input event into output samples (assumes 2 PU per Core)
+%% manually reduce input event into output samples (assumes 2 PU per Core)
 %reduction{
 %	OBJ:=Core;
 %	PERF_LIB:=hierarchical;
@@ -32,7 +32,8 @@ fake{
 %	REDUCTION:= $1/2+$0/2, $1*$0/2;
 %}
 
-%% Get miss balance on L2 caches
+%%%% Get miss balance on L2 caches
+
 % L2_MISS_PU{
 % 	OBJ:=PU;
 %       PERF_LIB:=papi;	
@@ -73,7 +74,7 @@ fake{
 % 	REDUCTION:=$1/$0, 1, $2/$0, ($2/$0)*($2/$0), ($2/$0)*($2/$0)*($2/$0); 
 % }
 
-%% Output prediction and weight parameters on input events. First event is the target.
+%% Output prediction and weight parameters on input events. First event is the target to predict.
 % lsq_fit{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=hierarchical;
