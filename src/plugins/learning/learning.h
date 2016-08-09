@@ -16,7 +16,7 @@ void clustering(hmatrix, unsigned, double*, unsigned, void**);
  * Perform least square fitting on hmatrix rows. 
  * First columns is the value to fit.
  * Second to before last columns are the variable to parameterize.
- * Output prediction on first element, 
+ * Output prediction squared error, 
  * and model parameters (one parameter per matrix columns -2).
  **/
 void lsq_fit(hmatrix, unsigned, double*, unsigned, void**);
