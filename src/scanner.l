@@ -34,6 +34,8 @@ void count();
 "/"                { count(); /* fprintf(stderr,"/\n"); */                     return('/'); };
 "}"                { count(); /* fprintf(stderr,"}\n"); */                     return('}'); };
 "{"                { count(); /* fprintf(stderr,"{\n"); */                     return('{'); };
+")"                { count(); /* fprintf(stderr,")\n"); */                     return(')'); };
+"("                { count(); /* fprintf(stderr,"(\n"); */                     return('('); };
 ";"                { count(); /* fprintf(stderr,";\n"); */                     return(';'); };
 ","                { count(); /* fprintf(stderr,",\n"); */                     return(',');};
 "."                { count(); /* fprintf(stderr,".\n"); */                     return('.');};

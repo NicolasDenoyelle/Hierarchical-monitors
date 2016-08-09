@@ -135,7 +135,7 @@
 %error-verbose
 %token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
 
-%type <str> primary_expr add_expr mul_expr event 
+%type <str> term associative_expr commutative_expr associative_op commutative_op event 
 
 %union{
     char * str;
@@ -201,7 +201,7 @@ assignement_list
 ;
 
 assignement
-: add_expr {
+: commutative_expr {
     if(reduction_code==NULL){reduction_code=strdup("");}
     char out[128]; memset(out,0,sizeof(out));
     snprintf(out, sizeof(out), "out[%d]=", n_reductions);
@@ -211,22 +211,32 @@ assignement
   }
 ;
 
-add_expr
-: mul_expr              { $$ = $1;}
-| add_expr '+' mul_expr { $$ = concat_expr(3, $1,"+", $3); free($1); free($3);}
-| add_expr '-' mul_expr { $$ = concat_expr(3, $1,"-", $3); free($1); free($3);}
-;
-   
-mul_expr
-: primary_expr {$$ = $1;}
-| mul_expr '*' primary_expr { $$ = concat_expr(3, $1,"*", $3); free($1); free($3);}
-| mul_expr '/' primary_expr { $$ = concat_expr(3, $1,"/", $3); free($1); free($3);}
+associative_op
+: '+' {$$=strdup("+");}
+| '-' {$$=strdup("-");}
 ;
 
-primary_expr
-: VAR {$$ = concat_expr(3,"row_in[",$1+1,"]"); free($1);}
-| INTEGER {$$ = $1;}
-| REAL {$$ = $1;}
+commutative_op
+: '*' {$$=strdup("*");}
+| '/' {$$=strdup("/");}
+;
+
+commutative_expr
+: associative_expr                                 {$$=$1;}
+| associative_expr commutative_op associative_expr {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
+| commutative_expr commutative_op commutative_expr {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
+;
+
+associative_expr
+: term                     {$$=$1;}
+| term associative_op term {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
+;
+
+term
+: VAR                      {$$ = concat_expr(3,"row_in[",$1+1,"]"); free($1);}
+| INTEGER                  {$$ = $1;}
+| REAL                     {$$ = $1;}
+| '(' commutative_expr ')' {$$ = concat_expr(3,"(",$2,")"); free($2);}
 ;
 
 %%
