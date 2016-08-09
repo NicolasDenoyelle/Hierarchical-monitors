@@ -55,11 +55,37 @@ fake{
 % 	REDUCTION:=1#monitor_evset_var;
 % }
 
-%% Make clusters out of points an output points label
+%%%% Learning examples
+
+%% Collect raw events
+% raw_events{
+% 	OBJ:=PU;
+% 	PERF_LIB:=papi;
+% 	EVSET:=PAPI_TOT_CYC, PAPI_TOT_INS, PAPI_L3_TCM;
+% 	SILENT:=1;
+% }
+
+%% Accumulate raw events
+% accumulation{
+% 	OBJ:=Machine;
+% 	PERF_LIB:=accumulate;
+% 	EVSET:=raw_events;
+% 	REDUCTION:=$1/$0, $2/$0;
+% }
+
+%% Output least square fit's parameters when fitting accumulated events to first event.
+% lsq_fit{
+% 	OBJ:=Machine;
+% 	PERF_LIB:=hierarchical;
+% 	EVSET:=accumulation;
+% 	REDUCTION:=2#lsq_fit;
+% }
+
+%% Make clusters out of raw_events.
 % clusters {
-% 	 OBJ:=Machins;
-% 	 EVSET:=L2_MISS_PU;
-% 	 PERF_LIB:=accumulate;
+% 	 OBJ:=Machine;
+% 	 PERF_LIB:=hierarchical;
+% 	 EVSET:=raw_events;
 % 	 WINDOW:=8;
 % 	 REDUCTION:=8#clustering;
 % }
