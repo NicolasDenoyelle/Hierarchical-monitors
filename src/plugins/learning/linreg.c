@@ -75,6 +75,12 @@ lm new_linear_model(const unsigned n, const double lambda){
     return model;
 }
 
+void delete_linear_model(lm model){
+    gsl_vector_free(model->Theta);
+    gsl_multimin_fdfminimizer_free(model->s);
+    free(model);
+}
+
 void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     int status = GSL_CONTINUE, iter;
     gsl_multimin_function_fdf objective = {lsq, dlsq, lsqdlsq, model->n, model};

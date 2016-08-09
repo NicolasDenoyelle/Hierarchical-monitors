@@ -35,3 +35,4 @@ gsl_matrix * to_gsl_matrix(const double * values, const unsigned m, const unsign
     memcpy(mat->data, values, m*n*sizeof(double));
     return mat;
 }
+
