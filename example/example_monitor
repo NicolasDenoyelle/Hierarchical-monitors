@@ -70,7 +70,7 @@ fake{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=accumulate;
 % 	EVSET:=raw_events;
-% 	REDUCTION:=$1/$0, $2/$0;
+% 	REDUCTION:=$1/$0, 1, $2/$0, ($2/$0)*($2/$0), ($2/$0)*($2/$0)*($2/$0); 
 % }
 
 %% Output least square fit's parameters when fitting accumulated events and matchinf first event.
@@ -78,7 +78,7 @@ fake{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=hierarchical;
 % 	EVSET:=accumulation;
-% 	REDUCTION:=2#lsq_fit;
+% 	REDUCTION:=5#lsq_fit;
 % 	WINDOW:=16;
 % }
 
