@@ -82,7 +82,7 @@ fake{
 % 	WINDOW:=16;
 % }
 
-%% Make clusters out of raw_events.
+%% Make clusters out of raw_events. Output each sample label. WINDOW=n_samples.
 % clusters{
 % 	 OBJ:=Machine;
 % 	 PERF_LIB:=hierarchical;
