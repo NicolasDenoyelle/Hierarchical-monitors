@@ -3,9 +3,22 @@
 #include <gsl/gsl_statistics.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_multimin.h>
+#include "../../hmon.h"
 
 /*********************************** plugin functions ********************************/
+/**
+ * Perform kmean clustering of each row point of hmatrix. Output each row point label.
+ * There are as many points monitor's window size.
+ **/
 void clustering(hmatrix, unsigned, double*, unsigned);
+
+/**
+ * Perform least square fitting on hmatrix rows. 
+ * First columns is the value to fit.
+ * Second to before last columns are the variable to parameterize.
+ * Output prediction on first element, 
+ * and model parameters (one parameter per matrix columns -2).
+ **/
 void lsq_fit(hmatrix, unsigned, double*, unsigned);
 /************************************************************************************/
     
@@ -16,6 +29,7 @@ void         gsl_vector_normalize(gsl_vector * v);
 void         gsl_matrix_normalize_columns(gsl_matrix * mat);
 void         gsl_matrix_normalize_rows(gsl_matrix * mat);
 gsl_matrix * to_gsl_matrix(const double * values, const unsigned m, const unsigned n);
+gsl_vector * to_gsl_vector(const double * values, const unsigned n);
 /************************************************************************************/
 
 

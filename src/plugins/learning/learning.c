@@ -26,7 +26,10 @@ void clustering(hmatrix events, __attribute__ ((unused)) unsigned last, double *
 
 /* fit a linear model out of events */
 void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * samples, unsigned n_samples){
-    /* Fit full matrix only */
+    /* Output prediction */
+    samples[0] = cblas_ddot(n_samples, &hmat_get_row(events, last)[1], 1, samples, 1);
+
+    /* Fit full matrix only if matrix is full */
     if(last < events.rows-1){return;}
     
     /* Normalize events */
@@ -35,14 +38,14 @@ void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * sa
 
     /* Extract features(events without timesteps and target) and target(first event) */
     gsl_vector_const_view y = gsl_matrix_const_column(normalized_events, 0);
-    gsl_matrix_const_view X = gsl_matrix_const_submatrix(normalized_events, 0, 1, normalized_events->size1, normalized_events->size2-2);
+    gsl_matrix_const_view X = gsl_matrix_const_submatrix(normalized_events, 0, 1, normalized_events->size1, n_samples);
 
     /* Build the model */
     lm model = new_linear_model(X.matrix.size2, LAMBDA);
     linear_model_fit(model, &X.matrix, &y.vector);
     
     /* Output model parameters */
-    for(unsigned i=0; i<model->Theta->size && i<n_samples; i++){samples[i] = gsl_vector_get(model->Theta, i);}
+    for(unsigned i=1; i<model->Theta->size && i<n_samples; i++){samples[i] = gsl_vector_get(model->Theta, i);}
 
     /* Cleanup */
     delete_linear_model(model);
