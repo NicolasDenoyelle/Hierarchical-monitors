@@ -75,7 +75,7 @@ typedef struct hmon{
     /** monitor output: events reduction **/
     double * samples, * max, * min;
     unsigned n_samples;
-    void (* model)(hmatrix events, unsigned last, double * samples, unsigned n_samples);
+    void (* model)(hmatrix events, unsigned last, double * samples, unsigned n_samples, void ** userdata);
     
     /** pointers to performance library handling event collection. Functions documentation in plugins/performance_plugin.h  **/
     int (* eventset_start)   (void *);

@@ -491,7 +491,7 @@ void _monitor_reduce(hmon m){
     int err = pthread_mutex_trylock(&m->available);
     if(m->state_query == ACTIVE && err == EBUSY){
 	/* Reduce events */
-	if(m->model!=NULL){m->model(m->events, m->last, m->samples, m->n_samples);}
+	if(m->model!=NULL){m->model(m->events, m->last, m->samples, m->n_samples, &m->userdata);}
 	else{memcpy(m->samples, hmat_get_row(m->events, m->last), sizeof(double)*(m->n_samples));}
 	for(unsigned i=0;i<m->n_samples;i++){
 	    m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];

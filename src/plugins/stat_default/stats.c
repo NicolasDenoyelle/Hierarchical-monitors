@@ -4,7 +4,7 @@
 #define STAT_MAX(a,b) ((a)>(b)?(a):(b))
 #define STAT_MIN(a,b) ((a)<(b)?(a):(b))
 
-void monitor_events_max(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size){
+void monitor_events_max(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
     unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
     double * row_in;
 
@@ -18,7 +18,7 @@ void monitor_events_max(hmatrix in, __attribute__ ((unused)) unsigned row_offset
     }
 }
 
-void monitor_events_min(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size){
+void monitor_events_min(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
     unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
     double * row_in;
 
@@ -32,7 +32,7 @@ void monitor_events_min(hmatrix in, __attribute__ ((unused)) unsigned row_offset
     }
 }
 
-void monitor_events_sum(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size){
+void monitor_events_sum(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
     unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
     double * row_in;
 
@@ -46,13 +46,13 @@ void monitor_events_sum(hmatrix in, __attribute__ ((unused)) unsigned row_offset
     }
 }
 
-void monitor_events_mean(hmatrix in, unsigned row_offset, double * out, unsigned out_size){
+void monitor_events_mean(hmatrix in, unsigned row_offset, double * out, unsigned out_size, void ** userdata){
     unsigned c,cols = STAT_MIN(in.cols, out_size)-1;
-    monitor_events_sum(in, row_offset, out, out_size);
+    monitor_events_sum(in, row_offset, out, out_size, userdata);
     for(c=0;c<cols;c++){out[c] /= in.rows;}
 }
 
-void monitor_events_var(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size){
+void monitor_events_var(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
     unsigned r, c,cols = STAT_MIN(in.cols, out_size)-1;
     double * row_in;
     double sum[cols], square_sum[cols], ct = 1.0/((double)in.rows*(double)in.rows);
@@ -68,7 +68,7 @@ void monitor_events_var(hmatrix in, __attribute__ ((unused)) unsigned row_offset
     for(c=0;c<cols;c++){out[c] = ct*square_sum[c]-sum[c];}
 }
 
-void monitor_evset_var(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size){
+void monitor_evset_var(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size, __attribute ((unused)) void ** userdata){
     unsigned c,cols  = in.cols-1;
     double * row_in  = hmat_get_row(in,row_offset);
     double sum = 0, square_sum = 0;

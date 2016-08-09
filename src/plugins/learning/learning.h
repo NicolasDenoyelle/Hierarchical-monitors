@@ -10,7 +10,7 @@
  * Perform kmean clustering of each row point of hmatrix. Output each row point label.
  * There are as many points monitor's window size.
  **/
-void clustering(hmatrix, unsigned, double*, unsigned);
+void clustering(hmatrix, unsigned, double*, unsigned, void**);
 
 /**
  * Perform least square fitting on hmatrix rows. 
@@ -19,7 +19,7 @@ void clustering(hmatrix, unsigned, double*, unsigned);
  * Output prediction on first element, 
  * and model parameters (one parameter per matrix columns -2).
  **/
-void lsq_fit(hmatrix, unsigned, double*, unsigned);
+void lsq_fit(hmatrix, unsigned, double*, unsigned, void**);
 /************************************************************************************/
     
     

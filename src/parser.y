@@ -105,7 +105,7 @@
 
 	/* Build reduction on events */
 	if(reduction_code != NULL){
-	    reduction_code = concat_and_replace(3,4, "\ndouble ", id, "(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size){\n", reduction_code);
+	    reduction_code = concat_and_replace(3,4, "\ndouble ", id, "(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size, __attribute__ ((unused)) void ** userdata){\n", reduction_code);
 	    reduction_code = concat_and_replace(1,2, "#include \"hmon.h\"\n\n", reduction_code);
 	    monitor_stat_plugin_build(id, reduction_code);
 	    model_plugin = id;
