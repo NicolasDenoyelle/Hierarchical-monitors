@@ -412,7 +412,7 @@ static void _monitor_output_sample(hmon m, unsigned i){
     fprintf(monitors_output_file,"%-16s ",    m->id);
     fprintf(monitors_output_file,"%10s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
     fprintf(monitors_output_file,"%16ld ",   (long)hmat_get(m->events, i, m->events.cols-1));
-    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%10.6lf ", m->samples[j]);}
+    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-16.6lf ", m->samples[j]);}
     fprintf(monitors_output_file,"\n");
 }
 
