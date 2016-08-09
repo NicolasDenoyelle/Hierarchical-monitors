@@ -36,3 +36,9 @@ gsl_matrix * to_gsl_matrix(const double * values, const unsigned m, const unsign
     return mat;
 }
 
+gsl_vector * to_gsl_vector(const double * values, const unsigned n){
+    gsl_vector * v = gsl_vector_alloc(n);
+    memcpy(v->data, values, n*sizeof(double));
+    return v;
+}
+
