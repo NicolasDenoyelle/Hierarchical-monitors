@@ -27,7 +27,7 @@ void clustering(hmatrix events, __attribute__ ((unused)) unsigned last, double *
 /* fit a linear model out of events */
 void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * samples, unsigned n_samples){
     /* Output prediction */
-    samples[0] = cblas_ddot(n_samples, &hmat_get_row(events, last)[1], 1, samples, 1);
+    samples[0] = cblas_ddot(n_samples-1, &hmat_get_row(events, last)[1], 1, &samples[1], 1);
 
     /* Fit full matrix only if matrix is full */
     if(last < events.rows-1){return;}
@@ -38,10 +38,10 @@ void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * sa
 
     /* Extract features(events without timesteps and target) and target(first event) */
     gsl_vector_const_view y = gsl_matrix_const_column(normalized_events, 0);
-    gsl_matrix_const_view X = gsl_matrix_const_submatrix(normalized_events, 0, 1, normalized_events->size1, n_samples);
+    gsl_matrix_const_view X = gsl_matrix_const_submatrix(normalized_events, 0, 1, normalized_events->size1, n_samples-1);
 
     /* Build the model */
-    lm model = new_linear_model(X.matrix.size2, LAMBDA);
+    lm model = new_linear_model(n_samples-1, LAMBDA);
     linear_model_fit(model, &X.matrix, &y.vector);
     
     /* Output model parameters */
