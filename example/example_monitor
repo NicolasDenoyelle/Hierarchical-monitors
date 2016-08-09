@@ -73,7 +73,7 @@ fake{
 % 	REDUCTION:=$1/$0, 1, $2/$0, ($2/$0)*($2/$0), ($2/$0)*($2/$0)*($2/$0); 
 % }
 
-%% Output least square fit's parameters when fitting accumulated events and machine first event.
+%% Output prediction and weight parameters on input events. First event is the target.
 % lsq_fit{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=hierarchical;
