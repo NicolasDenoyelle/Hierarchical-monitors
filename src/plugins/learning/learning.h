@@ -4,6 +4,12 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_multimin.h>
 
+/*********************************** plugin functions ********************************/
+void clustering(hmatrix, unsigned, double*, unsigned);
+void lsq_fit(hmatrix, unsigned, double*, unsigned);
+/************************************************************************************/
+    
+    
 /*********************************** features utils **********************************/
 void         gsl_vector_print(const gsl_vector * v);
 void         gsl_vector_normalize(gsl_vector * v);
