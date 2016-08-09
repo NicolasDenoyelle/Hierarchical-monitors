@@ -410,8 +410,8 @@ void monitors_output(void (* monitor_output_method)(hmon, int), int flag){
 static void _monitor_output_sample(hmon m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%-16s ",    m->id);
-    fprintf(monitors_output_file,"%10s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%16ld ",   (long)hmat_get(m->events, i, m->events.cols-1));
+    fprintf(monitors_output_file,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(monitors_output_file,"%14ld ",   (long)hmat_get(m->events, i, m->events.cols-1));
     for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-16.6lf ", m->samples[j]);}
     fprintf(monitors_output_file,"\n");
 }
