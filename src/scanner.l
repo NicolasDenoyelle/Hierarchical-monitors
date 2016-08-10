@@ -8,7 +8,7 @@ void count();
 %option nounput
 %option noinput
 
-integer           [[:digit:]]+
+integer           \-?[[:digit:]]+
 name              [[:alpha:]][[\_\-[:alnum:]]*|[[\_\-[:alnum:]]*[[:alpha:]]
 real              \-?{integer}(\.{integer})?([eE][\+\-]{integer})? 
 var               \${integer}
