@@ -27,12 +27,17 @@ void lsq_fit(hmatrix, unsigned, double*, unsigned, void**);
     
     
 /*********************************** features utils **********************************/
-gsl_vector * gsl_vector_dup(const gsl_vector * v);
-void         gsl_vector_normalize(gsl_vector * v);
-void         gsl_matrix_normalize_columns(gsl_matrix * mat);
-void         gsl_matrix_normalize_rows(gsl_matrix * mat);
-gsl_matrix * to_gsl_matrix(const double * values, const unsigned m, const unsigned n);
-gsl_vector * to_gsl_vector(const double * values, const unsigned n);
+struct scaling{
+    double center;
+    double scale;
+};
+
+gsl_vector *   gsl_vector_dup(const gsl_vector * v);
+struct scaling gsl_vector_normalize(gsl_vector * v);
+void           gsl_matrix_normalize_columns(gsl_matrix * mat, struct scaling * scales);
+void           gsl_matrix_normalize_rows(gsl_matrix * mat, struct scaling * scales);
+gsl_matrix *   to_gsl_matrix(const double * values, const unsigned m, const unsigned n);
+gsl_vector *   to_gsl_vector(const double * values, const unsigned n);
 /************************************************************************************/
 
 
