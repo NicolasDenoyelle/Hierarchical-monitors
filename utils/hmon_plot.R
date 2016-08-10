@@ -118,20 +118,18 @@ plot_monitors <- function(frame){
     ann=TRUE
   }
   monitors = unique(frame[, c(1,2)])
-  monitors = monitors[order(monitors[,2]),]
+  monitors = monitors[order(monitors[,1]),]
   objs = monitors[,2]
   names = monitors[,1]
-  for (i in 1:length(objs)) {
-    data = subset(frame, frame[, 2] == objs[i])
+  for (i in 1:nrow(monitors)) {
+    data = subset(frame, frame[, 2] == objs[i] & frame[,1] == names[i])
     plot_monitor(data, xmin=xmin, xmax=xmax, ymin=ymin ,ymax=ymax, ann=ann, logscale = options$log, col = i)
     if(!options$split){
-      par(new = TRUE)
+      	 par(new = TRUE)
     }
   }
   if(!options$split){
-     if(options$cluster==0){
-       legend("topleft", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
-     }
+     legend("bottomright", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
      title(main=get_title(), ylab="monitors value", xlab="nanoseconds")
      axis(1, at=xticks)
      axis(2, at=yticks)
