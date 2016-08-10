@@ -92,7 +92,7 @@ int monitor_eventset_add_named_event(void * monitor_eventset, char * event)
     }
 
     hmon m = harray_get(child_events, i);
-    return m->events.cols-1;
+    return m->n_events;
 }
 
 int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
@@ -138,18 +138,18 @@ int monitor_eventset_read(void * monitor_eventset, double * values){
     double * events;
     
     m = harray_get(set->child_events,0);
-    _monitor_read(m);
-    _monitor_reduce(m);
-    events = hmat_get_row(m->events, m->last);
-    for(j=0; j<m->events.cols-1; j++){values[j] = events[j];}
+    monitor_read(m);
+    monitor_reduce(m);
+    events = monitor_get_events(m, m->last);
+    for(j=0; j<m->n_events; j++){values[j] = events[j];}
     
     for(unsigned i = 1; i< harray_length(set->child_events); i++){
 	m  = harray_get(set->child_events,i);
 	/* make sure m is up to date */
-	_monitor_read(m);
-	_monitor_reduce(m);
-	events = hmat_get_row(m->events, m->last);
-	for(j=0; j<m->events.cols-1; j++){values[j] += events[j];}
+	monitor_read(m);
+	monitor_reduce(m);
+	events = monitor_get_events(m, m->last);
+	for(j=0; j<m->n_events; j++){values[j] += events[j];}
     }
 
     return 0;

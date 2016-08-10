@@ -3,26 +3,6 @@
 
 #include <hwloc.h>
 
-/************************************************ Matrix utils **************************************************/
-typedef struct hmon_matrix{
-    double * data;
-    unsigned rows;
-    unsigned cols;
-} hmatrix;
-
-hmatrix  new_hmatrix(unsigned rows, unsigned cols);
-hmatrix  no_hmatrix();
-int      hmat_is_NULL(hmatrix mat);
-void     delete_hmatrix(hmatrix mat);
-double * hmat_get_data(hmatrix mat);
-double   hmat_get(const hmatrix mat, const unsigned row, const unsigned col);
-double * hmat_get_row(hmatrix mat, const unsigned row);
-void     hmat_set(const double value, hmatrix mat, const unsigned row, const unsigned col);
-void     hmat_set_row(const double * values, hmatrix mat, const unsigned row);
-void     hmat_zero(hmatrix mat);
-/***************************************************************************************************************/
-
-
 /************************************************ Array utils **************************************************/
 typedef struct hmon_array{
     void **  cell;
@@ -70,12 +50,13 @@ typedef struct hmon{
 
     /** monitor input: eventsets, set of collected event. Last element of each line is the timestamp **/
     void   * eventset;
-    hmatrix  events;
+    double * events;
+    unsigned n_events;
 
     /** monitor output: events reduction **/
     double * samples, * max, * min;
     unsigned n_samples;
-    void (* model)(hmatrix events, unsigned last, double * samples, unsigned n_samples, void ** userdata);
+    void (* model)(struct hmon*);
     
     /** pointers to performance library handling event collection. Functions documentation in plugins/performance_plugin.h  **/
     int (* eventset_start)   (void *);
@@ -96,6 +77,32 @@ typedef struct hmon{
     /* Set to NULL, unused by the library, but maybe by some plugins */
     void * userdata;
 } * hmon;
+
+/**
+ * Get pointer on monitor events row.
+ **/
+double * monitor_get_events(hmon, unsigned row);
+/**
+ * Get event value at row row and column idx.
+ **/
+double   monitor_get_event(hmon, unsigned row, unsigned idx);
+/**
+ * Get timestamp at row.
+ **/
+long     monitor_get_timestamp(hmon, unsigned row);
+/**
+ * Reset monitor values
+ **/
+void     monitor_reset(hmon);
+/**
+ * Read events in monitor.
+ **/
+void     monitor_read(hmon);
+/**
+ * Compute samples in monitor.
+ **/
+void     monitor_reduce(hmon);
+
 /***************************************************************************************************************/
 
 
@@ -186,14 +193,5 @@ void monitor_display_all(int verbose);
 void monitor_lib_finalize();
 /***************************************************************************************************************/
 
-/******************************************** Library internal functions ***************************************/
-void        _monitor_delete        (hmon);
-void        _monitor_reset         (hmon);
-void        _monitor_remove        (hmon);
-void        _monitor_read          (hmon);
-void        _monitor_reduce        (hmon);
-int         _monitor_start         (hmon);
-int         _monitor_stop          (hmon);
-/***************************************************************************************************************/
 #endif //MONITOR_H
 

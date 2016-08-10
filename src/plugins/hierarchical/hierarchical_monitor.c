@@ -139,8 +139,8 @@ int monitor_eventset_read(void * monitor_eventset, double * values){
     for(j=0; j<harray_length(set->child_events); j++){
 	m = harray_get(set->child_events, j);
 	/* make sure m is up to date */
-	_monitor_read(m);
-	_monitor_reduce(m);
+	monitor_read(m);
+	monitor_reduce(m);
 	for(i=0;i<m->n_samples;i++){values[i+offset] = m->samples[i];}
 	offset+=i;
     }

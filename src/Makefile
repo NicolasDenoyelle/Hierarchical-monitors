@@ -10,8 +10,8 @@ MONITOR_PLUGINS_INSTALL_DIR=$(PREFIX)/lib
 MONITOR_BIN_INSTALL_DIR=$(PREFIX)/bin
 
 # performance plugins to compile
-PLUGINS=fake accumulate hierarchical #papi maqao
-STAT_PLUGINS=stat_default #learning
+PLUGINS=fake accumulate hierarchical papi maqao
+STAT_PLUGINS=stat_default learning
 PLUGINS+=$(foreach p, $(STAT_PLUGINS), $(p))
 CFLAGS+=-DSTAT_PLUGINS="\"$(STAT_PLUGINS)\""
 
@@ -27,7 +27,7 @@ default: all
 ################################################################################################################
 LIB=libhmon.so
 BIN=hmon 
-SRC=hmon.c hmon_array.c hmon_matrix.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
+SRC=hmon.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
 OBJ=$(patsubst %.c, %.o, $(SRC))
 
 %.o: %.c

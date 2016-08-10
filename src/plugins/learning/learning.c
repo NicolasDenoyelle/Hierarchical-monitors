@@ -4,48 +4,52 @@
 /**
  * Perform K-mean clustering into K clusters on events, and output each event label.
  **/
-void clustering(hmatrix events, __attribute__ ((unused)) unsigned last, double * samples, unsigned n_samples, __attribute ((unused)) void ** userdata){
+void clustering(hmon monitor){
     /* Normalize events */
-    gsl_matrix * normalized_points = to_gsl_matrix(events.data, events.rows, events.cols);
-    gsl_matrix_normalize_columns(normalized_points, NULL);
+    unsigned m = monitor->total>monitor->window ? monitor->window : monitor->total;
+    gsl_matrix events = to_gsl_matrix(monitor->events, m, monitor->n_events+1);
+    gsl_matrix * normalized_events = gsl_matrix_dup(&events);
+    gsl_matrix_normalize_columns(normalized_events, NULL);
     
     /* centroids move */
-    centroids c = kmean(normalized_points, K);
+    centroids c = kmean(normalized_events, K);
     
     /**** Output points label */
-    for(unsigned i=0; i<events.rows && i<n_samples; i++){samples[i] = gsl_vector_ulong_get(c->label, i);}
+    for(unsigned i=0; i<m && i<monitor->n_samples; i++){monitor->samples[i] = gsl_vector_ulong_get(c->label, i);}
 
     /* Cleanup */
-    gsl_matrix_free(normalized_points);
+    gsl_matrix_free(normalized_events);
     delete_centroids(c);
 }
 
 /* fit a linear model out of events */
-void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * samples, unsigned n_samples, void ** userdata){
-    /* Output prediction error */
-    samples[0] = cblas_ddot(n_samples-1, &hmat_get_row(events, last)[1], 1, &samples[1], 1);
-    samples[0] = samples[0] - hmat_get_row(events, last)[0];
-    samples[0] = samples[0]*samples[0]*0.5/(n_samples-1);
-    /* Fit full matrix only if matrix is full */
-    if(last < events.rows-1){return;}
-    
-    /* Normalize events */
-    gsl_matrix * matrix_events = to_gsl_matrix(events.data, events.rows, events.cols);
-    
+void lsq_fit(hmon monitor){
+    double * output = monitor->samples;
+    unsigned m = monitor->total>monitor->window ? monitor->window : monitor->total;
+    gsl_matrix events = to_gsl_matrix(monitor->events, m, monitor->n_events+1);
     /* Extract features(events without timesteps and target) and target(first event) */
-    gsl_vector_const_view y = gsl_matrix_const_column(matrix_events, 0);
-    gsl_matrix_const_view X = gsl_matrix_const_submatrix(matrix_events, 0, 1, events.rows, n_samples-1);
+    gsl_vector Theta = to_gsl_vector(&monitor->samples[1], monitor->n_events-1);
+    gsl_vector_const_view y = gsl_matrix_const_column(&events, 0);
+    gsl_matrix_const_view X = gsl_matrix_const_submatrix(&events, 0, 1, m, monitor->n_events-1);
+    gsl_vector x = to_gsl_vector(&(monitor_get_events(monitor, monitor->last)[1]), monitor->n_events-1);
+    
+    /* Output prediction error */
+    gsl_blas_ddot(&x,&Theta, output);
+    *output = abs(*output - monitor_get_event(monitor, monitor->last, 0));
+    *output /= abs(*output) + abs(monitor_get_event(monitor, monitor->last, 0));
+    
+    /* Fit full matrix only if tolerance has is not satisfied */
+    if(*output > TOL){
+	printf("Compute fit...\n");
 
-    /* Build the model */
-    lm lm = *userdata;
-    if(lm == NULL){lm = *userdata = new_linear_model(n_samples-1, LAMBDA);}
-    linear_model_fit(lm, &X.matrix, &y.vector);
-    
-    /* Output model parameters */
-    for(unsigned i=1; i<n_samples; i++){samples[i] = gsl_vector_get(lm->Theta, i-1);}
-    
-    /* Cleanup */
-    /* delete_linear_model(lm); */
+	/* Build the model */
+	lm lm = monitor->userdata;
+	if(lm == NULL){lm = monitor->userdata = new_linear_model(monitor->n_events-1, LAMBDA);}
+	linear_model_fit(lm, &X.matrix, &Theta, &y.vector);
+		
+	/* Cleanup */
+	/* delete_linear_model(lm); */
+    }
 }
 
 

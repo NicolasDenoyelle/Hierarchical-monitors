@@ -62,23 +62,20 @@ void lsqdlsq (const gsl_vector * Theta, void * params, double * cost, gsl_vector
 lm new_linear_model(const unsigned n, const double lambda){
     lm model = malloc(sizeof(*model));
     model->lambda = lambda;
-    model->y = 0;
-    model->n = n;
-    model->Theta = gsl_vector_alloc(n);
     model->s = gsl_multimin_fdfminimizer_alloc(gsl_multimin_fdfminimizer_vector_bfgs2, n);
-    gsl_vector_set_zero(model->Theta);
+    model->X = NULL;
+    model->y = NULL;
     return model;
 }
 
 void delete_linear_model(lm model){
-    gsl_vector_free(model->Theta);
     gsl_multimin_fdfminimizer_free(model->s);
     free(model);
 }
 
 
 
-void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
+void linear_model_fit(lm model, const gsl_matrix * X, gsl_vector * Theta, const gsl_vector * y){
     unsigned iter = MAX_ITER;
     model->X = X; model->y = y;
 
@@ -94,8 +91,8 @@ void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     /* gsl_vector_free(dTheta); */
     
     int status = GSL_CONTINUE;
-    gsl_multimin_function_fdf objective = {lsq, dlsq, lsqdlsq, model->n, model};
-    gsl_multimin_fdfminimizer_set(model->s, &objective, model->Theta, 0.01, 1e-4);
+    gsl_multimin_function_fdf objective = {lsq, dlsq, lsqdlsq, X->size2, model};
+    gsl_multimin_fdfminimizer_set(model->s, &objective, Theta, 0.01, 1e-4);
     while(iter--&& status == GSL_CONTINUE){
     	status = gsl_multimin_fdfminimizer_iterate(model->s);
     	if(status){break;}
@@ -104,7 +101,7 @@ void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     	    break;
     	}
     }
-    gsl_vector_memcpy(model->Theta, gsl_multimin_fdfminimizer_x(model->s));
+    gsl_vector_memcpy(Theta, gsl_multimin_fdfminimizer_x(model->s));
 
     /* gsl_multifit_linear_workspace * ws = gsl_multifit_linear_alloc(X->size1, model->n); */
     /* gsl_matrix * cov = gsl_matrix_alloc(model->n, model->n); */
@@ -114,14 +111,14 @@ void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     /* gsl_multifit_linear_free(ws); */
 }
 
-inline double linear_model_predict(const lm model, const gsl_vector * x){
-    return h(x, model->Theta);
+double linear_model_predict(const gsl_vector * Theta, const gsl_vector * x){
+    return h(x, Theta);
 }
 
-double linear_model_xvalid(const lm model, const gsl_matrix * X_valid, const gsl_vector * y){
+double linear_model_xvalid(const gsl_matrix * X_valid, const gsl_vector * Theta, const gsl_vector * y){
     gsl_vector * y_valid = gsl_vector_alloc(y->size);
     gsl_vector_memcpy(y_valid,y);    
-    return h_y2(X_valid, model->Theta, y_valid);
+    return h_y2(X_valid, Theta, y_valid);
     gsl_vector_free(y_valid);
 }
 

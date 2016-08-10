@@ -4,76 +4,80 @@
 #define STAT_MAX(a,b) ((a)>(b)?(a):(b))
 #define STAT_MIN(a,b) ((a)<(b)?(a):(b))
 
-void monitor_events_max(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
-    unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
-    double * row_in;
+void monitor_events_max(hmon m){
+    unsigned r, rows = STAT_MIN(m->window, m->total);
+    unsigned c, cols = m->n_events;
+    double * out = m->samples, *in;
 
     /* Init output */
     for(c=0;c<cols;c++){out[c] = DBL_MIN;}
-
     /* compute max row by row */
-    for(r=0; r<in.rows; r++){
-	row_in = hmat_get_row(in,r);
-	for(c=0;c<cols;c++){out[c] = STAT_MAX(out[c], row_in[c]);}
+    for(r=0; r<rows; r++){
+        in = monitor_get_events(m,r);
+	for(c=0;c<cols;c++){out[c] = STAT_MAX(out[c], in[c]);}
     }
 }
 
-void monitor_events_min(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
-    unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
-    double * row_in;
+void monitor_events_min(hmon m){
+    unsigned r, rows = STAT_MIN(m->window, m->total);
+    unsigned c, cols = m->n_events;
+    double * out = m->samples, *in;
 
     /* Init output */
     for(c=0;c<cols;c++){out[c] = DBL_MAX;}
-
     /* compute min row by row */
-    for(r=0; r<in.rows; r++){
-	row_in = hmat_get_row(in,r);
-	for(c=0;c<cols;c++){out[c] = STAT_MIN(out[c], row_in[c]);}
+    for(r=0; r<rows; r++){
+        in = monitor_get_events(m,r);
+	for(c=0;c<cols;c++){out[c] = STAT_MIN(out[c], in[c]);}
     }
 }
 
-void monitor_events_sum(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
-    unsigned r,c,cols = STAT_MIN(in.cols, out_size)-1;
-    double * row_in;
+void monitor_events_sum(hmon m){
+    unsigned r, rows = STAT_MIN(m->window, m->total);
+    unsigned c, cols = m->n_events;
+    double * out = m->samples, *in;
 
     /* Init output */
     for(c=0;c<cols;c++){out[c] = 0;}
 
     /* compute sum row by row */
-    for(r=0; r<in.rows; r++){
-	row_in = hmat_get_row(in,r);
-	for(c=0;c<cols;c++){out[c] += row_in[c];}
+    for(r=0; r<rows; r++){
+        in = monitor_get_events(m,r);
+	for(c=0;c<cols;c++){out[c] += in[c];}
     }
 }
 
-void monitor_events_mean(hmatrix in, unsigned row_offset, double * out, unsigned out_size, void ** userdata){
-    unsigned c,cols = STAT_MIN(in.cols, out_size)-1;
-    monitor_events_sum(in, row_offset, out, out_size, userdata);
-    for(c=0;c<cols;c++){out[c] /= in.rows;}
+void monitor_events_mean(hmon m){
+    unsigned rows = STAT_MIN(m->window, m->total);
+    unsigned c, cols = m->n_events;
+    double * out = m->samples;
+    monitor_events_sum(m);
+    for(c=0;c<cols;c++){out[c] /= rows;}
 }
 
-void monitor_events_var(hmatrix in, __attribute__ ((unused)) unsigned row_offset, double * out, unsigned out_size, __attribute ((unused)) void ** userdata){
-    unsigned r, c,cols = STAT_MIN(in.cols, out_size)-1;
-    double * row_in;
-    double sum[cols], square_sum[cols], ct = 1.0/((double)in.rows*(double)in.rows);
+void monitor_events_var(hmon m){
+    unsigned r, rows = STAT_MIN(m->window, m->total);
+    unsigned c, cols = m->n_events;
+    double * out = m->samples, *in;
+    double sum[cols], square_sum[cols], ct = 1.0/((double)rows*rows);
     
     for(c=0;c<cols;c++){sum[c] = square_sum[c] = 0;}
-    for(r=0; r<in.rows; r++){
-	row_in = hmat_get_row(in,r);
-	for(c=0;c<cols;c++){sum[c]+=row_in[c]; square_sum[c] += row_in[c]*row_in[c];}
+    for(r=0; r<rows; r++){
+        in = monitor_get_events(m,r);
+	for(c=0;c<cols;c++){sum[c]+=in[c]; square_sum[c] += in[c]*in[c];}
     }
 
     for(c=0;c<cols;c++){sum[c] = ct*sum[c]*sum[c];}
-    ct = (1.0/(double)in.rows);
+    ct = (1.0/(double)rows);
     for(c=0;c<cols;c++){out[c] = ct*square_sum[c]-sum[c];}
 }
 
-void monitor_evset_var(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size, __attribute ((unused)) void ** userdata){
-    unsigned c,cols  = in.cols-1;
-    double * row_in  = hmat_get_row(in,row_offset);
+void monitor_evset_var(hmon m){
+    unsigned c, cols = m->n_events;
+    double * out = m->samples, *in = monitor_get_events(m,m->last);
     double sum = 0, square_sum = 0;
 
-    for(c=0;c<cols;c++){sum+=row_in[c]; square_sum += row_in[c]*row_in[c];}
-    out[0] = square_sum/(double)cols - (1.0/(double)(cols*cols))*sum*sum;
+    for(c=0;c<cols;c++){sum+=in[c]; square_sum += in[c]*in[c];}
+    *out = square_sum/(double)cols - (1.0/(double)(cols*cols))*sum*sum;
 }
 

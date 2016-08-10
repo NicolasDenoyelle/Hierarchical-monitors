@@ -1,12 +1,6 @@
 #include <string.h>
 #include "learning.h"
 
-gsl_vector * gsl_vector_dup(const gsl_vector * v){
-    gsl_vector * copy = gsl_vector_alloc(v->size);
-    gsl_vector_memcpy(copy,v);
-    return copy;
-}
-
 struct scaling gsl_vector_normalize(gsl_vector * v){
     struct scaling scale = {gsl_vector_max(v) - gsl_vector_min(v), gsl_stats_mean(v->data, v->stride, v->size)};
     gsl_vector_add_constant(v, -scale.center);
@@ -42,15 +36,25 @@ void gsl_matrix_normalize_rows(gsl_matrix * mat, struct scaling * scales){
     }
 }
 
-gsl_matrix * to_gsl_matrix(const double * values, const unsigned m, const unsigned n){
-    gsl_matrix * mat = gsl_matrix_alloc(m,n);
-    memcpy(mat->data, values, m*n*sizeof(double));
+gsl_matrix to_gsl_matrix(double * values, const unsigned m, const unsigned n){
+    gsl_matrix mat = {m,n,n,values,NULL,0};
     return mat;
 }
 
-gsl_vector * to_gsl_vector(const double * values, const unsigned n){
-    gsl_vector * v = gsl_vector_alloc(n);
-    memcpy(v->data, values, n*sizeof(double));
+gsl_matrix * gsl_matrix_dup(const gsl_matrix * m){
+    gsl_matrix * copy = gsl_matrix_alloc(m->size1, m->size2);
+    gsl_matrix_memcpy(copy,m);
+    return copy;
+}
+
+gsl_vector to_gsl_vector(double * values, const unsigned n){
+    gsl_vector v = {n, 1, values, NULL, 0};
     return v;
+}
+
+gsl_vector * gsl_vector_dup(const gsl_vector * v){
+    gsl_vector * copy = gsl_vector_alloc(v->size);
+    gsl_vector_memcpy(copy,v);
+    return copy;
 }
 

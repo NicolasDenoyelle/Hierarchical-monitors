@@ -40,6 +40,8 @@ static void        _monitor_update_state  (hmon);
 static void        _monitor_restrict      (hmon);
 static void        _monitor_output_sample (hmon , unsigned);
 static int         _monitor_location_compare(void*, void*);
+static void        _monitor_set_timestamp(hmon, long);
+static void        _monitor_delete(hmon);
 
 static void print_avail_events(struct monitor_plugin * lib){
     char ** (* events_list)(int *) = monitor_plugin_load_fun(lib, "monitor_events_list", 1);
@@ -130,8 +132,9 @@ new_monitor(const char * id,
 	added_events += err;
     }
     eventset_init_fini(monitor->eventset);
-    monitor->events = new_hmatrix(window, added_events+1);
-
+    monitor->events = malloc(window*(added_events+1)*sizeof(double));
+    monitor->n_events = added_events;
+	
     /* Events reduction */
     if(model_plugin){
 	monitor->samples = malloc(sizeof(double) * n_samples+1);
@@ -149,7 +152,7 @@ new_monitor(const char * id,
     }
     
     /* reset values */
-    _monitor_reset(monitor);
+    monitor_reset(monitor);
 
     pthread_mutex_init(&(monitor->available), NULL);
     
@@ -269,7 +272,7 @@ static int _monitor_location_compare(void* a, void* b){
 
 
 void _monitor_delete(hmon monitor){
-    delete_hmatrix(monitor->events);
+    free(monitor->events);
     free(monitor->samples);
     free(monitor->max);
     free(monitor->min);
@@ -406,13 +409,28 @@ void monitors_output(void (* monitor_output_method)(hmon, int), int flag){
     _monitors_do(monitors_to_print, monitor_output_method, flag);
 }
 
+double * monitor_get_events(hmon m, unsigned i){
+    return &(m->events[i*(m->n_events+1)]);
+}
+
+double monitor_get_event(hmon m, unsigned row, unsigned event){
+    return m->events[row*(m->n_events+1)+event];
+}
+
+long monitor_get_timestamp(hmon m, unsigned i){
+    return (long)m->events[i*(m->n_events+1)+m->n_events];
+}
+
+static void _monitor_set_timestamp(hmon m, long timestamp){
+    m->events[m->last*(m->n_events+1)+m->n_events] = timestamp;
+}
 
 static void _monitor_output_sample(hmon m, unsigned i){
     unsigned j;
     fprintf(monitors_output_file,"%-16s ",    m->id);
     fprintf(monitors_output_file,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%14ld ",   (long)hmat_get(m->events, i, m->events.cols-1));
-    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-16.6lf ", m->samples[j]);}
+    fprintf(monitors_output_file,"%14ld ",  monitor_get_timestamp(m,i));
+    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-20.6lf ", m->samples[j]);}
     fprintf(monitors_output_file,"\n");
 }
 
@@ -429,13 +447,13 @@ static void _monitor_update_state(hmon m){
 }
 
 
-void _monitor_reset(hmon m){
+void monitor_reset(hmon m){
     m->last = 0;
     m->total = 0;
     m->last = m->window-1;
     m->stopped = 1;
     m->state_query = ACTIVE;
-    hmat_zero(m->events);
+    for(unsigned i=0;i<m->window*m->n_events+1;i++){m->events[i] = 0;}
     for(unsigned i=0;i<m->n_samples;i++){
 	m->samples[i]=0;
 	m->max[i]=DBL_MIN;
@@ -470,29 +488,29 @@ int _monitor_stop(hmon m){
     return 0;
 }
 
-void _monitor_read(hmon m){
+void monitor_read(hmon m){
     int err = pthread_mutex_trylock(&m->available);
     /* read only if monitor is not up to date and if monitor active */
     if(m->state_query == ACTIVE && err == EBUSY){
 	m->last = (m->last+1)%(m->window);
 	/* Read events */
-	if((m->eventset_read(m->eventset, hmat_get_row(m->events, m->last))) == -1){
+	if((m->eventset_read(m->eventset, monitor_get_events(m, m->last))) == -1){
 	    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
 		    hwloc_type_name(m->location->type), m->location->logical_index);
 	    _monitor_remove(m);
 	}
 	/* Save timestamp */
-	hmat_set(tspec_diff((&monitors_start_time), (&monitors_current_time)), m->events, m->last, m->events.cols-1);
+	_monitor_set_timestamp(m, tspec_diff((&monitors_start_time), (&monitors_current_time)));
 	m->total = m->total+1;	
     } else {pthread_mutex_unlock(&m->available);}
 }
 
-void _monitor_reduce(hmon m){
+void monitor_reduce(hmon m){
     int err = pthread_mutex_trylock(&m->available);
     if(m->state_query == ACTIVE && err == EBUSY){
 	/* Reduce events */
-	if(m->model!=NULL){m->model(m->events, m->last, m->samples, m->n_samples, &m->userdata);}
-	else{memcpy(m->samples, hmat_get_row(m->events, m->last), sizeof(double)*(m->n_samples));}
+	if(m->model!=NULL){m->model(m);}
+	else{memcpy(m->samples, monitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
 	for(unsigned i=0;i<m->n_samples;i++){
 	    m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
 	    m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
@@ -504,9 +522,9 @@ void _monitor_reduce(hmon m){
 static void _monitor_read_then_reduce(harray a){
     unsigned i;
     /* Read monitors */
-    for(i=0;i<harray_length(a); i++){_monitor_read(harray_get(a,i));}
+    for(i=0;i<harray_length(a); i++){monitor_read(harray_get(a,i));}
     /* Analyze monitors */
-    for(i=0;i<harray_length(a); i++){_monitor_reduce(harray_get(a,i));}
+    for(i=0;i<harray_length(a); i++){monitor_reduce(harray_get(a,i));}
 }
 
 static void _monitor_thread_cleanup(void * arg){
