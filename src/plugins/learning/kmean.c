@@ -68,7 +68,7 @@ static void centroids_center(centroids c, const gsl_matrix * points){
     }
 }
     
-centroids kmean(const gsl_matrix * points, unsigned n_centroids, unsigned iter){
+centroids kmean(const gsl_matrix * points, unsigned n_centroids){
     /* Initialize centroids */
     centroids c = new_centroids(points->size1, points->size2, n_centroids);
 
@@ -80,6 +80,7 @@ centroids kmean(const gsl_matrix * points, unsigned n_centroids, unsigned iter){
     }
 
     centroids_init(c, points);
+    unsigned iter = MAX_ITER;
     while(iter--){
 	centroids_color(c, points);
 	centroids_center(c, points);
