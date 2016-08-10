@@ -166,7 +166,7 @@ if (!options$dynamic) {
   x11(xpos = 0, ypos = 0)
   df = read_monitors(df, stream)
   if(options$split){
-     par(mfrow = c(length(unique(df[,2])),1), mar=rep(2,4))	
+     par(mfrow = c(length(unique(df[,c(1:2)])),1), mar=rep(2,4))	
   }
   repeat {
     plot_monitors(df)
