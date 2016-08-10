@@ -35,12 +35,13 @@ void lsq_fit(hmon monitor){
     
     /* Output prediction error */
     gsl_blas_ddot(&x,&Theta, output);
-    *output = abs(*output - monitor_get_event(monitor, monitor->last, 0));
-    *output /= abs(*output) + abs(monitor_get_event(monitor, monitor->last, 0));
+    double error = abs(*output - monitor_get_event(monitor, monitor->last, 0));
+    error /= abs(*output) + abs(monitor_get_event(monitor, monitor->last, 0));
+    *output = error;
     
     /* Fit full matrix only if tolerance has is not satisfied */
-    if(*output > TOL){
-	printf("Compute fit...\n");
+    if(error > TOL){
+	/* printf("Compute fit...\n"); */
 
 	/* Build the model */
 	lm lm = monitor->userdata;
