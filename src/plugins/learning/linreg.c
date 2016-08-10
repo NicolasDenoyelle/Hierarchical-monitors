@@ -13,11 +13,11 @@ void h_y(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
 }
 
 double h_y2(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y){
-    double ret; h_y(X,Theta,y); gsl_blas_ddot(y,y,&ret); return 0.5*ret/(double)X->size1;
+    double ret; h_y(X,Theta,y); gsl_blas_ddot(y,y,&ret); return ret;
 }
 
 double h_y2_regularized(const gsl_matrix * X, const gsl_vector * Theta, gsl_vector * y, const double lambda){
-    double reg; gsl_blas_ddot(Theta,Theta,&reg); return h_y2(X,Theta,y) + lambda*reg/(double)X->size1;
+    double reg; gsl_blas_ddot(Theta,Theta,&reg); return h_y2(X,Theta,y) + lambda*reg;
 }
 
 /** 
@@ -42,7 +42,7 @@ void dlsq(const gsl_vector * Theta, void * params, gsl_vector * dTheta){
     gsl_vector * hypothesis_y = gsl_vector_dup(model->y);
     h_y(model->X, Theta, hypothesis_y);
     gsl_vector_memcpy(dTheta,Theta);
-    gsl_blas_dgemv(CblasTrans, 1.0/(double)model->X->size1, model->X, hypothesis_y, model->lambda/(double)model->X->size1, dTheta);
+    gsl_blas_dgemv(CblasTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
     gsl_vector_free(hypothesis_y);
 }
 
@@ -55,7 +55,7 @@ void lsqdlsq (const gsl_vector * Theta, void * params, double * cost, gsl_vector
     gsl_vector * hypothesis_y = gsl_vector_dup(model->y);
     *cost  = h_y2_regularized(model->X, Theta, hypothesis_y, model->lambda);
     gsl_vector_memcpy(dTheta,Theta);
-    gsl_blas_dgemv(CblasTrans, 1.0/(double)model->X->size1, model->X, hypothesis_y, model->lambda/(double)model->X->size1, dTheta);
+    gsl_blas_dgemv(CblasTrans, 1, model->X, hypothesis_y, model->lambda, dTheta);
     gsl_vector_free(hypothesis_y);
 }
 
@@ -79,27 +79,23 @@ void delete_linear_model(lm model){
 
 
 void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
+    unsigned iter = MAX_ITER;
     model->X = X; model->y = y;
 
     /* double cost = DBL_MAX, old_cost = 0, tol = 1.0; */
-    /* const double alpha = 0.03; */
+    /* const double alpha = 0.001; */
     /* gsl_vector * Theta = model->Theta; */
     /* gsl_vector * dTheta = gsl_vector_alloc(Theta->size); */
-
-    /* unsigned iter = MAX_ITER; */
     /* while(iter-- && (cost-old_cost)*(cost-old_cost)>tol){ */
     /* 	old_cost = cost; */
     /* 	lsqdlsq (Theta, model, &cost, dTheta); */
     /* 	gsl_blas_daxpy(-alpha, dTheta, Theta); */
     /* } */
-
     /* gsl_vector_free(dTheta); */
     
-    int status = GSL_CONTINUE, iter;
+    int status = GSL_CONTINUE;
     gsl_multimin_function_fdf objective = {lsq, dlsq, lsqdlsq, model->n, model};
-
     gsl_multimin_fdfminimizer_set(model->s, &objective, model->Theta, 0.01, 1e-4);
-    iter = MAX_ITER;
     while(iter--&& status == GSL_CONTINUE){
     	status = gsl_multimin_fdfminimizer_iterate(model->s);
     	if(status){break;}
@@ -109,6 +105,13 @@ void linear_model_fit(lm model, const gsl_matrix * X, const gsl_vector * y){
     	}
     }
     gsl_vector_memcpy(model->Theta, gsl_multimin_fdfminimizer_x(model->s));
+
+    /* gsl_multifit_linear_workspace * ws = gsl_multifit_linear_alloc(X->size1, model->n); */
+    /* gsl_matrix * cov = gsl_matrix_alloc(model->n, model->n); */
+    /* double chisq; */
+    /* gsl_multifit_linear(X, y, model->Theta, cov, &chisq, ws); */
+    /* gsl_matrix_free(cov); */
+    /* gsl_multifit_linear_free(ws); */
 }
 
 inline double linear_model_predict(const lm model, const gsl_vector * x){
