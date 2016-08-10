@@ -161,26 +161,11 @@ void monitors_start();
 void monitors_update();
 
 /**
- * Check if monitor buffer is full, then print the full buffer, else do nothing.
- * If force flag is true, then print all previous samples untill the current.
- * @param m, the monitor to print.
- * @param force, a flag to tell whether we have to print the buffer content even if it is not full.
- **/
-void monitor_buffered_output(hmon m, int force);
-
-/**
- * print monitor current: location, timestamp, events, min_value, value, max_value.
- * @param m, the monitor to print.
- * @param wait_availability, wait monitor availibility
- **/
-void monitor_output(hmon m, int wait_availability);
-
-/**
  * print all printable monitors using a one of the method to print a single monitor.
  * @param monitor_output_method, the method to print monitors among the method to print a single monitor.
- * @param flag, the flag to pass to the monitor_output_method.
+ * @param flag, wait monitor availibility if >0.
  **/
-void monitors_output(void (* monitor_output_method)(hmon, int), int flag);
+void monitors_output(int flag);
 
 /**
  * Additionnaly to print text file using update, one can display monitors on topology.

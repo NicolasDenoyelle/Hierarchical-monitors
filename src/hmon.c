@@ -38,7 +38,6 @@ static void *      _monitor_thread        (void*);
 static void        _monitor_read_then_reduce(harray);
 static void        _monitor_update_state  (hmon);
 static void        _monitor_restrict      (hmon);
-static void        _monitor_output_sample (hmon , unsigned);
 static int         _monitor_location_compare(void*, void*);
 static void        _monitor_set_timestamp(hmon, long);
 static void        _monitor_delete(hmon);
@@ -375,38 +374,20 @@ void monitor_lib_finalize(){
     hwloc_topology_destroy(monitors_topology);
 }
 
-
-void monitor_buffered_output(hmon m, int force){
-    unsigned i;
-    /* Really output when buffer is full to avoid IO */
-    pthread_mutex_lock(&(m->available));
-    if(m->last+1 == m->window){
-	for(i=0;i<m->window;i++){
-	    _monitor_output_sample(m,i);
-	}
-    }
-    else if(force){
-	for(i=0;i<=m->last;i++){
-	    _monitor_output_sample(m,i);
-	}
-    }
-    pthread_mutex_unlock(&(m->available));
-}
-
-
 void monitor_output(hmon m, int wait){
-    if(wait){
-	pthread_mutex_lock(&(m->available));
-	_monitor_output_sample(m, m->last);
-	pthread_mutex_unlock(&(m->available));
-    }
-    else
-	_monitor_output_sample(m, m->last);
+    unsigned j;
+    if(wait){pthread_mutex_lock(&(m->available));}
+    fprintf(monitors_output_file,"%-16s ",    m->id);
+    fprintf(monitors_output_file,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(monitors_output_file,"%14ld ",  monitor_get_timestamp(m,m->last));
+    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-.6e ", m->samples[j]);}
+    fprintf(monitors_output_file,"\n");
+    if(wait){pthread_mutex_unlock(&(m->available));}
 }
 
 
-void monitors_output(void (* monitor_output_method)(hmon, int), int flag){
-    _monitors_do(monitors_to_print, monitor_output_method, flag);
+void monitors_output(int flag){
+    _monitors_do(monitors_to_print, monitor_output, flag);
 }
 
 double * monitor_get_events(hmon m, unsigned i){
@@ -423,15 +404,6 @@ long monitor_get_timestamp(hmon m, unsigned i){
 
 static void _monitor_set_timestamp(hmon m, long timestamp){
     m->events[m->last*(m->n_events+1)+m->n_events] = timestamp;
-}
-
-static void _monitor_output_sample(hmon m, unsigned i){
-    unsigned j;
-    fprintf(monitors_output_file,"%-16s ",    m->id);
-    fprintf(monitors_output_file,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(monitors_output_file,"%14ld ",  monitor_get_timestamp(m,i));
-    for(j=0;j<m->n_samples;j++){fprintf(monitors_output_file,"%-.6e ", m->samples[j]);}
-    fprintf(monitors_output_file,"\n");
 }
 
 static void _monitor_restrict(hmon m){
