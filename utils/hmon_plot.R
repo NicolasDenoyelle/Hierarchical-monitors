@@ -95,7 +95,7 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
 
 plot_monitors <- function(frame){
   par(ann=FALSE)
-  frame = frame[is.finite(frame[, options$column]),]
+  frame = frame[is.finite(rowSums(frame[, options$column:ncol(frame)])),]
   if(!options$split){
     ymax = max(frame[, options$column],  na.rm = TRUE)
     ymin = min(frame[, options$column],  na.rm = TRUE)
