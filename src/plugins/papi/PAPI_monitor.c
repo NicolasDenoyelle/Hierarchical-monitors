@@ -187,6 +187,10 @@ int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
 	printf("Warning PAPI eventset on obj %s is not assigned to a component. \n\
 It will count for the whole system.\n", obj_str); 
     }
+
+    /* multplex eventset */
+    PAPI_call_check(PAPI_set_multiplex(evset->evset), PAPI_OK, -1, "PAPI_set_multiplex failed: ");
+
     return 0;
 }
 
