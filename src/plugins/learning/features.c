@@ -1,17 +1,16 @@
 #include <string.h>
 #include "learning.h"
 
-void gsl_vector_print(const gsl_vector * v){
-    unsigned i;
-    printf("[%lf", gsl_vector_get(v,0));
-    for(i=1;i<v->size;i++){printf(", %lf", gsl_vector_get(v,i));}
-    printf("]");
+gsl_vector * gsl_vector_dup(const gsl_vector * v){
+    gsl_vector * copy = gsl_vector_alloc(v->size);
+    gsl_vector_memcpy(copy,v);
+    return copy;
 }
 
 void gsl_vector_normalize(gsl_vector * v){
     double max  = gsl_vector_max(v);
     double min = gsl_vector_min(v);
-    double mu = gsl_stats_mean(v->data, 1, v->size);
+    double mu = gsl_stats_mean(v->data, v->stride, v->size);
     gsl_vector_add_constant(v, -mu);
     if(max!=min){gsl_vector_scale(v,1/(max-min));}
 }
