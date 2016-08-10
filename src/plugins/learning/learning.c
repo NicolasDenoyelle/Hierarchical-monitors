@@ -25,7 +25,7 @@ void lsq_fit(hmatrix events, __attribute__ ((unused)) unsigned last, double * sa
     /* Output prediction error */
     samples[0] = cblas_ddot(n_samples-1, &hmat_get_row(events, last)[1], 1, &samples[1], 1);
     samples[0] = samples[0] - hmat_get_row(events, last)[0];
-    samples[0] = samples[0]*samples[0]/(n_samples-1);
+    samples[0] = samples[0]*samples[0]*0.5/(n_samples-1);
     /* Fit full matrix only if matrix is full */
     if(last < events.rows-1){return;}
     
