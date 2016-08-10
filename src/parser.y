@@ -105,7 +105,7 @@
 
 	/* Build reduction on events */
 	if(reduction_code != NULL){
-	    reduction_code = concat_and_replace(3,4, "\ndouble ", id, "(hmatrix in, unsigned row_offset, double * out, __attribute__ ((unused)) unsigned out_size, __attribute__ ((unused)) void ** userdata){\n", reduction_code);
+	    reduction_code = concat_and_replace(3,4, "\nvoid ", id, "(hmon m){\n", reduction_code);
 	    reduction_code = concat_and_replace(1,2, "#include \"hmon.h\"\n\n", reduction_code);
 	    monitor_stat_plugin_build(id, reduction_code);
 	    model_plugin = id;
@@ -190,7 +190,7 @@ event
 reduction
 : INTEGER '#' NAME {reduction_plugin_name = $3; n_reductions = atoi($1); free($1);}
 | assignement_list{
-    reduction_code = concat_and_replace(1,2,"double * row_in  = hmat_get_row(in,  row_offset);\n", reduction_code);
+    reduction_code = concat_and_replace(1,2,"double * events  = monitor_get_events(m, m->last);\n", reduction_code);
     reduction_code = concat_and_replace(0,2, reduction_code, "}\n");
   }
 ;
@@ -204,7 +204,7 @@ assignement
 : commutative_expr {
     if(reduction_code==NULL){reduction_code=strdup("");}
     char out[128]; memset(out,0,sizeof(out));
-    snprintf(out, sizeof(out), "out[%d]=", n_reductions);
+    snprintf(out, sizeof(out), "m->samples[%d]=", n_reductions);
     reduction_code = concat_and_replace(0, 4, reduction_code, out, $1, ";\n");
     free($1);
     n_reductions++;
@@ -233,7 +233,7 @@ associative_expr
 ;
 
 term
-: VAR                      {$$ = concat_expr(3,"row_in[",$1+1,"]"); free($1);}
+: VAR                      {$$ = concat_expr(3,"events[",$1+1,"]"); free($1);}
 | INTEGER                  {$$ = $1;}
 | REAL                     {$$ = $1;}
 | '(' commutative_expr ')' {$$ = concat_expr(3,"(",$2,")"); free($2);}
