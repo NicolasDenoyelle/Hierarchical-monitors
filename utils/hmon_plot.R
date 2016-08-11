@@ -4,16 +4,17 @@ library("optparse")
 inOpt = make_option(opt_str = c("-i", "--input"), type = "character", default = NULL, help = "Data set input file")
 outOpt = make_option(opt_str = c("-o", "--output"), type = "character", default = NULL, help = "Output pdf file (static)")
 titleOpt = make_option(opt_str = c("-t", "--title"), type = "character", default = NULL, help = "Plot title")
-filterOpt = make_option(opt_str = c("-f", "--filter"), type = "character",default = NULL, help = "Filter input monitor")
+grepOpt = make_option(opt_str = c("-g", "--grep"), type = "character",default = NULL, help = "Provide a regex to filter input monitor base on their id (first column)")
 logOpt = make_option(opt_str = c("-l", "--log"), type = "logical", default = FALSE, action = "store_true", help = "logscale graph")
 colOpt = make_option(opt_str = c("-y", "--column"), type = "integer", default = 4, help = "Use column --column instead of column 4 as Y values to plot")
 splitOpt = make_option(opt_str = c("-s", "--split"), type = "logical", default = FALSE,action = "store_true", help = "split one plot per monitor")
 clusterOpt = make_option(opt_str = c("-c", "--cluster"), type = "integer", default = 1, help = "If split option is enabled, compute two clusters and colorize plot with a color per cluster")
 histOpt = make_option(opt_str = c("-p", "--histogram"), type = "logical", default = FALSE,action = "store_true", help = "plot histogram of values distribution instead of values")
+fitOpt = make_option(opt_str = c("-f", "--fit"), type = "logical", default = FALSE,action = "store_true", help = "fit data with different models and plot cross validation set")
 winOpt = make_option( opt_str = c("-w", "--window"), type = "integer", default = 1000, help = "number of points to plot (dynamic)")
 updateOpt = make_option(opt_str = c("-u", "--update"), type = "numeric", default = 1, help = "frequency of read from trace file and plot in seconds. (dynamic)")
 dynOpt = make_option(opt_str = c("-d", "--dynamic"), type = "logical", default = FALSE, action = "store_true", help = "Set if plot should be displayed as parts of a large trace or updated trace. In this case --window points will be plot and window will move by --window/4 steps ahead every --update seconds")
-opt_parser = OptionParser(option_list = c(inOpt, outOpt, filterOpt, logOpt, splitOpt, winOpt, updateOpt, dynOpt, histOpt, colOpt, titleOpt, clusterOpt))
+opt_parser = OptionParser(option_list = c(inOpt, outOpt, grepOpt, logOpt, splitOpt, dynOpt, winOpt, updateOpt, histOpt, fitOpt, colOpt, titleOpt, clusterOpt))
 
 #Functions
 lseq =function(from = 1, to = 100000, length.out = 6) {
@@ -24,7 +25,7 @@ read_monitors = function(frame, connexion) {
   lines = readLines(connexion, n = options$window/4)
   for (line in lines) {
     frame_line = read.table(textConnection(line), flush = T)
-    if (is.null(options$filter) || frame_line[1, 1] == options$filter) {
+    if (is.null(options$grep) || frame_line[1, 1] == options$grep) {
       frame = rbind(frame, frame_line)
     }
   }
@@ -38,33 +39,72 @@ get_title <- function(){
  if(!is.null(options$title)){options$title} else if(!is.null(options$restrict)){options$restrict} else {options$input}
 }
 
-plot_monitor_histogram = function(frame, ymin = NULL, ymax = NULL, title = NULL, col = 1){
-  if(is.null(title)){
-    title = get_title()   
+fit_monitor <- function(data, col=1, xlim=NULL,ylim=NULL){
+  fit.range = sample(1:nrow(data), round(0.7 * nrow(frame)))
+  x.pred = data[-fit.range, 3]
+  X.fit  = data[fit.range, 5:ncol(data)]
+  Y.fit  = data[fit.range, 4]
+  X.pred = data[-fit.range, 5:ncol(data)]
+  Y.pred = data[-fit.range, 4]
+  
+  #linear model fit
+  lm.fit = lm(Y.fit ~ . ^ 5, data = X.fit)
+  lm.pred = predict(lm.fit, newdata = X.pred)
+   
+  #neural network fit
+  library(neuralnet)
+  scaleX = scale(X.fit)
+  X.fit.scale = as.data.frame(scaleX)
+  Y.fit.scale = scale(Y.fit)
+  X.pred.scale = (X.pred - attr(scaleX, "scaled:center")) / attr(scaleX, "scaled:scale")
+  n <- names(X.fit.scale)
+  f <- as.formula(paste("Y.fit.scale ~", paste(n, collapse = "+")))
+  nn <- neuralnet(f, data = X.fit.scale, hidden = c(4, 2, 2, 2, 1), linear.output = T)
+  nn.pred = compute(nn, X.pred.scale)
+  Y.pred.scale = nn.pred$net.result
+  nn.pred = Y.pred.scale * attr(Y.fit.scale, "scaled:scale") + attr(Y.fit.scale, "scaled:center")
+
+  if(is.null(xlim) || options$split) xlim = c(min(x.pred, na.rm=T), max(x.pred, na.rm=T))
+  if(is.null(ylim) || options$split) ylim = c(min(Y.pred, lm.pred, nn.pred, na.rm=T), max(Y.pred, lm.pred, nn.pred, na.rm=T))
+  
+  if(options$split){
+    plot(x.pred, Y.pred, pch = 1, col = col, ylim = ylim)
+    points(x.pred, lm.pred, pch = 2, col = col)
+    points(x.pred, nn.pred, pch = 3, col = col)
+    title(main = sprintf("fits %s", get_title()), xlab = "nanoseconds", ylab = data[1, 1])
+    legend("topright", col = col, legend = c("data to predict", "lmfit", "nnetfit"), pch = 1:4)
+    par(new=TRUE)
+  } else {
+    par(ann = FALSE)
+    plot(x.pred, Y.pred, pch = 1, col = col, ylim = ylim, xlim=xlim, axes=F)
+    points(x.pred, lm.pred, pch = 2, col = col)
+    points(x.pred, nn.pred, pch = 3, col = col)
+    legend("topright", col = col, legend = c("data to predict", "lmfit", "nnetfit"), pch = 1:4)
   }
-  if(is.null(ymin)||is.null(ymax)){
-    ymax = max(frame[, options$column],  na.rm = TRUE)
-    ymin = min(frame[, options$column],  na.rm = TRUE)
-  }
-  obj = frame[1,2];  monitor = frame[1,1];
-  plot(hist(frame[, options$column], 100, main = t, xlab="monitor", xlim = c(ymin,ymax)), col = col)
 }
 
-plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NULL, ann = FALSE, logscale = FALSE, col = 1){
-  if(is.null(ymin) || is.null(ymax)){
-    ymax = max(frame[, options$column],  na.rm = TRUE)
-    ymin = min(frame[, options$column],  na.rm = TRUE)
-  }
-  if(is.null(xmin)||is.null(xmax)){
-    xmin = min(frame[, 3], na.rm = TRUE)
-    xmax = max(frame[, 3], na.rm = TRUE)
-  }
-  xticks = seq(xmin, xmax, (xmax - xmin) / 10)
-  if (logscale == FALSE) {
-    yticks = seq(from = ymin, to = ymax, by = (ymax - ymin) / 10)
+histogram_monitor = function(frame, ylim = NULL, col = 1){
+  obj = frame[1,2];  monitor = frame[1,1];
+  if(options$split){
+    ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
+    title = sprintf("histogram of monitor %s on %s", monitor, obj)
+    xlab = monitor
+    hist(frame[, 4], n=100, xlab=monitor, xlim=ylim, col=col, main=title)
+    par(new=TRUE)
   } else {
-    ymin = max(c(ymin,1))
-    yticks = lseq(from = ymin, to = ymax, length.out = log10(ymax / ymin))
+    hist(frame[, 4], n=100, xlab="", ylab="", main="")
+  }
+}
+
+plot_monitor = function(frame, ylim = NULL, xlim=NULL, ann = FALSE, logscale = FALSE, col = 1){
+  if(is.null(ylim)) ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
+  if(is.null(xlim)) xlim = c( min(frame[, 3], na.rm = TRUE), max(frame[, 3], na.rm = TRUE))
+  xticks = seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10)
+  if (logscale == FALSE) {
+    yticks = seq(from = ylim[1], to = ylim[2], by = (ylim[2] - ylim[1]) / 10)
+  } else {
+    ylim = c(max(ylim[1],1), max(ylim[2],1))
+    yticks = lseq(from = ylim[1], to = ylim[2], length.out = log10(ylim[2] / ylim[1]))
   }
   if(options$cluster>1){
     points = scale(frame[,3:ncol(frame)], center=TRUE, scale=TRUE)
@@ -75,13 +115,13 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
 
   obj = frame[1,2];  monitor = frame[1,1];
   plot(x = frame[,3],
-       y = frame[,options$column],
+       y = frame[,4],
        main = title,
        log = if(logscale){"y"} else {""},
        type = 'p',
        col = col,
-       xlim = c(xmin, xmax),
-       ylim = c(ymin, ymax),
+       xlim = xlim,
+       ylim = ylim,
        axes = FALSE,
        ann=FALSE,
        pch = col,
@@ -95,28 +135,23 @@ plot_monitor = function(frame, ymin = NULL, ymax = NULL, xmin = NULL, xmax = NUL
 
 plot_monitors <- function(frame){
   par(ann=FALSE)
-  frame = frame[is.finite(rowSums(frame[, options$column:ncol(frame)])),]
+  frame = frame[is.finite(rowSums(frame[, 4:ncol(frame)])),]
+  if(options$column != 4) frame = swap_cols(frame,4,options$column)
+
   if(!options$split){
-    ymax = max(frame[, options$column],  na.rm = TRUE)
-    ymin = min(frame[, options$column],  na.rm = TRUE)
-    xmin = min(frame[, 3], na.rm = TRUE)
-    xmax = max(frame[, 3], na.rm = TRUE)
-    xticks = seq(xmin, xmax, (xmax - xmin) / 10)
+    ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
+    xlim = c(min(frame[, 3], na.rm = TRUE), max(frame[, 3], na.rm = TRUE))
+    xticks = seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10)
     if (options$log == FALSE) {
-      yticks = seq(from = ymin, to = ymax, by = (ymax - ymin) / 10)
+      yticks = seq(from = ylim[1], to = ylim[2], by = (ylim[2] - ylim[1]) / 10)
     } else {
-      ymin = max(c(ymin,1))
-      yticks = lseq(from = ymin, to = ymax, length.out = log10(ymax / ymin))
+      ylim = c(max(ylim[1],1), max(ylim[2],1))
+      yticks = lseq(from = ylim[1], to = ylim[2], length.out = log10(ylim[2] / ylim[1]))
     } 
     title = get_title()
     ann=FALSE
   } else {
-    ymax = NULL
-    ymin = NULL
-    xmin = NULL
-    xmax = NULL
-    title = NULL
-    ann=TRUE
+    ylim = NULL; xlim = NULL; title = NULL; ann=TRUE
   }
   monitors = unique(frame[, c(1,2)])
   monitors = monitors[order(monitors[,1]),]
@@ -124,14 +159,31 @@ plot_monitors <- function(frame){
   names = monitors[,1]
   for (i in 1:nrow(monitors)) {
     data = subset(frame, frame[, 2] == objs[i] & frame[,1] == names[i])
-    plot_monitor(data, xmin=xmin, xmax=xmax, ymin=ymin ,ymax=ymax, ann=ann, logscale = options$log, col = i)
+    if(options$hist) {
+      histogram_monitor(data, ylim=xlim, col=i)
+    } else if(options$fit) {
+      if(ncol(data)<5){
+        warning(sprintf("monitor %s must have at least 5 columns, column 4 is target fit, and next columns are input parameters", data[1,1]))
+      } else {
+        fit_monitor(data, ylim=ylim, xlim = xlim, col=i)
+      }
+    } else {
+      plot_monitor(data, xlim=xlim, ylim=ylim, ann=ann, logscale = options$log, col = i)
+    }
     if(!options$split){
       	 par(new = TRUE)
     }
   }
   if(!options$split){
      legend("bottomright", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
-     title(main=get_title(), ylab="monitors value", xlab="nanoseconds")
+     if(options$hist){
+       xlab="monitors value"
+       ylab="frequency"
+     } else {
+       xlab="nanoseconds"
+       ylab="monitors value"
+     }
+     title(main=get_title(), ylab=ylab, xlab=xlab)
      axis(1, at=xticks)
      axis(2, at=yticks)
   }
@@ -139,10 +191,11 @@ plot_monitors <- function(frame){
 
 #Script
 options = parse_args(opt_parser, args = commandArgs(trailingOnly = TRUE), print_help_and_exit = TRUE, positional_arguments = FALSE)
+
 #Ask input if not provided in options
-if (is.null(options$input) || options$input == "") {
-  options$input = readline(prompt = "Input file: ")
-}
+if(is.null(options$input)) stop("Input options is compulsory");
+
+
 #Check output
 if (!is.null(options$output) && options$dynamic) {
   stop(
@@ -150,9 +203,17 @@ if (!is.null(options$output) && options$dynamic) {
     call. = FALSE
   )
 }
+
 if (is.null(options$output) && !options$dynamic) {
   options$output = paste(options$input, "pdf", sep = ".")
   print(sprintf("Output to %s", options$output))
+}
+
+swap_cols <- function(frame, i,j){
+  tmp = frame[,i]
+  frame[,i] = frame[,j]
+  frame[,j] = tmp
+  frame
 }
 
 if (!options$dynamic) {
@@ -174,3 +235,4 @@ if (!options$dynamic) {
     df = read_monitors(df, stream)
   }
 }
+
