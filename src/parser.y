@@ -179,7 +179,7 @@ field
 
 event_list
 : event                {harray_push(event_names,$1);}
-| event ',' event_list {harray_push(event_names,$1);}
+| event_list ',' event {harray_push(event_names,$3);}
 ;
 
 event
