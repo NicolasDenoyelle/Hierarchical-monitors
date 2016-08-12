@@ -61,11 +61,11 @@ centroids          kmean(const gsl_matrix * points, unsigned n_centroids);
 
 /*********************************** linear model ***********************************/
 #define LAMBDA 1000
-#define TOL 0.1
 
 typedef struct linear_model{
     const gsl_matrix *          X;      /* The input row */
     const gsl_vector *          y;      /* The target output */
+    gsl_vector *                y_pred; /* The model fit on X */
     double                      lambda; /* The regulizer value */
     gsl_multimin_fdfminimizer * s;      /* Opaque object used to minimize objective function */
 } * lm;

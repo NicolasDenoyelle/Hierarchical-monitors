@@ -3,11 +3,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% test monitor
-fake{
-	OBJ:=PU;
-	PERF_LIB:=fake;
-	EVSET:=FAKE_MONITOR;
-}
+% fake{
+% 	OBJ:=PU;
+% 	PERF_LIB:=fake;
+% 	EVSET:=FAKE_MONITOR;
+% }
 
 %% accumulate each event from children of each OBJ.
 %accumulate{
@@ -59,29 +59,29 @@ fake{
 %%%% Learning examples
 
 %% Collect raw events
-% raw_events{
-% 	OBJ:=PU;
-% 	PERF_LIB:=papi;
-% 	EVSET:=PAPI_TOT_INS, PAPI_L1_DCM, PAPI_L2_DCM, PAPI_L3_TCM;
-% 	SILENT:=1;
-% }
+raw_events{
+	OBJ:=PU;
+	PERF_LIB:=papi;
+	EVSET:=PAPI_TOT_INS, PAPI_L1_DCM, PAPI_L2_DCM, PAPI_L3_TCM;
+	SILENT:=1;
+}
 
 %% Accumulate events in a single monitor
-% accumulation{
-% 	OBJ:=Machine;
-% 	PERF_LIB:=accumulate;
-% 	EVSET:=raw_events;
-% 	REDUCTION:=$0, $1*$2, $1*$3, $1*$1, $2*$2, $2*$3;
-% }
+accumulation{
+	OBJ:=Machine;
+	PERF_LIB:=accumulate;
+	EVSET:=raw_events;
+	REDUCTION:=$0, $1*$2, $1*$3, $1*$1, $2*$2, $2*$3;
+}
 
-%% Fit accumulation first event with others event, output error and model parameters.
-% lsq_fit{
-% 	OBJ:=Machine;
-% 	PERF_LIB:=hierarchical;
-% 	EVSET:=accumulation;
-% 	REDUCTION:=6#lsq_fit;
-% 	WINDOW:=1024;
-% }
+%% Fit accumulation first event with others event, output coefficient of determination and model parameters.
+lsq_fit{
+	OBJ:=Machine;
+	PERF_LIB:=hierarchical;
+	EVSET:=accumulation;
+	REDUCTION:=6#lsq_fit;
+	WINDOW:=32;
+}
 
 %% Make clusters out of raw_events. Output each sample label. WINDOW=n_samples.
 % clusters{

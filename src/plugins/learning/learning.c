@@ -22,7 +22,7 @@ void clustering(hmon monitor){
     delete_centroids(c);
 }
 
-/* fit a linear model out of events */
+/* fit a linear model out of events when window is full and coefficient of determination */
 void lsq_fit(hmon monitor){
     double * output = monitor->samples;
     unsigned m = monitor->total>monitor->window ? monitor->window : monitor->total;
@@ -31,25 +31,32 @@ void lsq_fit(hmon monitor){
     gsl_vector Theta = to_gsl_vector(&monitor->samples[1], monitor->n_events-1);
     gsl_vector_const_view y = gsl_matrix_const_column(&events, 0);
     gsl_matrix_const_view X = gsl_matrix_const_submatrix(&events, 0, 1, m, monitor->n_events-1);
-    gsl_vector x = to_gsl_vector(&(monitor_get_events(monitor, monitor->last)[1]), monitor->n_events-1);
     
-    /* Output prediction error */
-    gsl_blas_ddot(&x,&Theta, output);
-    double error = abs(*output - monitor_get_event(monitor, monitor->last, 0));
-    error /= abs(*output) + abs(monitor_get_event(monitor, monitor->last, 0));
-    *output = error;
+    /* Output coefficient of determination */
+    double SS_res, SS_tot;
+    double y_mean = gsl_stats_mean(y.vector.data, y.vector.stride, y.vector.size);
+    gsl_vector * y_pred = gsl_vector_alloc(X.matrix.size1);
+    gsl_vector_memcpy(y_pred,&y.vector);
+    /* y-y_mean */
+    gsl_vector_add_constant(y_pred, -y_mean);
+    /* (y-y_mean)^2 */
+    gsl_blas_ddot(y_pred,y_pred, & SS_tot);
+    /* y */
+    gsl_vector_add_constant(y_pred, y_mean);
+    /* Theta*X - y */
+    gsl_blas_dgemv(CblasNoTrans, 1, &X.matrix, &Theta, -1, y_pred);
+    /* (Theta*X - y)^2 */
+    gsl_blas_ddot(y_pred,y_pred, & SS_res);
+    gsl_vector_free(y_pred);
+    /* R^2 Closer to one is better */
+    *output = 1-SS_res/SS_tot;
     
-    /* Fit full matrix only if tolerance has is not satisfied */
-    if(error > TOL){
-	/* printf("Compute fit...\n"); */
-
+    /* Fit full matrix only */
+    if(monitor->last == monitor->window-1){
 	/* Build the model */
 	lm lm = monitor->userdata;
 	if(lm == NULL){lm = monitor->userdata = new_linear_model(monitor->n_events-1, LAMBDA);}
 	linear_model_fit(lm, &X.matrix, &Theta, &y.vector);
-		
-	/* Cleanup */
-	/* delete_linear_model(lm); */
     }
 }
 
