@@ -89,8 +89,7 @@ histogram_monitor = function(frame, ylim = NULL, col = 1){
     ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
     title = sprintf("histogram of monitor %s on %s", monitor, obj)
     xlab = monitor
-    hist(frame[, 4], n=100, xlab=monitor, xlim=ylim, col=col, main=title)
-    par(new=TRUE)
+    plot(hist(frame[, 4], n=100, plot=FALSE), xlab=monitor, xlim=ylim, col=col, main=title)
   } else {
     hist(frame[, 4], n=100, xlab="", ylab="", main="")
   }
