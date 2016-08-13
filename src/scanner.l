@@ -2,6 +2,14 @@
 #include <stdio.h>
 #include "parser.h"
 void count();
+
+#define MAX_LEN 16
+char * var_to_reference(const char * var){
+char * reference = malloc(MAX_LEN);
+memset(reference,0,MAX_LEN);
+snprintf(reference, MAX_LEN, "events[%s]\n", var+1);
+return reference;
+}
 %}
 
 %option yylineno
@@ -49,7 +57,7 @@ void count();
 "SILENT:="         { count(); /* fprintf(stderr,"SILENT_FIELD\n"); */          return(SILENT_FIELD);};
 {name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */      yylval.str = strdup(yytext); return(NAME);};
 {attribute}        { count(); /* fprintf(stderr,"ATTRIBUTE:%s\n", yytext); */ yylval.str = strdup(yytext); return(ATTRIBUTE);};
-{var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */       yylval.str = strdup(yytext); return(VAR); };
+{var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */       yylval.str = var_to_reference(yytext); return(VAR); };
 {path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */      yylval.str = strdup(yytext); return(PATH);};
 {integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */   yylval.str = strdup(yytext); return(INTEGER);};
 {real}             { count(); /* fprintf(stderr,"REAL:%s\n", yytext); */      yylval.str = strdup(yytext); return(REAL);};

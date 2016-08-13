@@ -221,19 +221,21 @@ commutative_op
 | '/' {$$=strdup("/");}
 ;
 
+
+associative_expr
+: term associative_op term {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
+| associative_expr associative_op associative_expr {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
+| term                     {$$=$1;}
+;
+
 commutative_expr
 : associative_expr                                 {$$=$1;}
 | associative_expr commutative_op associative_expr {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
 | commutative_expr commutative_op commutative_expr {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
 ;
 
-associative_expr
-: term                     {$$=$1;}
-| term associative_op term {$$=concat_expr(3, $1,$2, $3); free($1); free($2); free($3);}
-;
-
 term
-: VAR                      {$$ = concat_expr(3,"events[",$1+1,"]"); free($1);}
+: VAR                      {$$ = $1;}
 | INTEGER                  {$$ = $1;}
 | REAL                     {$$ = $1;}
 | '(' commutative_expr ')' {$$ = concat_expr(3,"(",$2,")"); free($2);}
