@@ -97,7 +97,7 @@ L2 misses accumulation was recorded along time, and clustered in the plot script
 
 Below is another example of plot output, on an HPCCG mini app's L1 cache misses and a linear model fit of those using other events from monitor.
 
-![](./utils/.hpccg_200_200_200-0.png?raw=true)
+![](./utils/hpccg_200_200_200-0.png?raw=true)
 
 ## Choosing Events Source:
 
