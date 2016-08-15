@@ -40,8 +40,10 @@ get_title <- function(){
 }
 
 fit_monitor <- function(data, col=1, xlim=NULL,ylim=NULL){
-  fit.range = sample(1:nrow(data), round(0.7 * nrow(data)))
+  fit.range = sample(1:nrow(data), round(0.5 * nrow(data)))
   fit.range = fit.range[order(fit.range)]
+  #data[,4] = rnorm(nrow(data), mean = mean(data[,4]),sd = sd(data[,4]))
+
   x.pred = data[-fit.range, 3]
   X.fit  = data[fit.range, 5:ncol(data)]
   Y.fit  = data[fit.range, 4]
@@ -51,7 +53,7 @@ fit_monitor <- function(data, col=1, xlim=NULL,ylim=NULL){
   #linear model fit
   lm.fit = lm(Y.fit ~ ., data = X.fit)
   lm.pred = predict(lm.fit, newdata = X.pred)
-   
+
   #neural network fit
   # library(neuralnet)
   # scaleX = scale(X.fit)
@@ -66,19 +68,27 @@ fit_monitor <- function(data, col=1, xlim=NULL,ylim=NULL){
   # nn.pred = Y.pred.scale * attr(Y.fit.scale, "scaled:scale") + attr(Y.fit.scale, "scaled:center")
 
   if(options$split){
-    plot(x.pred, Y.pred, pch = 1, col = col)
-    points(x.pred, lm.pred, pch = 2, col = col)
+    width = (max(x.pred)-min(x.pred))*0.125/length(x.pred)
+    plot_monitor(data, col = col, ann=TRUE, cex=.8)
+    points(x.pred, lm.pred, pch = 2, col = col,cex=.8)
     #points(x.pred, nn.pred, pch = 3, col = col)
-    title(main = sprintf("fits %s on %s", data[1,1], data[1,2]), xlab = "nanoseconds", ylab = data[1, 1])
-    legend("topright", col = col, legend = c("data to predict", "prediction"), pch = 1:3)
+    
+    # mean = mean(Y.pred - lm.pred)
+    # par(new=TRUE)
+    # segments(x.pred, y0 = Y.pred-mean/2, y1 = Y.pred+mean/2)
+    # par(new=TRUE)
+    # segments(x.pred-width, Y.pred-mean/2, x.pred+width, Y.pred-mean/2)
+    # par(new=TRUE)
+    # segments(x.pred-width, Y.pred+mean/2, x.pred+width, Y.pred+mean/2)
+    legend("topright", col = col, legend = c("data to predict", "prediction"), pch = 1:3, bg="white")
   } else {
     par(ann = FALSE)
     if(is.null(xlim)) xlim = c(min(x.pred, na.rm=T), max(x.pred, na.rm=T))
     if(is.null(ylim)) ylim = c(min(Y.pred, lm.pred, na.rm=T), max(Y.pred, lm.pred, na.rm=T))
-    plot(x.pred, Y.pred, pch = 1, col = col, ylim = ylim, xlim=xlim, axes=F)
+    plot_monitor(data, col = col, cex=.8)
     points(x.pred, lm.pred, pch = 2, col = col)
     #points(x.pred, nn.pred, pch = 3, col = col)
-    legend("topright", col = col, legend = c("data to predict", "prediction"), pch = 1:3)
+    legend("topright", col = col, legend = c("data to predict", "prediction"), pch = 1:3, bg="white")
   }
   lm.fit$coefficients
 }
@@ -95,7 +105,7 @@ histogram_monitor = function(frame, ylim = NULL, col = 1){
   }
 }
 
-plot_monitor = function(frame, ylim = NULL, xlim=NULL, ann = FALSE, logscale = FALSE, col = 1){
+plot_monitor = function(frame, ylim = NULL, xlim=NULL, ann = FALSE, logscale = FALSE, col = 1, cex=1){
   if(is.null(ylim)) ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
   if(is.null(xlim)) xlim = c( min(frame[, 3], na.rm = TRUE), max(frame[, 3], na.rm = TRUE))
   xticks = seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10)
@@ -124,11 +134,12 @@ plot_monitor = function(frame, ylim = NULL, xlim=NULL, ann = FALSE, logscale = F
        axes = FALSE,
        ann=FALSE,
        pch = col,
-       panel.first = abline(h = yticks, v = xticks, col = "darkgray",lty = 3))
+       panel.first = abline(h = yticks, v = xticks, col = "darkgray",lty = 3),
+       cex=cex)
   if(ann){
      axis(1, at=xticks, labels=xticks)
      axis(2, at=yticks, labels=yticks)
-     title(main = paste(frame[1,1], frame[1,2], sep=" "), xlab = "nanoseconds", ylab = frame[1,1])
+     title(main = get_title(), xlab = "nanoseconds", ylab = sprintf("%s  %s", frame[1,1], frame[1,2]))
   }
 }
 
@@ -136,7 +147,6 @@ plot_monitors <- function(frame){
   par(ann=FALSE)
   frame = frame[is.finite(rowSums(frame[, 4:ncol(frame)])),]
   if(options$column != 4) frame = swap_cols(frame,4,options$column)
-
   if(!options$split){
     ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
     xlim = c(min(frame[, 3], na.rm = TRUE), max(frame[, 3], na.rm = TRUE))
@@ -152,7 +162,6 @@ plot_monitors <- function(frame){
   } else {
     ylim = NULL; xlim = NULL; title = NULL; ann=TRUE
   }
-  coefficients = rep(0, ncol(frame)-3)	
   monitors = unique(frame[, c(1,2)])
   monitors = monitors[order(monitors[,1]),]
   objs = monitors[,2]
@@ -165,7 +174,12 @@ plot_monitors <- function(frame){
       if(ncol(data)<5){
         warning(sprintf("monitor %s must have at least 5 columns, column 4 is target fit, and next columns are input parameters", data[1,1]))
       } else {
-        coefficients = pmax(coefficients, fit_monitor(data, ylim=ylim, xlim = xlim, col=i), na.rm=TRUE)
+      
+        coefficients = fit_monitor(data, ylim=ylim, xlim = xlim, col=i)
+	ord = order(coefficients*c(1,colMeans(frame[,5:ncol(frame)])), decreasing=TRUE)
+	print(data[1,c(1,2)])
+        print(ord-1)
+        print(coefficients[ord])	
       }
     } else {
       plot_monitor(data, xlim=xlim, ylim=ylim, ann=ann, logscale = options$log, col = i)
@@ -174,13 +188,6 @@ plot_monitors <- function(frame){
       	 par(new = TRUE)
     }
   }
-
-  end = floor((length(coefficients)-1)/2)
-  start = end+1
-  coeff = pmax(coefficients[2:end],coefficients[start:length(coefficients)])
-  ord = order(coeff, decreasing=TRUE)
-  print(ord)
-  print(coeff[ord])
 
   if(!options$split){
      legend("bottomright", legend=paste(objs,names,sep=" "), cex=.7, col=1:length(objs), pch=1:length(objs))
