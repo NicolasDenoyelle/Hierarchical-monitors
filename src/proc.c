@@ -35,8 +35,9 @@ read_proc_stats(const char * proc_path, struct proc_task * p_info)
 	p_info->state=0;
 	return -1;
     }
-    fscanf(proc_file,"%*d %*s %c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*d %*d %*d %*d %*d %*d %*u %*u %*d %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*d %d",&state,&pu_num);
-    fclose(proc_file);  
+    int err = fscanf(proc_file,"%*d %*s %c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*d %*d %*d %*d %*d %*d %*u %*u %*d %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*d %d",&state,&pu_num);
+    fclose(proc_file);
+    if(err==EOF){perror("fscanf"); return -1;}
     p_info->pu_num = pu_num;
     if(state!='R')
 	p_info->state=SLEEPING;
