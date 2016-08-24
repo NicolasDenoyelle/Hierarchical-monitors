@@ -1,0 +1,4 @@
+lib_LTLIBRARIES=hierarchical_monitor_plugin.la
+hierarchical_monitor_plugin_la_SOURCES=hierarchical_monitor.c
+hierarchical_monitor_plugin_la_LDFLAGS= -module
+

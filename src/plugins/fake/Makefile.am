@@ -1,0 +1,4 @@
+lib_LTLIBRARIES=fake_monitor_plugin.la
+fake_monitor_plugin_la_SOURCES=fake_monitor.c
+fake_monitor_plugin_la_LDFLAGS= -module
+

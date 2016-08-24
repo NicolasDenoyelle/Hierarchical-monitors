@@ -1,0 +1,4 @@
+lib_LTLIBRARIES=papi_monitor_plugin.la
+papi_monitor_plugin_la_SOURCES=PAPI_monitor.c
+papi_monitor_plugin_la_LDFLAGS= -module -lpapi
+

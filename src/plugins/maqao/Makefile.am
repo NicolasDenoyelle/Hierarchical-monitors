@@ -1,0 +1,4 @@
+lib_LTLIBRARIES=maqao_monitor_plugin.la
+maqao_monitor_plugin_la_SOURCES=maqao_monitor.c
+maqao_monitor_plugin_la_LDFLAGS= -module -llprof
+

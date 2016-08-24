@@ -1,16 +1,27 @@
 #include "hmon_utils.h"
 #include "hmon.h"
+
 #include <dirent.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
+#include <config.h>
 
+static const char * plugin_suffix = "_monitor_plugin.so";
 static harray perf_plugins = NULL;
 static harray stat_plugins = NULL;
 
-/* #ifndef STAT_PLUGINS */
-/* #define STAT_PLUGINS "stat_default" */
-/* #endif */
+#ifndef STAT_PLUGINS
+#define STAT_PLUGINS ""
+#endif
+
+static char * unsuffix_plugin_name(const char * name){
+    size_t namelen = strlen(name);
+    size_t suffixlen = strlen(plugin_suffix);   
+    if(namelen < suffixlen){return strdup(name);}
+    if(!strncmp(plugin_suffix, &name[namelen-suffixlen], suffixlen)){return strndup(name, namelen-suffixlen);}
+    return strdup(name);
+}
 
 static void delete_monitor_plugin(void * plugin){
     struct monitor_plugin * p = (struct monitor_plugin *)plugin;
@@ -71,15 +82,14 @@ static struct monitor_plugin * monitor_plugin_lookup(const char * name, int type
 
 struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
     struct monitor_plugin * p = NULL;
-    char * prefix_name , * cpy_name;
+    char * prefix;
     char path[256]; memset(path,0,sizeof(path));
 
     /* Search if library already exists */
     if((p = monitor_plugin_lookup(name, plugin_type)) != NULL){return p;}
-    cpy_name = strdup(name);
-    prefix_name = strtok(cpy_name,".");
-    snprintf(path, 256 ,"%s.monitor_plugin.so", prefix_name);
-    free(cpy_name);
+    prefix = unsuffix_plugin_name(name);
+    snprintf(path, 256 ,"%s_monitor_plugin.so", prefix);
+    free(prefix);
     malloc_chk(p, sizeof(*p));
     p->dlhandle = NULL;
     p->id = NULL;
@@ -146,11 +156,10 @@ void * monitor_stat_plugins_lookup_function(const char * name){
     return NULL;
 }
 
-
 void monitor_stat_plugin_build(const char * name, const char * code)
 {
     struct monitor_plugin * p = NULL;
-    char * prefix, * cpy;
+    char * prefix;
     char input_file_path [1024];
     char output_file_path[1024];
     char command[1024];
@@ -160,13 +169,12 @@ void monitor_stat_plugin_build(const char * name, const char * code)
     if((p = monitor_plugin_lookup(name, MONITOR_PLUGIN_STAT)) != NULL){return;}
 
     /* prepare file for functions copy, and dynamic library creation */
-    cpy = strdup(name);
-    prefix = strtok(cpy,".");
+    prefix = unsuffix_plugin_name(name);
     memset(input_file_path,0,sizeof(input_file_path));
     memset(output_file_path,0,sizeof(output_file_path));
-    sprintf(input_file_path, "%s.monitor_plugin.c", prefix);
-    sprintf(output_file_path, "%s.monitor_plugin.so", prefix);
-    free(cpy);
+    sprintf(input_file_path, "%s_monitor_plugin.c", prefix);
+    sprintf(output_file_path, "%s_monitor_plugin.so", prefix);
+    free(prefix);
 
     /* write code */
     fout = fopen(input_file_path, "w+");
@@ -175,12 +183,24 @@ void monitor_stat_plugin_build(const char * name, const char * code)
     
     /* compile code */
     memset(command,0,sizeof(command));
-    snprintf(command ,sizeof(command),"gcc %s -shared -fpic -rdynamic -o %s",input_file_path, output_file_path);
-    system(command);
+    snprintf(command ,sizeof(command),"%s %s -shared -fpic -rdynamic -o %s", x_str(CC), input_file_path, output_file_path);
+    int err = system(command);
+    switch(err){
+    case -1:
+	fprintf(stderr, "system call failed");
+	goto cleanup;
+	break;
+    case EXIT_FAILURE:
+	fprintf(stderr, "Plugin compilation failed");
+	goto cleanup;
+	break;
+    default:
+	/* load library */
+	monitor_plugin_load(name, MONITOR_PLUGIN_STAT);
+	break;
+    }
 
-    /* load library */
-    monitor_plugin_load(name, MONITOR_PLUGIN_STAT);
-
+ cleanup:
     /* Cleanup */ 
     unlink(input_file_path);
     unlink(output_file_path);
