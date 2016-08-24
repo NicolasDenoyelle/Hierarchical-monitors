@@ -12,8 +12,10 @@ static harray perf_plugins = NULL;
 static harray stat_plugins = NULL;
 
 #ifndef STAT_PLUGINS
-#define STAT_PLUGINS ""
+#define STAT_PLUGINS "defstats"
 #endif
+
+#pragma message("STAT_PLUGINS: " STAT_PLUGINS)
 
 static char * unsuffix_plugin_name(const char * name){
     size_t namelen = strlen(name);

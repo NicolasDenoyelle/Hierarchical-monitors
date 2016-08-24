@@ -1,0 +1,4 @@
+lib_LTLIBRARIES=defstats_monitor_plugin.la
+defstats_monitor_plugin_la_SOURCES=stats.c
+defstats_monitor_plugin_la_LDFLAGS= -module 
+

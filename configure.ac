@@ -78,6 +78,7 @@ AC_CHECK_LIB([hwloc], [hwloc_topology_init])
 
 
 # Check for statistic plugins to build
+stat_plugins="defstats"
 
 ## Checks for learning plugin.
 build_learning=yes
@@ -94,10 +95,10 @@ AC_CHECK_LIB([m],[cos], [], [build_learning=no])
 AC_CHECK_LIB([gslcblas],[cblas_dgemm], [], [build_learning=no])
 AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [], [build_learning=no])
 
-AS_IF([test "x$build_learning" = xyes], [stat_plugins="learning"])
+AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 
 # Check for performance plugins
-AC_CONFIG_FILES([src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
+AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
 
 ## Check for PAPI
 build_papi=yes
