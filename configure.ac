@@ -116,14 +116,24 @@ AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 # Check for performance plugins
 AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
 
-## Check for PAPI
-build_papi=yes
+## Check for papi plugin
+build_papi="yes"
 AC_CHECK_LIB([papi], [PAPI_library_init], [], [build_papi=no])
-AC_CHECK_HEADER([papi.h], [], build_papi=no)
+AS_IF([test "x$build_papi" = xyes],
+      [AS_IF([test `cat /proc/sys/kernel/perf_event_paranoid` -gt -1],
+             [AC_MSG_NOTICE([If you are willing to use papi, you should set /proc/sys/kernel/perf_event_paranoid to -1])]
+	    )
+      ])
 
 ## Check for maqao plugin
 build_maqao="yes"
 AC_CHECK_LIB([lprof], [counting_start_counters], [], [build_maqao=no])
+AS_IF([test "x$build_maqao" = xyes],
+      [AS_IF([test `cat /proc/sys/kernel/perf_event_paranoid` -gt -1],
+             [AC_MSG_NOTICE([If you are willing to use maqao, you should set /proc/sys/kernel/perf_event_paranoid to -1])]
+	    )
+      ])
+
 
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
