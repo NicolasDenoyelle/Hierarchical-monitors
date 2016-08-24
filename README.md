@@ -118,7 +118,7 @@ Here is a brief description of each:
 
 One can also implement its own performance plugin with this instructions:
 
-A performance plugin is a file with pattern name: `<name>.monitor_plugin.so` loadable with dlopen.
+A performance plugin is a file with pattern name: `<name>_monitor_plugin.so` loadable with dlopen.
 The plugin must implement the [performance plugin interface](./src/plugins/performance_interface.h).
 
 ## Reducing Events
@@ -143,7 +143,7 @@ Where `n_output` is the output array size writtable by the function, and `functi
 
 Reduction plugins compiled with the library are automatically loaded.
 
-Custom reduction plugins must have the name pattern: `<name>.monitor_plugin.so`,
+Custom reduction plugins must have the name pattern: `<name>_monitor_plugin.so`,
 must be referenced in environment variable as `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` ,
 and loadable with dlopen.
 
