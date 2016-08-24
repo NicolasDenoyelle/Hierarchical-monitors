@@ -73,8 +73,24 @@ AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([rt], [clock_gettime])
 
 # Check for hwloc.
+AC_DEFUN([HWLOC_VERSION_CHECK],
+	 [AC_RUN_IFELSE([AC_LANG_PROGRAM(
+			[],
+			[[#if HWLOC_API_VERSION >= 0x0020000
+			  if(hwloc_get_api_version() < 0x20000) return 1;
+			  #endif
+			  return 0;
+			]])],
+		        [],
+		        [AC_MSG_ERROR([You need an hwloc version with api version 0x20000 or later])])
+	])
+	 
 AC_CHECK_HEADER([hwloc.h])
-AC_CHECK_LIB([hwloc], [hwloc_topology_init])
+AC_CHECK_LIB(
+	[hwloc],
+	[hwloc_topology_init],
+	[HWLOC_VERSION_CHECK],
+	[AC_MSG_ERROR([hwloc library is required])])
 
 
 # Check for statistic plugins to build
@@ -109,7 +125,6 @@ AC_CHECK_HEADER([papi.h], [], build_papi=no)
 build_maqao="yes"
 AC_CHECK_LIB([lprof], [counting_start_counters], [], [build_maqao=no])
 
-echo "stat plugins: $stat_plugins"
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
 
