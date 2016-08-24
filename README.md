@@ -40,7 +40,7 @@ Use classic autotool chain:
 
 * Use make, make install to build and install.
 
-* For instance use this chain: `./autogen.sh && ./configure.sh --prefix=/usr/local && make -j && make install`
+* For instance use this chain: `./autogen.sh && ./configure --prefix=/usr/local && make -j && make install`
 
 ## Configuring monitors:
 
