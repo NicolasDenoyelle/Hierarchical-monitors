@@ -14,6 +14,8 @@ This output of a [previous implementation](https://github.com/NicolasDenoyelle/d
 
 ## Requirements:
 
+* libtool, automake for compilation chain
+
 * hwloc with defined values or above: 
   * `HWLOC_API_VERSION     0x00020000`
   * `HWLOC_COMPONENT_ABI   5`
@@ -30,11 +32,15 @@ It can be achieved by running the command: `echo "-1" > /proc/sys/kernel/perf_ev
 
 ## Set up:
 
-Everything is set up in [Makefile](./src/Makefile).
+Use classic autotool chain:
 
-* `make` will compile the library, the plugins and the utility
+* Use autogen.sh to generate configure.
 
-* `make install` will do `make` and copy targets in (bin,lib,include...) directories located in `PREFIX` directory.
+* Use configure to generate makefile.
+
+* Use make, make install to build and install.
+
+* For instance use this chain: `./autogen.sh && ./configure.sh --prefix=/usr/local && make -j && make install`
 
 ## Configuring monitors:
 
