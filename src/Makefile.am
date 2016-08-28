@@ -1,11 +1,12 @@
 AM_CFLAGS=-DCC=$(CC) -DSTATS_PLUGINS=@stat_plugins@
 
-include_HEADERS=hmon.h hmon_utils.h
+include_HEADERS=hmon.h hmon
 lib_LTLIBRARIES=libhmon.la
-libhmon_la_SOURCES=hmon.c hmon_array.c hwloc.c proc.c parser.c scanner.c console.c plugin.c
+libhmon_la_SOURCES=hmonitor.c harray.c synchronize.c hwloc_utils.c proc.c parser.c scanner.c console.c plugin.c sampling.c
 
 bin_PROGRAMS=hmon
 hmon_SOURCES=main.c
+LDADD=-lhwloc
 hmon_LDADD=libhmon.la
 
 parser.c: parser.y 
