@@ -4,7 +4,7 @@ include_HEADERS=hmon.h hmon
 lib_LTLIBRARIES=libhmon.la
 libhmon_la_SOURCES=hmonitor.c harray.c synchronize.c hwloc_utils.c proc.c parser.c scanner.c console.c plugin.c sampling.c
 
-bin_PROGRAMS=hmon
+bin_PROGRAMS=hmonitor
 hmon_SOURCES=main.c
 LDADD=-lhwloc
 hmon_LDADD=libhmon.la
