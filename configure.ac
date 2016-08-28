@@ -88,9 +88,10 @@ AC_DEFUN([HWLOC_VERSION_CHECK],
 AC_CHECK_HEADER([hwloc.h])
 AC_CHECK_LIB(
 	[hwloc],
-	[hwloc_topology_init],
-	[HWLOC_VERSION_CHECK],
-	[AC_MSG_ERROR([hwloc library is required])])
+	[hwloc_topology_init])
+	dnl ,
+	dnl [HWLOC_VERSION_CHECK],
+	dnl [AC_MSG_ERROR([hwloc library is required])])
 
 
 # Check for statistic plugins to build
