@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/timerfd.h>
 
 #include "hmon.h"
 #include "hmon_utils.h"
@@ -79,10 +79,10 @@ static struct perf_option pid_opt =     {.name = "--pid",
 static struct perf_option refresh_opt = {.name = "--frequency",
 					 .short_name = "-f",
 					 .arg = "<usec>",
-					 .desc = "Update monitors every -f micro seconds.",
+					 .desc = "Update monitors every -f milliseconds.",
 					 .type = OPT_TYPE_INT,
 					 .value.int_value = 100000,
-					 .def_val = "100000",
+					 .def_val = "1000",
 					 .set = 0};
 
 static struct perf_option display_opt = {.name = "--display-topology",
@@ -142,6 +142,13 @@ static void usage(char* argv0, struct perf_option ** options, unsigned n_opt)
 	printf(" %s\n", options[i]->desc);
     }
     printf("\n");
+}
+
+static void finalize_handler(int sig){
+  if(sig == SIGINT || sig == SIGQUIT || sig == SIGTERM){
+    monitor_lib_finalize();
+    exit(EXIT_SUCCESS);
+  }
 }
 
 int
@@ -215,23 +222,10 @@ main (int argc, char *argv[])
 	monitor_print_err("--input option required\n");
 	exit(EXIT_SUCCESS);
     }
-  
-    /* Set timer to read monitors */
-    timerfd = timerfd_create(CLOCK_REALTIME,0);
-    if(timerfd==-1){
-	perror("itimer");
-	exit(1);
-    }
-    FD_SET(timerfd, &in_fds_original);
-    nfds = timerfd+1;
 
-    /* set timer interval for update */
-    interval.it_value.tv_sec  = refresh_opt.value.int_value / 1000000;
-    interval.it_value.tv_nsec = 1000 * (refresh_opt.value.int_value % 1000000);
-    interval.it_interval.tv_sec  = interval.it_value.tv_sec;
-    interval.it_interval.tv_nsec  = interval.it_value.tv_nsec;
-    char buf[sizeof(uint64_t)]; /* To read timerfd */
-
+    /* Set timer delay */
+    if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
+    
     /* Monitors initialization */
     monitor_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
     monitors_import(input_opt.value.str_value);
@@ -242,71 +236,55 @@ main (int argc, char *argv[])
 	exit(EXIT_SUCCESS);
     }
 
-
-    /* start timer */
-    timerfd_settime(timerfd,0,&interval,NULL);
+    /* register exit handler */
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sa.sa_handler = finalize_handler;
+    sigfillset(&sa.sa_mask);
+    sigdelset(&sa.sa_mask, SIGQUIT);
+    sigdelset(&sa.sa_mask, SIGINT);
+    sigdelset(&sa.sa_mask, SIGTERM);
+    if(sigaction(SIGQUIT, &sa, NULL) == -1){perror("sigaction"); return -1;}
+    if(sigaction(SIGINT, &sa, NULL) == -1){perror("sigaction"); return -1;}
+    if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
+    
     /* start monitoring */
     monitors_start();
 
-    /* Start executable and pause */
+    /* Start executable */
     if(runnable){
 	pid = start_executable(runnable,run_args); 
     }
-
     
-    /* while executable is running, or forever if there is no executable */
+    /* while executable is running, or until user input if there is no executable */
+    if(pid == 0){
+      hmon_sampling_start(refresh_opt.value.int_value);
+      if(display_opt.set){hmon_periodic_display_start(monitor_display_all, 1);}
+      while(1){sleep(1);}
+    }
+    
     if(pid>0){
-	int err;
-	int status;
-	monitors_restrict(pid);
-	if(!refresh_opt.set){
-	    monitors_update();
-	    monitors_output(1);
-	    waitpid(pid, &status, 0);
-	    monitors_update();
-	    monitors_output(1);
-	    if(display_opt.set)
-		monitor_display_all(1);
-	}
-	else{
-	    while((err = waitpid(pid, &status, WNOHANG)) == 0){
-		in_fds = in_fds_original;
-		timeout.tv_sec=1;
-		timeout.tv_usec=0;
-		if(select(nfds, &in_fds, NULL, NULL,&timeout)>0 &&
-		   FD_ISSET(timerfd,&in_fds)){
-		    if(read(timerfd,&buf,sizeof(uint64_t))==-1){
-			perror("read");
-		    } 
-		    monitors_update();
-		    monitors_output(0);
-		    if(display_opt.set)
-			monitor_display_all(1);
-		}
-	    }
-	    if(err < 0){
-		perror("waitpid");
-	    }
-	    monitors_output(1);
-	}
+      int err;
+      int status;
+      monitors_restrict(pid);
+      if(!refresh_opt.set){
+	monitors_update();
+	monitors_output(1);
+	waitpid(pid, &status, 0);
+	monitors_update();
+	monitors_output(1);
+	if(display_opt.set){monitor_display_all(1);}
+      }
+      else{
+	hmon_sampling_start(refresh_opt.value.int_value);
+	if(display_opt.set){hmon_periodic_display_start(monitor_display_all, 1);}
+	err = waitpid(pid, &status, 0);
+	if(err < 0){perror("waitpid");}
+	hmon_sampling_stop();
+	if(display_opt.set){hmon_periodic_display_stop();}
+      }
     }
-    else while(1){
-	in_fds = in_fds_original;
-	timeout.tv_sec=1;
-	timeout.tv_usec=0;
-	if(select(nfds, &in_fds, NULL, NULL,&timeout)>0 &&
-	   FD_ISSET(timerfd,&in_fds)){
-	    if(read(timerfd,&buf,sizeof(uint64_t))==-1){
-		perror("read");
-	    } 
-	    monitors_update();
-	    monitors_output(1);
-	    if(display_opt.set){
- 	      monitor_display_all(1);
-	    }
-	}
-    }
-
+    
     /* clean up */
     free(output_opt.value.str_value);
     free(restrict_opt.value.str_value);

@@ -4,8 +4,9 @@
 #include <string.h>     
 #include <float.h>
 #include <dlfcn.h>
-#include "hmon.h"
-#include "hmon_utils.h"
+#include <hmon.h>
+#include <hmon/hmonitor.h>
+#include <internal.h>
 
     /**
      * %test monitor
@@ -21,8 +22,6 @@
      * }
     **/
     
-    extern struct monitor * new_monitor(const char*,hwloc_obj_t,harray,unsigned,unsigned,const char*,const char*,int);
-
     /* Default fields */
     const char * default_perf_lib = "fake"; 
 
@@ -35,14 +34,23 @@
     int                        silent;
     unsigned                   window;
     unsigned                   location_depth;
-    harray                     event_names;
+    char **                     event_names;
+    unsigned                   n_events;
+    unsigned                   allocated_events;
 
-
+    static void realloc_chk_events(){
+      if(n_events+1>allocated_events){
+	allocated_events*=2;
+	realloc_chk(event_names, allocated_events*sizeof(*event_names));
+      }
+    }
+    
     /* This function is called for each newly parsed monitor */
     static void reset_monitor_fields(){
 	if(perf_plugin_name){free(perf_plugin_name);}
 	if(reduction_code){free(reduction_code);}
 	if(reduction_plugin_name){free(reduction_plugin_name);}
+	while(--n_events){free(event_names[n_events]);}
 	window                 = 1;        /* default store 1 sample */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
@@ -50,13 +58,13 @@
 	perf_plugin_name       = NULL;
 	reduction_plugin_name  = NULL;
 	reduction_code         = NULL;
-	empty_harray(event_names); 
     }
 
     /* This function is called once before parsing */
     static void import_init(){
-	event_names = new_harray(sizeof(char*),8,free);
-	reset_monitor_fields();
+      event_names = malloc(32*sizeof(char*));
+      allocated_events = 32;
+      reset_monitor_fields();
     }
 
     /* This function is called once after parsing */
@@ -64,7 +72,8 @@
 	/* cleanup */
 	if(reduction_code){free(reduction_code);}
 	if(reduction_plugin_name){free(reduction_plugin_name);}
-	delete_harray(event_names);
+	while(--n_events){free(event_names[n_events]);}
+        free(event_names);
     }
 
     static char * concat_expr(int n, ...){
@@ -107,13 +116,15 @@
 	if(reduction_code != NULL){
 	    reduction_code = concat_and_replace(3,4, "\nvoid ", id, "(hmon m){\n", reduction_code);
 	    reduction_code = concat_and_replace(1,2, "#include \"hmon.h\"\n\n", reduction_code);
-	    monitor_stat_plugin_build(id, reduction_code);
+	    hmon_stat_plugin_build(id, reduction_code);
 	    model_plugin = id;
 	}
 	
 	/* Build one monitor per location */
-	while((obj = hwloc_get_next_obj_by_depth(monitors_topology, location_depth, obj)) != NULL){
-	    new_monitor(id, obj, event_names, window, n_reductions, perf_plugin_name, model_plugin, silent);
+	while((obj = hwloc_get_next_obj_by_depth(topology, location_depth, obj)) != NULL){
+	  hmon m = new_hmonitor(id, obj, event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
+	  hmon_register_hmonitor(m, silent, 0);
+	  
 	}
 	reset_monitor_fields();
     }
@@ -165,7 +176,7 @@ field_list
 
 field
 : OBJ_FIELD NAME ';'{
-    hwloc_obj_t obj = location_parse($2);
+  hwloc_obj_t obj = location_parse(topology, $2);
     if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
     location_depth = obj->depth;
     free($2);
@@ -178,8 +189,8 @@ field
 ;
 
 event_list
-: event                {harray_push(event_names,$1);}
-| event_list ',' event {harray_push(event_names,$3);}
+: event                {realloc_chk_events(); event_names[n_events++] = $1;}
+| event_list ',' event {realloc_chk_events(); event_names[n_events++] = $3;}
 ;
 
 event
@@ -243,7 +254,7 @@ term
 
 %%
 
-int monitors_import(char * input_path)
+int hmon_import(char * input_path)
 {
     /* parsing input file and creating functions.c file */
     FILE *input = NULL;

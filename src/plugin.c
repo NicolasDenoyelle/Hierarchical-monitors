@@ -7,15 +7,13 @@
 #include <string.h>
 #include <config.h>
 
-static const char * plugin_suffix = "_monitor_plugin.so";
+static const char * plugin_suffix = "_hmon_plugin.so";
 static harray perf_plugins = NULL;
 static harray stat_plugins = NULL;
 
 #ifndef STAT_PLUGINS
 #define STAT_PLUGINS "defstats"
 #endif
-
-#pragma message("STAT_PLUGINS: " STAT_PLUGINS)
 
 static char * unsuffix_plugin_name(const char * name){
     size_t namelen = strlen(name);
@@ -25,8 +23,8 @@ static char * unsuffix_plugin_name(const char * name){
     return strdup(name);
 }
 
-static void delete_monitor_plugin(void * plugin){
-    struct monitor_plugin * p = (struct monitor_plugin *)plugin;
+static void delete_hmon_plugin(void * plugin){
+    struct hmon_plugin * p = (struct hmon_plugin *)plugin;
     if(p->dlhandle!=NULL)
 	dlclose(p->dlhandle);
     if(p->id!=NULL)
@@ -36,8 +34,8 @@ static void delete_monitor_plugin(void * plugin){
 
 static void __attribute__((constructor)) plugins_init(){
     /* Greeting new plugins */
-    perf_plugins = new_harray(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
-    stat_plugins = new_harray(sizeof(struct monitor_plugin*), 16, delete_monitor_plugin);
+    perf_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
+    stat_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
 
     /* Checking for stat plugins */
     char * plugins_env = getenv("MONITOR_STAT_PLUGINS");
@@ -45,13 +43,13 @@ static void __attribute__((constructor)) plugins_init(){
     if(plugins_env != NULL){
 	plugin_env = strtok(plugins_env, " ");
 	if(plugin_env != NULL) do{
-	    monitor_plugin_load(plugin_env, MONITOR_PLUGIN_STAT);
+	    hmon_plugin_load(plugin_env, MONITOR_PLUGIN_STAT);
 	} while((plugin_env = strtok(NULL, " ")) != NULL);
     }
     char * plugins = strdup(STAT_PLUGINS), * save_ptr;
     char * plugin = strtok_r(plugins, " ", &save_ptr);
     do{
-	monitor_plugin_load(plugin, MONITOR_PLUGIN_STAT);
+	hmon_plugin_load(plugin, MONITOR_PLUGIN_STAT);
 	plugin = strtok_r(NULL, " ", &save_ptr);
     } while(plugin != NULL);
     free(plugins);
@@ -64,8 +62,8 @@ static void __attribute__((destructor)) plugins_at_exit(){
 }
 
 
-static struct monitor_plugin * monitor_plugin_lookup(const char * name, int type){
-    struct monitor_plugin * p;
+static struct hmon_plugin * hmon_plugin_lookup(const char * name, int type){
+    struct hmon_plugin * p;
     if(type == MONITOR_PLUGIN_STAT){
 	for(unsigned i=0; i<harray_length(stat_plugins); i++){
 	    p=harray_get(stat_plugins,i);
@@ -82,15 +80,15 @@ static struct monitor_plugin * monitor_plugin_lookup(const char * name, int type
 }
 
 
-struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
-    struct monitor_plugin * p = NULL;
+struct hmon_plugin * hmon_plugin_load(const char * name, int plugin_type){
+    struct hmon_plugin * p = NULL;
     char * prefix;
     char path[256]; memset(path,0,sizeof(path));
 
     /* Search if library already exists */
-    if((p = monitor_plugin_lookup(name, plugin_type)) != NULL){return p;}
+    if((p = hmon_plugin_lookup(name, plugin_type)) != NULL){return p;}
     prefix = unsuffix_plugin_name(name);
-    snprintf(path, 256 ,"%s_monitor_plugin.so", prefix);
+    snprintf(path, 256 ,"%s_hmon_plugin.so", prefix);
     free(prefix);
     malloc_chk(p, sizeof(*p));
     p->dlhandle = NULL;
@@ -99,7 +97,7 @@ struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
     p->dlhandle = dlopen(path,RTLD_LAZY|RTLD_GLOBAL);
     if(p->dlhandle==NULL){
 	monitor_print_err("Dynamic library %s load error:%s\n",path,dlerror());
-	delete_monitor_plugin(p);
+	delete_hmon_plugin(p);
 	return NULL;
     }
     
@@ -113,7 +111,7 @@ struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
 	harray_push(perf_plugins, p);
 	break;
     default:
-	delete_monitor_plugin(p);
+	delete_hmon_plugin(p);
 	return NULL;
 	break;
     }
@@ -121,7 +119,7 @@ struct monitor_plugin * monitor_plugin_load(const char * name, int plugin_type){
 }
 
 
-void * monitor_plugin_load_fun(struct monitor_plugin * plugin, const char * name, int print_error){
+void * hmon_plugin_load_fun(struct hmon_plugin * plugin, const char * name, int print_error){
 	void * fun = dlsym(plugin->dlhandle,name);
 	if(print_error && fun == NULL){
 	    monitor_print_err("Failed to load function %s\n",name);
@@ -130,8 +128,8 @@ void * monitor_plugin_load_fun(struct monitor_plugin * plugin, const char * name
 	return fun;
 }
 
-void monitor_stat_plugins_list(){
-    struct monitor_plugin * p;
+void hmon_stat_plugins_list(){
+    struct hmon_plugin * p;
     if(harray_length(stat_plugins)>0){
 	p=harray_get(stat_plugins,0);
 	fprintf(stderr, "%s", p->id);
@@ -144,23 +142,23 @@ void monitor_stat_plugins_list(){
 }
 
 
-void * monitor_stat_plugins_lookup_function(const char * name){
-    struct monitor_plugin * p;
+void * hmon_stat_plugins_lookup_function(const char * name){
+    struct hmon_plugin * p;
     void * fun = NULL;
     for(unsigned i=0; i<harray_length(stat_plugins); i++){
 	p=harray_get(stat_plugins,i);
-	fun = monitor_plugin_load_fun(p,name,0);
+	fun = hmon_plugin_load_fun(p,name,0);
 	if(fun != NULL)
 	    return fun;
     }
     fprintf(stderr,"Could not find function %s among following plugins:\n", name);
-    monitor_stat_plugins_list();
+    hmon_stat_plugins_list();
     return NULL;
 }
 
-void monitor_stat_plugin_build(const char * name, const char * code)
+void hmon_stat_plugin_build(const char * name, const char * code)
 {
-    struct monitor_plugin * p = NULL;
+    struct hmon_plugin * p = NULL;
     char * prefix;
     char input_file_path [1024];
     char output_file_path[1024];
@@ -168,14 +166,14 @@ void monitor_stat_plugin_build(const char * name, const char * code)
     FILE * fout = NULL;
 
     /* Search if library already exists */
-    if((p = monitor_plugin_lookup(name, MONITOR_PLUGIN_STAT)) != NULL){return;}
+    if((p = hmon_plugin_lookup(name, MONITOR_PLUGIN_STAT)) != NULL){return;}
 
     /* prepare file for functions copy, and dynamic library creation */
     prefix = unsuffix_plugin_name(name);
     memset(input_file_path,0,sizeof(input_file_path));
     memset(output_file_path,0,sizeof(output_file_path));
-    sprintf(input_file_path, "%s_monitor_plugin.c", prefix);
-    sprintf(output_file_path, "%s_monitor_plugin.so", prefix);
+    sprintf(input_file_path, "%s_hmon_plugin.c", prefix);
+    sprintf(output_file_path, "%s_hmon_plugin.so", prefix);
     free(prefix);
 
     /* write code */
@@ -198,7 +196,7 @@ void monitor_stat_plugin_build(const char * name, const char * code)
 	break;
     default:
 	/* load library */
-	monitor_plugin_load(name, MONITOR_PLUGIN_STAT);
+	hmon_plugin_load(name, MONITOR_PLUGIN_STAT);
 	break;
     }
 

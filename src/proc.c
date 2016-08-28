@@ -1,7 +1,10 @@
-#include "hmon_utils.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <hwloc.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "internal.h"
 
 static DIR * proc_open_dir(char * path){
     DIR * dir = NULL;
@@ -104,10 +107,7 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
     snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
     token_length = strlen(token);
     status_file = fopen(path,"r");
-    if(status_file == NULL){
-	perror("fopen");
-	return;
-    }
+    if(status_file == NULL){perror("fopen");goto exit_error;}
     
     line = malloc(8);
     do{
@@ -116,14 +116,17 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
     } while(err!=-1 && strncmp(line, token, token_length));
     
     fclose(status_file);
-    if(err == -1){
-	free(line);
-	return;
-    }
+    if(err == -1){goto exit_error_with_line;}
     
     line[strlen(line)-1] = '\0';
     hwloc_bitmap_sscanf(cpuset, line+token_length+1);
     free(line);
+    return;
+
+exit_error_with_line:
+    free(line);
+exit_error:
+    hwloc_bitmap_fill(cpuset);
 }
 
 /***************************************************************************************************************/

@@ -36,7 +36,7 @@ int monitor_eventset_destroy(void * eventset);
  * @param event_name, the string name of the counter to add.
  * @return 0 on succes, -1 on error.
  */
-int monitor_eventset_add_named_event(void * monitor_eventset, char * counter);
+int monitor_eventset_add_named_event(void * monitor_eventset, const char * counter);
 /**
  * Function to call after init, and once every counter has been added.
  * Calls of monitor_eventset_init_fini() might be multiple and simultaneous for a same performance library.
