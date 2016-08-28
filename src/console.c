@@ -26,7 +26,7 @@ static inline void clear_term(){system("clear");}
 #define FILL_STR  "::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 #define UNDERLINE_STR  "_________________________________________________________________________________________________________________________________________________________________________________________________________________"
 
-void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
+void hmon_display_depth(unsigned depth, unsigned cols, int verbose){
     hwloc_obj_t obj;
     harray arr;
     hmon monitor;
@@ -81,7 +81,7 @@ void monitor_display_depth(unsigned depth, unsigned cols, int verbose){
     free(obj_content);
 }
 
-void monitor_display_all(int verbose){
+void hmon_display_all(int verbose){
     unsigned i, depth;
     unsigned term_width;
     
@@ -91,7 +91,7 @@ void monitor_display_all(int verbose){
 fflush(stdout);
 printf("%.*s\n", term_width, UNDERLINE_STR);
     for(i=0; i<depth; i++){
-	monitor_display_depth(i, term_width, verbose);
+	hmon_display_depth(i, term_width, verbose);
     }
 }
 
