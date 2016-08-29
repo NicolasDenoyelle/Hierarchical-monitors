@@ -226,14 +226,6 @@ main (int argc, char *argv[])
     /* Set timer delay */
     if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
 
-    /* avoid that signals are caught by threads */
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGQUIT);
-    sigaddset(&set, SIGINT);
-    sigaddset(&set, SIGTERM);
-    if(pthread_sigmask(SIG_BLOCK, &set, NULL) == -1){perror("pthread_sigmask"); return -1;}
-
     /* Monitors initialization */
     hmon_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
     hmon_import(input_opt.value.str_value);
@@ -243,17 +235,6 @@ main (int argc, char *argv[])
         hmon_lib_finalize();
 	exit(EXIT_SUCCESS);
     }
-
-    /* Allow to catch signal with this main thread */
-    if(pthread_sigmask(SIG_UNBLOCK, &set, NULL) == -1){perror("pthread_sigmask"); return -1;}
-    /* And register signal handler */
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sa.sa_handler = finalize_handler;
-    sigemptyset(&sa.sa_mask);
-    if(sigaction(SIGQUIT, &sa, NULL) == -1){perror("sigaction"); return -1;}
-    if(sigaction(SIGINT, &sa, NULL) == -1){perror("sigaction"); return -1;}
-    if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
     
     /* start monitoring */
     hmon_start();
@@ -265,6 +246,15 @@ main (int argc, char *argv[])
     
     /* while executable is running, or until user input if there is no executable */
     if(pid == 0){
+      /* And register signal handler */
+      struct sigaction sa;
+      sa.sa_flags = 0;
+      sa.sa_handler = finalize_handler;
+      sigemptyset(&sa.sa_mask);
+      if(sigaction(SIGQUIT, &sa, NULL) == -1){perror("sigaction"); return -1;}
+      if(sigaction(SIGINT, &sa, NULL) == -1){perror("sigaction"); return -1;}
+      if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
+      /* monitor topology */ 
       hmon_sampling_start(refresh_opt.value.int_value);
       if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
       while(!hmonitor_utility_stop){usleep(10);}
@@ -284,8 +274,12 @@ main (int argc, char *argv[])
       else{
 	hmon_sampling_start(refresh_opt.value.int_value);
 	if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
+      hmon_wait_child:
 	err = waitpid(pid, &status, 0);
-	if(err < 0){perror("waitpid");}
+	if(err < 0){
+	  if(errno == EINTR){goto hmon_wait_child;}
+	  perror("waitpid");
+	}
 	hmon_sampling_stop();
 	if(display_opt.set){hmon_periodic_display_stop();}
       }
