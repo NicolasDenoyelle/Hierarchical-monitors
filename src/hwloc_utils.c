@@ -86,7 +86,7 @@ char * location_name(hwloc_obj_t obj){
     return ret;
 }
 
-hwloc_obj_t location_parse(hwloc_topology_t topology, char* location){
+hwloc_obj_t location_parse(hwloc_topology_t topology, const char* location){
     hwloc_obj_type_t type; 
     char * name;
     int err, depth; 

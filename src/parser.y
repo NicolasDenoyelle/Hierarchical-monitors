@@ -34,7 +34,7 @@
     int                        silent;
     unsigned                   window;
     unsigned                   location_depth;
-    char **                     event_names;
+    char **                    event_names;
     unsigned                   n_events;
     unsigned                   allocated_events;
 
@@ -50,7 +50,8 @@
 	if(perf_plugin_name){free(perf_plugin_name);}
 	if(reduction_code){free(reduction_code);}
 	if(reduction_plugin_name){free(reduction_plugin_name);}
-	while(--n_events){free(event_names[n_events]);}
+	while(n_events--){free(event_names[n_events]);}
+	n_events               = 0;
 	window                 = 1;        /* default store 1 sample */
 	silent                 = 0; 	   /* default not silent */     
 	location_depth         = 0; 	   /* default on root */
@@ -72,7 +73,7 @@
 	/* cleanup */
 	if(reduction_code){free(reduction_code);}
 	if(reduction_plugin_name){free(reduction_plugin_name);}
-	while(--n_events){free(event_names[n_events]);}
+	while(n_events--){free(event_names[n_events]);}
         free(event_names);
     }
 
@@ -115,15 +116,15 @@
 	/* Build reduction on events */
 	if(reduction_code != NULL){
 	    reduction_code = concat_and_replace(3,4, "\nvoid ", id, "(hmon m){\n", reduction_code);
-	    reduction_code = concat_and_replace(1,2, "#include \"hmon.h\"\n\n", reduction_code);
+	    reduction_code = concat_and_replace(1,2, "#include <hmon/hmonitor.h>\n\n", reduction_code);
 	    hmon_stat_plugin_build(id, reduction_code);
 	    model_plugin = id;
 	}
 	
 	/* Build one monitor per location */
 	while((obj = hwloc_get_next_obj_by_depth(topology, location_depth, obj)) != NULL){
-	  hmon m = new_hmonitor(id, obj, event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
-	  hmon_register_hmonitor(m, silent, 0);
+	  hmon m = new_hmonitor(id, obj, (const char **)event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
+	  if(m!=NULL){hmon_register_hmonitor(m, silent, 0);}
 	  
 	}
 	reset_monitor_fields();
@@ -189,8 +190,14 @@ field
 ;
 
 event_list
-: event                {realloc_chk_events(); event_names[n_events++] = $1;}
-| event_list ',' event {realloc_chk_events(); event_names[n_events++] = $3;}
+: event                {
+  realloc_chk_events();
+  event_names[n_events++] = $1;
+ }
+| event_list ',' event {
+  realloc_chk_events();
+  event_names[n_events++] = $3;
+  }
 ;
 
 event
@@ -201,7 +208,7 @@ event
 reduction
 : INTEGER '#' NAME {reduction_plugin_name = $3; n_reductions = atoi($1); free($1);}
 | assignement_list{
-    reduction_code = concat_and_replace(1,2,"double * events  = monitor_get_events(m, m->last);\n", reduction_code);
+    reduction_code = concat_and_replace(1,2,"double * events  = hmonitor_get_events(m, m->last);\n", reduction_code);
     reduction_code = concat_and_replace(0,2, reduction_code, "}\n");
   }
 ;

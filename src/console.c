@@ -1,4 +1,4 @@
-#include "hmon.h"
+#include <hmon.h>
 
 static unsigned get_term_width(){
     unsigned cols;
@@ -13,7 +13,7 @@ static unsigned get_term_width(){
     return cols;
 }
 
-static inline void clear_term(){system("clear");}
+static inline void clear_term(){if(system("clear")){return;}}
 
 /* 
  * No verbose
@@ -35,20 +35,20 @@ void hmon_display_depth(unsigned depth, unsigned cols, int verbose){
     unsigned i, n_obj;
     double val, scale, min, max;
 
-    n_obj = hwloc_get_nbobjs_by_depth(monitors_topology, depth);
+    n_obj = hwloc_get_nbobjs_by_depth(topology, depth);
 
     /* Print obj type */
-    obj = hwloc_get_obj_by_depth(monitors_topology, depth, 0);
+    obj = hwloc_get_obj_by_depth(topology, depth, 0);
     printf("%-9s ", hwloc_obj_type_string(obj->type));
     width = (cols - 10 - n_obj*2) / n_obj;
     obj_content = malloc(width+1);
 
     for(i=0;i<n_obj;i++){
-	obj = hwloc_get_obj_by_depth(monitors_topology,depth, i);
+	obj = hwloc_get_obj_by_depth(topology,depth, i);
 	arr = obj->userdata;
 	monitor = harray_get(arr, harray_length(arr)-1);
 	memset(obj_content,0,width+1);
-	if(monitor != NULL && hwloc_bitmap_intersects(monitor->location->cpuset,monitors_running_cpuset)){
+	if(monitor != NULL && !monitor->stopped){
 	    val = monitor->samples[0];
 	    max = monitor->max[0];
 	    min = monitor->min[0];
@@ -86,7 +86,7 @@ void hmon_display_all(int verbose){
     unsigned term_width;
     
     term_width = get_term_width();
-    depth = hwloc_topology_get_depth(monitors_topology);
+    depth = hwloc_topology_get_depth(topology);
     clear_term();
 fflush(stdout);
 printf("%.*s\n", term_width, UNDERLINE_STR);

@@ -53,7 +53,7 @@
 % 	EVSET:=L2_MISS_L2;
 % 	PERF_LIB:=hierarchical;
 %       %this reduction output the variance of events. Syntax: number_of_output#function
-% 	REDUCTION:=1#monitor_evset_var;
+% 	REDUCTION:=1#hmonitor_evset_var;
 % }
 
 %%%% Learning examples
@@ -105,12 +105,12 @@ lsq_fit{
 %      SILENT: 0 don't print monitor, 1(default) print monitor.
 
 %default REDUCTION functions (some may not be available):
-%	 monitor_evset_var
-%	 monitor_events_var
-%	 monitor_events_mean
-%	 monitor_events_sum
-%	 monitor_events_min
-%	 monitor_events_max
+%	 hmonitor_evset_var
+%	 hmonitor_events_var
+%	 hmonitor_events_mean
+%	 hmonitor_events_sum
+%	 hmonitor_events_min
+%	 hmonitor_events_max
 
 %default PERF_LIB (some may not be available):
 %	 papi

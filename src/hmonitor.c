@@ -28,7 +28,7 @@ hmon
 new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_names, const unsigned n_events,
 	     const unsigned window, const unsigned n_samples, const char * perf_plugin, const char * model_plugin)
 {
-  if(window == 0 || id == NULL || location == NULL || perf_plugin == NULL || model_plugin == NULL){return NULL;}
+  if(window == 0 || id == NULL || location == NULL || perf_plugin == NULL){return NULL;}
 
   hmon monitor = malloc(sizeof(*monitor));
         
@@ -44,11 +44,11 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
     fprintf(stderr, "Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
     exit(EXIT_FAILURE);
   }
-  monitor->eventset_start    = hmon_plugin_load_fun(plugin, "monitor_eventset_start",   1);
-  monitor->eventset_stop     = hmon_plugin_load_fun(plugin, "monitor_eventset_stop",    1);
-  monitor->eventset_reset    = hmon_plugin_load_fun(plugin, "monitor_eventset_reset",   1);
-  monitor->eventset_read     = hmon_plugin_load_fun(plugin, "monitor_eventset_read",    1);
-  monitor->eventset_destroy  = hmon_plugin_load_fun(plugin, "monitor_eventset_destroy", 1);
+  monitor->eventset_start    = hmon_plugin_load_fun(plugin, "hmonitor_eventset_start",   1);
+  monitor->eventset_stop     = hmon_plugin_load_fun(plugin, "hmonitor_eventset_stop",    1);
+  monitor->eventset_reset    = hmon_plugin_load_fun(plugin, "hmonitor_eventset_reset",   1);
+  monitor->eventset_read     = hmon_plugin_load_fun(plugin, "hmonitor_eventset_read",    1);
+  monitor->eventset_destroy  = hmon_plugin_load_fun(plugin, "hmonitor_eventset_destroy", 1);
   if(monitor->eventset_start   == NULL ||
      monitor->eventset_stop    == NULL ||
      monitor->eventset_reset   == NULL ||
@@ -65,9 +65,9 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   int (* eventset_init)(void **, hwloc_obj_t);
   int (* eventset_init_fini)(void*);
   int (* add_named_event)(void*, const char*);
-  eventset_init      = hmon_plugin_load_fun(plugin, "monitor_eventset_init"           , 1);
-  eventset_init_fini = hmon_plugin_load_fun(plugin, "monitor_eventset_init_fini"      , 1);
-  add_named_event    = hmon_plugin_load_fun(plugin, "monitor_eventset_add_named_event", 1);
+  eventset_init      = hmon_plugin_load_fun(plugin, "hmonitor_eventset_init"           , 1);
+  eventset_init_fini = hmon_plugin_load_fun(plugin, "hmonitor_eventset_init_fini"      , 1);
+  add_named_event    = hmon_plugin_load_fun(plugin, "hmonitor_eventset_add_named_event", 1);
 
   if(eventset_init(&monitor->eventset, location)){
     monitor_print_err("%s failed to initialize eventset\n", id);
@@ -177,7 +177,7 @@ int hmonitor_stop(hmon m){
   return 0;
 }
 
-int monitor_read(hmon m){
+int hmonitor_read(hmon m){
   int err = pthread_mutex_trylock(&m->available);
   /* read only if monitor is not up to date and if monitor active */
   if(err == EBUSY){

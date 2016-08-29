@@ -1,9 +1,9 @@
 #include <string.h>
 #include <papi.h>
 #include "../performance_plugin.h"
-#include "../../hmon_utils.h"
+#include "../../internal.h"
 
-extern hwloc_topology_t monitors_topology;
+extern hwloc_topology_t topology;
 
 struct PAPI_eventset{
     int evset;
@@ -67,13 +67,13 @@ PAPI_handle_error(int err)
     } while(0)
 
 
-int __attribute__((constructor)) monitor_events_global_init(){
+int __attribute__((constructor)) hmonitor_events_global_init(){
     PAPI_call_check(PAPI_library_init(PAPI_VER_CURRENT), PAPI_VER_CURRENT, -1, "PAPI library version mismatch: ");
     PAPI_call_check(PAPI_is_initialized(), PAPI_LOW_LEVEL_INITED, -1, "PAPI library init error: ");
     return 0;
 }
 
-void __attribute__((destructor)) monitor_events_global_finalize(){
+void __attribute__((destructor)) hmonitor_events_global_finalize(){
 }
 
 #define check_count(avail, count, max_count) do{		\
@@ -84,7 +84,7 @@ void __attribute__((destructor)) monitor_events_global_finalize(){
     } while(0)
 
 
-char ** monitor_events_list(int * n_events){
+char ** hmonitor_events_list(int * n_events){
     unsigned count=0, max_count = PAPI_MAX_HWCTRS + PAPI_MAX_PRESET_EVENTS;
     char ** avail;
     int event_code = 0 | PAPI_NATIVE_MASK;
@@ -128,10 +128,12 @@ char ** monitor_events_list(int * n_events){
 }
 
 int 
-monitor_eventset_add_named_event(void * monitor_eventset, char * event)
+hmonitor_eventset_add_named_event(void * monitor_eventset, const char * event)
 {
     struct PAPI_eventset * evset = (struct PAPI_eventset *) monitor_eventset;
-    PAPI_call_check(PAPI_add_named_event(evset->evset,event), PAPI_OK, -1, "Failed to add event %s to eventset: ",(char*)event);
+    char * evt = strdup(event);
+    PAPI_call_check(PAPI_add_named_event(evset->evset, evt), PAPI_OK, -1, "Failed to add event %s to eventset: ",(char*)event);
+    free(evt);
     /* extend result hmon_array */
     evset->n_events++;
     realloc_chk(evset->values,evset->n_events*sizeof(*evset->values));
@@ -143,7 +145,7 @@ monitor_eventset_add_named_event(void * monitor_eventset, char * event)
  * NUMANode <--> perf_event
  * PU       <--> perf_event_uncore
  */
-int PAPI_monitor_match_location_component(hwloc_obj_t location){
+int PAPI_hmonitor_match_location_component(hwloc_obj_t location){
     int i, nb_cmp = PAPI_num_components();
     PAPI_component_info_t * info;
     for(i=0;i<nb_cmp;i++){
@@ -159,7 +161,7 @@ int PAPI_monitor_match_location_component(hwloc_obj_t location){
     return -1;
 }
     
-int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
+int hmonitor_eventset_init(void ** eventset, hwloc_obj_t location){
     struct PAPI_eventset * evset;
     malloc_chk(evset, sizeof (*evset));
     *eventset = evset;
@@ -169,7 +171,7 @@ int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
     PAPI_call_check(PAPI_create_eventset(&evset->evset), PAPI_OK, -1, "Eventset creation failed: ");
 
     /* assign eventset to a component */
-    int cidx = PAPI_monitor_match_location_component(location);
+    int cidx = PAPI_hmonitor_match_location_component(location);
     if(cidx>=0 && cidx < PAPI_num_components()){
 	PAPI_call_check(PAPI_assign_eventset_component(evset->evset, cidx), PAPI_OK, -1, "Failed to assign eventset to commponent: ");
     }
@@ -194,7 +196,7 @@ It will count for the whole system.\n", obj_str);
     return 0;
 }
 
-int monitor_eventset_destroy(void * eventset){
+int hmonitor_eventset_destroy(void * eventset){
     if(eventset == NULL)
 	return 0;
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
@@ -205,12 +207,12 @@ int monitor_eventset_destroy(void * eventset){
     return 0;
 }
 
-int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
+int hmonitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
     return 0;
 }
 
 
-int monitor_eventset_start(void * eventset){
+int hmonitor_eventset_start(void * eventset){
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
     PAPI_call_check(PAPI_start(evset->evset), PAPI_OK, -1, "Eventset start failed: ");
     return 0;
@@ -218,19 +220,19 @@ int monitor_eventset_start(void * eventset){
 
 #define PAPI_swap_ptr(a,b) do{void * tmp = a; a=b; b=tmp;} while(0)
 
-int monitor_eventset_stop(void * eventset){
+int hmonitor_eventset_stop(void * eventset){
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
     PAPI_call_check(PAPI_stop(evset->evset, evset->values), PAPI_OK, -1, "Eventset stop failed: ");
     return 0;
 }
 
-int monitor_eventset_reset(void * eventset){
+int hmonitor_eventset_reset(void * eventset){
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
     PAPI_call_check(PAPI_reset(evset->evset), PAPI_OK, -1, "Eventset reset failed: ");
     return 0;
 }
 
-int monitor_eventset_read(void* eventset, double * values){
+int hmonitor_eventset_read(void* eventset, double * values){
     struct PAPI_eventset * evset = (struct PAPI_eventset *) eventset;
     int err = PAPI_read(evset->evset, evset->values);
     if(err != PAPI_OK){

@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "../../hmon_utils.h"
+#include "../../internal.h"
 #include "../performance_plugin.h"
 #include "maqao.h"
 
@@ -21,15 +21,15 @@ inline uint64_t maqao_get_value(unsigned callsite, unsigned int eventIdx){
     return ((get_counter_info())[callsite][eventIdx])->value;
 }
 
-int __attribute__((constructor)) monitor_events_global_init(){
+int __attribute__((constructor)) hmonitor_events_global_init(){
     pthread_mutex_init(&lock,NULL);
     return 0;
 }
-void __attribute__((destructor)) monitor_events_global_finalize(){
+void __attribute__((destructor)) hmonitor_events_global_finalize(){
     pthread_mutex_destroy(&lock);
 }
 
-char ** monitor_events_list(int * n_events){
+char ** hmonitor_events_list(int * n_events){
     char ** ret;
 
     *n_events = 1;
@@ -38,25 +38,32 @@ char ** monitor_events_list(int * n_events){
     return ret;
 }
 
-int monitor_eventset_add_named_event(void * monitor_eventset, char * event){
+int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * event){
     struct maqao_eventset * set = (struct maqao_eventset *) monitor_eventset;
-    switch(counting_add_hw_counters(event , set->core, MAQAO_THREAD_ANY)){
+    char * evt = strdup(event);
+    switch(counting_add_hw_counters(evt , set->core, MAQAO_THREAD_ANY)){
     case -1:
 	fprintf(stderr, "Maqao error: wrong event name\n");
-	return -1;
+	goto maqao_add_event_error;
 	break;
     case -2:
 	fprintf(stderr, "Maqao error: realloc error\n");
-	return -1;
+        goto maqao_add_event_error;
 	break;
     default:
 	break;
     }
+    
     set->n_events++;
+    free(evt);
     return 1;
+    
+maqao_add_event_error:
+    free(evt);
+    return -1;
 }
 
-int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
+int hmonitor_eventset_init(void ** eventset, hwloc_obj_t location){
     struct maqao_eventset * set;
     malloc_chk(set, sizeof(*set));
     set->n_events = 0;
@@ -80,33 +87,33 @@ int monitor_eventset_init(void ** eventset, hwloc_obj_t location){
 
 
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
-void monitor_eventset_init_fini_once(void){
+void hmonitor_eventset_init_fini_once(void){
     counting_start_counters(nb_callsite);
 }
 
-int monitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
-    pthread_once(&once_control,monitor_eventset_init_fini_once);
+int hmonitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){
+    pthread_once(&once_control,hmonitor_eventset_init_fini_once);
     return 0;
 }
 
-int monitor_eventset_destroy(void * eventset){
+int hmonitor_eventset_destroy(void * eventset){
     free(eventset);
     return 0;
 }
 
-int monitor_eventset_start(void * eventset){
+int hmonitor_eventset_start(void * eventset){
     struct maqao_eventset * set = (struct maqao_eventset *) eventset;
     counting_start_counting(set->callsite);
     return 0;
 }
 
-int monitor_eventset_stop(void * eventset){
+int hmonitor_eventset_stop(void * eventset){
     struct maqao_eventset * set = (struct maqao_eventset *) eventset;
     counting_stop_counting(set->callsite);
     return 0;
 }
 
-int monitor_eventset_reset(void * eventset){
+int hmonitor_eventset_reset(void * eventset){
     struct maqao_eventset * set = (struct maqao_eventset *) eventset;
     counting_stop_counting_dumb(set->callsite);
     pthread_mutex_lock(&lock);
@@ -115,7 +122,7 @@ int monitor_eventset_reset(void * eventset){
     return 0;
 }
 
-int monitor_eventset_read(void* eventset, double * values){
+int hmonitor_eventset_read(void* eventset, double * values){
     struct maqao_eventset * set = (struct maqao_eventset *) eventset;
     unsigned int i = 0;
     for(i=0;i<set->n_events;i++)

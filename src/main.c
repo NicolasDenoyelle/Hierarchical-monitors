@@ -4,8 +4,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "hmon.h"
-#include "hmon_utils.h"
+#include <hmon.h>
+#include "internal.h"
 
 static int timerfd;
 static fd_set in_fds, in_fds_original;
@@ -227,8 +227,8 @@ main (int argc, char *argv[])
     if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
     
     /* Monitors initialization */
-    monitor_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
-    monitors_import(input_opt.value.str_value);
+    hmon_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
+    hmon_import(input_opt.value.str_value);
 
     if(harray_length(monitors) == 0){
 	monitor_print_err( "No monitor defined. Leaving.\n");
@@ -249,7 +249,7 @@ main (int argc, char *argv[])
     if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
     
     /* start monitoring */
-    monitors_start();
+    hmon_start();
 
     /* Start executable */
     if(runnable){
@@ -259,25 +259,23 @@ main (int argc, char *argv[])
     /* while executable is running, or until user input if there is no executable */
     if(pid == 0){
       hmon_sampling_start(refresh_opt.value.int_value);
-      if(display_opt.set){hmon_periodic_display_start(monitor_display_all, 1);}
+      if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
       while(1){sleep(1);}
     }
     
     if(pid>0){
       int err;
       int status;
-      monitors_restrict(pid);
+      hmon_restrict_pid(pid);
       if(!refresh_opt.set){
-	monitors_update();
-	monitors_output(1);
+	hmon_update();
 	waitpid(pid, &status, 0);
-	monitors_update();
-	monitors_output(1);
-	if(display_opt.set){monitor_display_all(1);}
+	hmon_update();
+	if(display_opt.set){hmon_display_all(1);}
       }
       else{
 	hmon_sampling_start(refresh_opt.value.int_value);
-	if(display_opt.set){hmon_periodic_display_start(monitor_display_all, 1);}
+	if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
 	err = waitpid(pid, &status, 0);
 	if(err < 0){perror("waitpid");}
 	hmon_sampling_stop();

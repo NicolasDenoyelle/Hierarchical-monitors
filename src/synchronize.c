@@ -68,7 +68,7 @@ void hmon_restrict_pid_running_tasks(pid_t pid, int recurse){
   hwloc_bitmap_free(running_cpuset);
 }
 
-int hmon_lib_init(hwloc_topology_t topo, hwloc_obj_t restrict_obj, char * out){
+int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
   /* Check hwloc version */
   if(hwloc_check_version_mismatch() != 0){return -1;}
 
@@ -96,13 +96,17 @@ int hmon_lib_init(hwloc_topology_t topo, hwloc_obj_t restrict_obj, char * out){
   else{output = stdout;}
 
   /* create or monitor list */ 
-  monitors = new_harray(sizeof(hmon), 32, (void (*)(void*))delete_hmonitor);
+  monitors = new_harray(sizeof(hmon), 32, NULL);
   monitors_to_print = new_harray(sizeof(hmon), 32, NULL);
   monitors_to_display = new_harray(sizeof(hmon), 32, NULL);
   
   /* Restrict topology to first group and set an array of monitor per core */
   if(restrict_obj == NULL){restrict_location = hwloc_get_root_obj(topology);}
-  else{restrict_location = restrict_obj;}
+  else{restrict_location = location_parse(topology,restrict_obj);}
+  if(restrict_location == NULL){
+    fprintf(stderr, "Warning: restrict location %s cannot be set, root is set instead", restrict_obj);
+    restrict_location = hwloc_get_root_obj(topology);
+  }
 
   /* Create one thread per core */
   ncores = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
@@ -124,7 +128,8 @@ int hmon_lib_init(hwloc_topology_t topo, hwloc_obj_t restrict_obj, char * out){
  * Host must be a core where to spawn a thread 
  * Host must be into the restricted area, otherwise overhead of pthread_barrier is too high.
  */
-static unsigned hmon_find_core_host(hwloc_obj_t near){
+static unsigned hmon_find_core_host(hmon m){
+  hwloc_obj_t near = m->location;
   /* match near to be in restricted topology */
   int cousins = get_max_objs_inside_cpuset_by_type(topology, restrict_location->cpuset, near->type);
   /* near type is deeper than restricted topology root */
@@ -146,14 +151,16 @@ static unsigned hmon_find_core_host(hwloc_obj_t near){
   unsigned core_idx = host->logical_index%ncores;
   if(harray_length(core_monitors[core_idx]) == 0)
     thread_count++;
-  /* printf("will be hosted on %s:%d\n",hwloc_type_name(host->type), host->logical_index);	  */
-  return core_idx;
+  /* printf("will be hosted on %s:%d\n",hwloc_type_name(host->type), host->logical_index); */
+  return harray_insert_sorted(core_monitors[core_idx], m, hmon_compare);
 }
 
 
 void hmon_register_hmonitor(hmon m, int silent, int display){
+  if(m==NULL){return;}
+  
   /* push monitor to array holding monitor on Core */
-  harray_insert_sorted(core_monitors[hmon_find_core_host(m->location)], m, hmon_compare);
+  hmon_find_core_host(m);
   
   /* Add monitor to existing monitors*/
   harray_insert_sorted(monitors, m, hmon_compare);

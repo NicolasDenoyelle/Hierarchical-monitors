@@ -1,5 +1,5 @@
-#include "hmon_utils.h"
-#include "hmon.h"
+#include "internal.h"
+#include <hmon/harray.h>
 
 #include <dirent.h>
 #include <dlfcn.h>
@@ -38,18 +38,18 @@ static void __attribute__((constructor)) plugins_init(){
     stat_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
 
     /* Checking for stat plugins */
-    char * plugins_env = getenv("MONITOR_STAT_PLUGINS");
+    char * plugins_env = getenv("HMON_STAT_PLUGINS");
     char * plugin_env;
     if(plugins_env != NULL){
 	plugin_env = strtok(plugins_env, " ");
 	if(plugin_env != NULL) do{
-	    hmon_plugin_load(plugin_env, MONITOR_PLUGIN_STAT);
+	    hmon_plugin_load(plugin_env, HMON_PLUGIN_STAT);
 	} while((plugin_env = strtok(NULL, " ")) != NULL);
     }
     char * plugins = strdup(STAT_PLUGINS), * save_ptr;
     char * plugin = strtok_r(plugins, " ", &save_ptr);
     do{
-	hmon_plugin_load(plugin, MONITOR_PLUGIN_STAT);
+	hmon_plugin_load(plugin, HMON_PLUGIN_STAT);
 	plugin = strtok_r(NULL, " ", &save_ptr);
     } while(plugin != NULL);
     free(plugins);
@@ -64,13 +64,13 @@ static void __attribute__((destructor)) plugins_at_exit(){
 
 static struct hmon_plugin * hmon_plugin_lookup(const char * name, int type){
     struct hmon_plugin * p;
-    if(type == MONITOR_PLUGIN_STAT){
+    if(type == HMON_PLUGIN_STAT){
 	for(unsigned i=0; i<harray_length(stat_plugins); i++){
 	    p=harray_get(stat_plugins,i);
 	    if(!strcmp(p->id,name)){return p;}
 	}
     }
-    else if(type == MONITOR_PLUGIN_PERF){
+    else if(type == HMON_PLUGIN_PERF){
 	for(unsigned i=0; i<harray_length(perf_plugins); i++){
 	    p=harray_get(perf_plugins,i);
 	    if(!strcmp(p->id,name)){return p;}
@@ -104,10 +104,10 @@ struct hmon_plugin * hmon_plugin_load(const char * name, int plugin_type){
     dlerror();
     p->id = strdup(name);
     switch(plugin_type){
-    case MONITOR_PLUGIN_STAT:
+    case HMON_PLUGIN_STAT:
 	harray_push(stat_plugins, p);
 	break;
-    case MONITOR_PLUGIN_PERF:
+    case HMON_PLUGIN_PERF:
 	harray_push(perf_plugins, p);
 	break;
     default:
@@ -166,7 +166,7 @@ void hmon_stat_plugin_build(const char * name, const char * code)
     FILE * fout = NULL;
 
     /* Search if library already exists */
-    if((p = hmon_plugin_lookup(name, MONITOR_PLUGIN_STAT)) != NULL){return;}
+    if((p = hmon_plugin_lookup(name, HMON_PLUGIN_STAT)) != NULL){return;}
 
     /* prepare file for functions copy, and dynamic library creation */
     prefix = unsuffix_plugin_name(name);
@@ -196,7 +196,7 @@ void hmon_stat_plugin_build(const char * name, const char * code)
 	break;
     default:
 	/* load library */
-	hmon_plugin_load(name, MONITOR_PLUGIN_STAT);
+	hmon_plugin_load(name, HMON_PLUGIN_STAT);
 	break;
     }
 

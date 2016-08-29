@@ -16,7 +16,7 @@ extern hwloc_topology_t topology;
  * @param out, the file where to print the trace.
  * @return -1 on error, 0 on success;
  **/
-int hmon_lib_init(hwloc_topology_t topology, hwloc_obj_t restrict_obj, char * out);
+int hmon_lib_init(hwloc_topology_t topology, const char* restrict_obj, char * out);
 
 /**
  * Delete all library internal structures.
@@ -74,6 +74,19 @@ int hmon_import(char * input_path);
  **/
 void hmon_display_all(int verbose);
 
+/**
+ * Update monitors every us micro seconds.
+ * @param us, the delay between each update.
+ * @return -1 if an error occured, else 0.
+ **/
+int hmon_sampling_start(const long us);
+
+/**
+ * Stop monitors' sampling.
+ * @return -1 if an error occured, else 0.
+ **/
+int hmon_sampling_stop();
+  
 /**
  * Display the monitors peridocally.
  * @arg display_monitors: the function used to display monitors.

@@ -1,10 +1,10 @@
 #include <float.h>
-#include "hmon.h"
+#include <hmon/hmonitor.h>
 
 #define STAT_MAX(a,b) ((a)>(b)?(a):(b))
 #define STAT_MIN(a,b) ((a)<(b)?(a):(b))
 
-void monitor_events_max(hmon m){
+void hmonitor_events_max(hmon m){
     unsigned r, rows = STAT_MIN(m->window, m->total);
     unsigned c, cols = m->n_events;
     double * out = m->samples, *in;
@@ -13,12 +13,12 @@ void monitor_events_max(hmon m){
     for(c=0;c<cols;c++){out[c] = DBL_MIN;}
     /* compute max row by row */
     for(r=0; r<rows; r++){
-        in = monitor_get_events(m,r);
+        in = hmonitor_get_events(m,r);
 	for(c=0;c<cols;c++){out[c] = STAT_MAX(out[c], in[c]);}
     }
 }
 
-void monitor_events_min(hmon m){
+void hmonitor_events_min(hmon m){
     unsigned r, rows = STAT_MIN(m->window, m->total);
     unsigned c, cols = m->n_events;
     double * out = m->samples, *in;
@@ -27,12 +27,12 @@ void monitor_events_min(hmon m){
     for(c=0;c<cols;c++){out[c] = DBL_MAX;}
     /* compute min row by row */
     for(r=0; r<rows; r++){
-        in = monitor_get_events(m,r);
+        in = hmonitor_get_events(m,r);
 	for(c=0;c<cols;c++){out[c] = STAT_MIN(out[c], in[c]);}
     }
 }
 
-void monitor_events_sum(hmon m){
+void hmonitor_events_sum(hmon m){
     unsigned r, rows = STAT_MIN(m->window, m->total);
     unsigned c, cols = m->n_events;
     double * out = m->samples, *in;
@@ -42,20 +42,20 @@ void monitor_events_sum(hmon m){
 
     /* compute sum row by row */
     for(r=0; r<rows; r++){
-        in = monitor_get_events(m,r);
+        in = hmonitor_get_events(m,r);
 	for(c=0;c<cols;c++){out[c] += in[c];}
     }
 }
 
-void monitor_events_mean(hmon m){
+void hmonitor_events_mean(hmon m){
     unsigned rows = STAT_MIN(m->window, m->total);
     unsigned c, cols = m->n_events;
     double * out = m->samples;
-    monitor_events_sum(m);
+    hmonitor_events_sum(m);
     for(c=0;c<cols;c++){out[c] /= rows;}
 }
 
-void monitor_events_var(hmon m){
+void hmonitor_events_var(hmon m){
     unsigned r, rows = STAT_MIN(m->window, m->total);
     unsigned c, cols = m->n_events;
     double * out = m->samples, *in;
@@ -63,7 +63,7 @@ void monitor_events_var(hmon m){
     
     for(c=0;c<cols;c++){sum[c] = square_sum[c] = 0;}
     for(r=0; r<rows; r++){
-        in = monitor_get_events(m,r);
+        in = hmonitor_get_events(m,r);
 	for(c=0;c<cols;c++){sum[c]+=in[c]; square_sum[c] += in[c]*in[c];}
     }
 
@@ -72,9 +72,9 @@ void monitor_events_var(hmon m){
     for(c=0;c<cols;c++){out[c] = ct*square_sum[c]-sum[c];}
 }
 
-void monitor_evset_var(hmon m){
+void hmonitor_evset_var(hmon m){
     unsigned c, cols = m->n_events;
-    double * out = m->samples, *in = monitor_get_events(m,m->last);
+    double * out = m->samples, *in = hmonitor_get_events(m,m->last);
     double sum = 0, square_sum = 0;
 
     for(c=0;c<cols;c++){sum+=in[c]; square_sum += in[c]*in[c];}

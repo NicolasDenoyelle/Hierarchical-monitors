@@ -1,4 +1,4 @@
-lib_LTLIBRARIES=accumulate_monitor_plugin.la
-accumulate_monitor_plugin_la_SOURCES=accumulate_monitor.c
-accumulate_monitor_plugin_la_LDFLAGS= -module
+lib_LTLIBRARIES=accumulate_hmon_plugin.la
+accumulate_hmon_plugin_la_SOURCES=accumulate_monitor.c
+accumulate_hmon_plugin_la_LDFLAGS= -module
 

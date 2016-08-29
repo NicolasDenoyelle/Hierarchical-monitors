@@ -124,7 +124,7 @@ Here is a brief description of each:
 
 One can also implement its own performance plugin with this instructions:
 
-A performance plugin is a file with pattern name: `<name>_monitor_plugin.so` loadable with dlopen.
+A performance plugin is a file with pattern name: `<name>_hmonitor_plugin.so` loadable with dlopen.
 The plugin must implement the [performance plugin interface](./src/plugins/performance_interface.h).
 
 ## Reducing Events
@@ -140,17 +140,17 @@ $j and $k may also be integer or flaoting point values.
 * Reduction plugin must follow the syntax `n_output#function`
 Where `n_output` is the output array size writtable by the function, and `function` is a function name loadable in a reduction plugin. Here is a list of default available reduction functions:
 
-  * monitor_evset_var: output the variance of the events.
-  * monitor_events_var: output the variance of stored events for each event type.
-  * monitor_events_mean: output the mean of stored events for each event type.
-  * monitor_events_sum: output the sum of stored events for each event type.
-  * monitor_events_min: output the min of stored events for each event type.
-  * monitor_events_max: output the max of stored events for each event type.
+  * hmonitor_evset_var: output the variance of the events.
+  * hmonitor_events_var: output the variance of stored events for each event type.
+  * hmonitor_events_mean: output the mean of stored events for each event type.
+  * hmonitor_events_sum: output the sum of stored events for each event type.
+  * hmonitor_events_min: output the min of stored events for each event type.
+  * hmonitor_events_max: output the max of stored events for each event type.
 
 Reduction plugins compiled with the library are automatically loaded.
 
-Custom reduction plugins must have the name pattern: `<name>_monitor_plugin.so`,
-must be referenced in environment variable as `export MONITOR_STAT_PLUGINS=<plugin1>:<plugin2>...` ,
+Custom reduction plugins must have the name pattern: `<name>_hmonitor_plugin.so`,
+must be referenced in environment variable as `export HMON_STAT_PLUGINS=<plugin1>:<plugin2>...` ,
 and loadable with dlopen.
 
 Function defined and loadable in the plugin must have the following protoype:
