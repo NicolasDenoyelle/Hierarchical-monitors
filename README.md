@@ -155,5 +155,5 @@ and loadable with dlopen.
 
 Function defined and loadable in the plugin must have the following protoype:
 
-`void hmonitor_events_max(hmon m)`
+`void reduction_function(hmon m)`
 
