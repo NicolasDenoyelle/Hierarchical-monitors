@@ -155,5 +155,5 @@ and loadable with dlopen.
 
 Function defined and loadable in the plugin must have the following protoype:
 
-`void function(hmatrix in, unsigned row_offset, double * out, unsigned out_size)`
+`void hmonitor_events_max(hmon m)`
 
