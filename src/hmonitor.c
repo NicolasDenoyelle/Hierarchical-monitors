@@ -6,7 +6,7 @@
 #include <hmon/hmonitor.h>
 
 static void print_avail_events(struct hmon_plugin * lib){
-  char ** (* events_list)(int *) = hmon_plugin_load_fun(lib, "monitor_events_list", 1);
+  char ** (* events_list)(int *) = hmon_plugin_load_fun(lib, "hmonitor_events_list", 1);
   if(events_list == NULL)
     return;
 
