@@ -195,9 +195,18 @@ void hmon_stop(){
 
 void hmon_update(){
   /* make Monitors busy */
+  int err;
   for(unsigned i = 0; i<harray_length(monitors); i++){
     hmon m = harray_get(monitors,i);
-    pthread_mutex_lock(&m->available);
+    err = pthread_mutex_trylock(&m->available);
+    /* A monitor is busy, rewind and abandon update */
+    if(err == EBUSY){
+      while(i--){
+	m = harray_get(monitors,i);
+	pthread_mutex_unlock(&m->available);
+      }
+      return;
+    }
   }
   /* Trigger monitors */
   pthread_barrier_wait(&barrier);
@@ -245,7 +254,12 @@ static void * hmonitor_thread(void * arg)
 {
   hwloc_obj_t Core = (hwloc_obj_t)(arg);
   /* Bind the thread */
-  hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(topology, Core->cpuset, HWLOC_OBJ_PU, hwloc_get_nbobjs_inside_cpuset_by_type(topology, Core->cpuset, HWLOC_OBJ_PU) -1);
+  hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(topology,
+						       Core->cpuset,
+						       HWLOC_OBJ_PU,
+						       hwloc_get_nbobjs_inside_cpuset_by_type(topology,
+											      Core->cpuset,
+											      HWLOC_OBJ_PU) -1);
   location_cpubind(topology, PU); 
   location_membind(topology, PU);
   harray _monitors = core_monitors[Core->logical_index%ncores];
