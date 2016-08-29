@@ -5,6 +5,7 @@
 int handler_isset = 0;
 timer_t update_timer;
 
+
 timer_t display_timer;
 int display_arg;
 void (*display_function)(int);
@@ -55,8 +56,8 @@ static int create_timer(timer_t * timerid){
 
 static int set_timer(timer_t timer, long us){
   struct itimerspec update_delay;
-  update_delay.it_interval.tv_sec  = us/1000;
-  update_delay.it_interval.tv_nsec = 1000000*(us%1000);
+  update_delay.it_interval.tv_sec  = us/1000000;
+  update_delay.it_interval.tv_nsec = 1000*(us%1000000);
   update_delay.it_value = update_delay.it_interval;
   if(timer_settime(timer, 0, &update_delay, NULL) == -1){perror("timer_settime"); return -1;}
   return 0;
