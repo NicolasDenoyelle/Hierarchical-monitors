@@ -38,7 +38,9 @@ typedef struct hmon{
   int (* eventset_reset)   (void *);
   int (* eventset_read)    (void *, double *);
   int (* eventset_destroy) (void *);
-    
+
+  /** Do we output this one ? **/
+  int silent;
   /** If stopped do not stop twice **/
   int stopped;
   /** another monitor depend on this one and is in charge for updating it **/
@@ -63,7 +65,7 @@ typedef struct hmon{
  * @return A new monitor.
  **/
 hmon new_hmonitor(const char * id, hwloc_obj_t location, const char ** event_names, const unsigned n_events,
-		      const unsigned window, unsigned n_samples, const char* perf_plugin, const char* model_plugin);
+		  const unsigned window, unsigned n_samples, const char* perf_plugin, const char* model_plugin);
 
 /**
  * Delete a monitor

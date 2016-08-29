@@ -37,6 +37,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->location = location;
   monitor->window = window;
   monitor->userdata = NULL;
+  monitor->silent = 0;
     
   /* Load perf plugin functions */
   struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
@@ -139,14 +140,16 @@ void hmonitor_reset(hmon m){
 }
 
 void hmonitor_output(hmon m, FILE* out, int wait){
-  unsigned j;
-  if(wait){pthread_mutex_lock(&(m->available));}
-  fprintf(out,"%-16s ",  m->id);
-  fprintf(out,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-  fprintf(out,"%14ld ",  hmonitor_get_timestamp(m,m->last));
-  for(j=0;j<m->n_samples;j++){fprintf(out, "%-.6e ", m->samples[j]);}
-  fprintf(out,"\n");
-  if(wait){pthread_mutex_unlock(&(m->available));}
+  if(!m->silent){
+    unsigned j;
+    if(wait){pthread_mutex_lock(&(m->available));}
+    fprintf(out,"%-16s ",  m->id);
+    fprintf(out,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
+    fprintf(out,"%14ld ",  hmonitor_get_timestamp(m,m->last));
+    for(j=0;j<m->n_samples;j++){fprintf(out, "%-.6e ", m->samples[j]);}
+    fprintf(out,"\n");
+    if(wait){pthread_mutex_unlock(&(m->available));}
+  }
 }
 
 double * hmonitor_get_events(hmon m, unsigned i){

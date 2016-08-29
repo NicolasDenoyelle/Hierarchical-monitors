@@ -7,6 +7,7 @@
 #include <hmon.h>
 #include "internal.h"
 
+volatile int hmonitor_utility_stop;
 static int timerfd;
 static fd_set in_fds, in_fds_original;
 static int nfds;
@@ -146,8 +147,7 @@ static void usage(char* argv0, struct perf_option ** options, unsigned n_opt)
 
 static void finalize_handler(int sig){
   if(sig == SIGINT || sig == SIGQUIT || sig == SIGTERM){
-    monitor_lib_finalize();
-    exit(EXIT_SUCCESS);
+    hmonitor_utility_stop = 1;
   }
 }
 
@@ -225,25 +225,32 @@ main (int argc, char *argv[])
 
     /* Set timer delay */
     if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
-    
+
+    /* avoid that signals are caught by threads */
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGQUIT);
+    sigaddset(&set, SIGINT);
+    sigaddset(&set, SIGTERM);
+    if(pthread_sigmask(SIG_BLOCK, &set, NULL) == -1){perror("pthread_sigmask"); return -1;}
+
     /* Monitors initialization */
     hmon_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
     hmon_import(input_opt.value.str_value);
 
     if(harray_length(monitors) == 0){
 	monitor_print_err( "No monitor defined. Leaving.\n");
-	monitor_lib_finalize();
+        hmon_lib_finalize();
 	exit(EXIT_SUCCESS);
     }
 
-    /* register exit handler */
+    /* Allow to catch signal with this main thread */
+    if(pthread_sigmask(SIG_UNBLOCK, &set, NULL) == -1){perror("pthread_sigmask"); return -1;}
+    /* And register signal handler */
     struct sigaction sa;
     sa.sa_flags = 0;
     sa.sa_handler = finalize_handler;
-    sigfillset(&sa.sa_mask);
-    sigdelset(&sa.sa_mask, SIGQUIT);
-    sigdelset(&sa.sa_mask, SIGINT);
-    sigdelset(&sa.sa_mask, SIGTERM);
+    sigemptyset(&sa.sa_mask);
     if(sigaction(SIGQUIT, &sa, NULL) == -1){perror("sigaction"); return -1;}
     if(sigaction(SIGINT, &sa, NULL) == -1){perror("sigaction"); return -1;}
     if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
@@ -260,7 +267,8 @@ main (int argc, char *argv[])
     if(pid == 0){
       hmon_sampling_start(refresh_opt.value.int_value);
       if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
-      while(1){sleep(1);}
+      while(!hmonitor_utility_stop){usleep(10);}
+      hmon_sampling_stop(refresh_opt.value.int_value);
     }
     
     if(pid>0){
@@ -283,10 +291,11 @@ main (int argc, char *argv[])
       }
     }
     
-    /* clean up */
+    /* cleanup */
+out_with_lib:
     free(output_opt.value.str_value);
     free(restrict_opt.value.str_value);
-    monitor_lib_finalize();
+    hmon_lib_finalize();
     return EXIT_SUCCESS;
 }
 

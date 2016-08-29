@@ -9,7 +9,6 @@
   do{for(unsigned i = 0; i< harray_length(hmons); i++){call(harray_get(hmons,i), ##__VA_ARGS__);}}while(0)
 
 harray                     monitors;                 /* The array of monitors */
-static harray              monitors_to_print;        /* The array of monitors to print */
 static harray              monitors_to_display;      /* The array of monitors to display on topology */
 
 hwloc_topology_t           topology;                 /* The topology with monitor on hwloc_obj_t->userdata */
@@ -18,10 +17,12 @@ static FILE *              output;                   /* The output where to writ
 /** Monitors threads **/
 static hwloc_obj_t         restrict_location;        /* The location where to spawn threads */
 static unsigned            ncores;                   /* Number of cores inside restrict location */
+static int                 uptodate;                 /* Number of threads uptodate */
 harray*                    core_monitors;            /* An array of monitor per core in restrict location */
-static unsigned            thread_count;     /* Number of threads */
-static pthread_t *         threads;          /* Threads id */
-static pthread_barrier_t   barrier;  /* Common barrier between monitors' thread and main thread */
+static unsigned            thread_count;             /* Number of threads */
+static pthread_t *         threads;                  /* Threads id */
+static pthread_barrier_t   barrier;                  /* Common barrier between monitors' thread and main thread */
+int                        hmon_lib_stop;            /* A flag telling whether library should stop */
 static void *              hmonitor_thread(void * arg);
 
 static int hmon_compare(void* hmonitor_a, void* hmonitor_b){
@@ -44,13 +45,10 @@ static void hmonitor_restrict(hmon m, hwloc_cpuset_t allowed_cpuset, int delete)
       m->stopped = 1;
     }
     if(delete){
-      harray_remove(monitors_to_print, harray_find(monitors_to_print, m, hmon_compare));
       harray_remove(monitors, harray_find(monitors, m, hmon_compare));
       delete_hmonitor(m);
     }  /* Sort monitors per location for update from leaves to root */
-  harray_sort(monitors, hmon_compare);
-  harray_sort(monitors_to_print, hmon_compare);
-
+    harray_sort(monitors, hmon_compare);
   }
 }
 
@@ -97,7 +95,6 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
 
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, NULL);
-  monitors_to_print = new_harray(sizeof(hmon), 32, NULL);
   monitors_to_display = new_harray(sizeof(hmon), 32, NULL);
   
   /* Restrict topology to first group and set an array of monitor per core */
@@ -118,8 +115,6 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
     hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_type(topology, restrict_location->cpuset, HWLOC_OBJ_CORE, i);
     pthread_create(&(threads[i]), NULL, hmonitor_thread, (void*)(core));
   }
-  /* Wait threads initialization */
-  pthread_barrier_wait(&barrier);
   
   return 0;
 }
@@ -164,9 +159,9 @@ void hmon_register_hmonitor(hmon m, int silent, int display){
   
   /* Add monitor to existing monitors*/
   harray_insert_sorted(monitors, m, hmon_compare);
-
-  /* Add monitor to monitors to print list */
-  if(!silent){harray_push(monitors_to_print, m);}
+  
+  /* Make monitor printable (or not) */
+  m->silent = silent;
 
   /* Add monitor to monitors to display list */
   if(display){
@@ -194,60 +189,36 @@ void hmon_stop(){
 }
 
 void hmon_update(){
-  /* make Monitors busy */
-  int err;
-  for(unsigned i = 0; i<harray_length(monitors); i++){
-    hmon m = harray_get(monitors,i);
-    err = pthread_mutex_trylock(&m->available);
-    /* A monitor is busy, rewind and abandon update */
-    if(err == EBUSY){
-      while(i--){
-	m = harray_get(monitors,i);
-	pthread_mutex_unlock(&m->available);
-      }
-      return;
+  /* Check that all monitors or uptodate */
+  if(__sync_bool_compare_and_swap(&uptodate, 0, ncores)){
+    /* make Monitors busy */
+    int err;
+    for(unsigned i = 0; i<harray_length(monitors); i++){
+      hmon m = harray_get(monitors,i);
+      pthread_mutex_lock(&m->available);
     }
+    /* Trigger monitors */
+    pthread_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
   }
-  /* Trigger monitors */
-  pthread_barrier_wait(&barrier);
-
-  /* Output monitors */
-  hmonitors_do(monitors_to_print, hmonitor_output, output, 1);
 }
 
-void monitor_lib_finalize(){
+void hmon_lib_finalize(){
   unsigned i;
   /* Stop monitors */
-  for(i=0;i<thread_count;i++)
-    pthread_cancel(threads[i]);
-  pthread_barrier_wait(&barrier);
-  for(i=0;i<thread_count;i++)
-    pthread_join(threads[i],NULL);
-    
-  /* Cleanup */
-  fclose(output);
-  free(core_monitors);
-  delete_harray(monitors);
-  delete_harray(monitors_to_print);
-  delete_harray(monitors_to_display);
-  free(threads);
-  hwloc_topology_destroy(topology);
-}
-
-
-static void _monitor_read_then_reduce(harray a){
-  unsigned i;
-  /* Read monitors */
-  hmonitors_do(a, hmonitor_read);
-  /* Analyze monitors */
-  hmonitors_do(a, hmonitor_reduce);
-}
-
-static void _monitor_thread_cleanup(void * arg){
-  harray _monitors = (harray)arg;
-  hmonitors_do(_monitors, hmonitor_stop);
-  hmonitors_do(_monitors, delete_hmonitor);
-  delete_harray(_monitors);    
+  if(__sync_bool_compare_and_swap(&hmon_lib_stop, 0, 1)){
+    pthread_barrier_wait(&barrier);
+    pthread_barrier_wait(&barrier);
+    for(i=0;i<thread_count;i++)
+      pthread_join(threads[i],NULL);
+    /* Cleanup */
+    fclose(output);
+    free(core_monitors);
+    delete_harray(monitors);
+    delete_harray(monitors_to_display);
+    free(threads);
+    hwloc_topology_destroy(topology);
+  }
 }
 
 static void * hmonitor_thread(void * arg)
@@ -263,21 +234,33 @@ static void * hmonitor_thread(void * arg)
   location_cpubind(topology, PU); 
   location_membind(topology, PU);
   harray _monitors = core_monitors[Core->logical_index%ncores];
-  /* push clean method */
-  pthread_cleanup_push(_monitor_thread_cleanup, _monitors);
-  /* Wait other threads initialization */
+    
+  /* Wait first update */
   pthread_barrier_wait(&barrier);
 
   /* Collect events */
-monitor_start:
-  hmonitors_do(_monitors, hmonitor_start);
-  pthread_barrier_wait(&barrier);
-  pthread_testcancel();
-  hmonitors_do(_monitors, hmonitor_stop);
-  _monitor_read_then_reduce(_monitors);
-  goto monitor_start;
+  while(!__sync_and_and_fetch(&hmon_lib_stop, 1)){
+    pthread_barrier_wait(&barrier);
+    /* Stop event collection */
+    hmonitors_do(_monitors, hmonitor_stop);
+    /* Read monitors */
+    hmonitors_do(_monitors, hmonitor_read);
+    /* Analyze monitors */
+    hmonitors_do(_monitors, hmonitor_reduce);
+    /* Output monitors */
+    hmonitors_do(_monitors, hmonitor_output, output, 0);
+    /* Signal we are uptodate */
+    __sync_fetch_and_sub(&uptodate, 1);
+    /* Restart event collection */
+    hmonitors_do(_monitors, hmonitor_start);
+    /* Sleep until next update */
+    pthread_barrier_wait(&barrier);
+  }
 
-  pthread_cleanup_pop(1);
+  /* Parallel cleanup */
+  pthread_barrier_wait(&barrier);
+  hmonitors_do(_monitors, hmonitor_stop);
+  hmonitors_do(_monitors, delete_hmonitor);
   return NULL;  
 }
 

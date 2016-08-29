@@ -9,25 +9,37 @@ timer_t display_timer;
 int display_arg;
 void (*display_function)(int);
 
+void __attribute__ ((constructor)) hmon_block_SIGRTMIN(){
+  /* avoid that signals are caught by threads */
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGRTMIN);
+  if(pthread_sigmask(SIG_BLOCK, &set, NULL) == -1){perror("pthread_sigmask");}
+}
+
 static void handler(int sig, siginfo_t *si, void *uc){
   timer_t * timer = si->si_value.sival_ptr;
   if(sig == SIGRTMIN){
     if(*timer == update_timer){
-      hmon_update();
+	hmon_update();
     }
-    if(*timer == display_timer){
-      display_function(display_arg);
-    }
+    if(*timer == display_timer){display_function(display_arg);}
   }
 }
 
 static int set_handler(){
-   /* register handler for timer signal */
+  /* Allow this thread to catch SIGRTMIN */
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGRTMIN);
+  if(pthread_sigmask(SIG_UNBLOCK, &set, NULL) == -1){perror("pthread_sigmask"); return -1;}
+
+   /* register handler for SIGRTMIN */
   struct sigaction sa;
   sa.sa_flags = SA_SIGINFO;
   sa.sa_sigaction = handler;
   sigemptyset(&sa.sa_mask);
-  if(sigaction(SIGRTMIN, &sa, NULL) == -1){perror("sigaction"); return -1;}	   
+  if(sigaction(SIGRTMIN, &sa, NULL) == -1){perror("sigaction"); return -1;}
   handler_isset = 1;
   return 0;
 }

@@ -21,7 +21,7 @@ int hmon_lib_init(hwloc_topology_t topology, const char* restrict_obj, char * ou
 /**
  * Delete all library internal structures.
  **/
-void monitor_lib_finalize();
+void hmon_lib_finalize();
 
 /**
  * Destroy monitors outside of pid allowed cpuset.
