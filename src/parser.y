@@ -4,9 +4,9 @@
 #include <string.h>     
 #include <float.h>
 #include <dlfcn.h>
-#include <hmon.h>
-#include <hmon/hmonitor.h>
-#include <internal.h>
+#include "./hmon.h"
+#include "./hmon/hmonitor.h"
+#include "./internal.h"
 
     /**
      * %test monitor
@@ -32,6 +32,7 @@
     unsigned                   n_reductions;
     char *                     code;
     int                        silent;
+    int                        display;
     unsigned                   window;
     unsigned                   location_depth;
     char **                    event_names;
@@ -53,7 +54,8 @@
 	while(n_events--){free(event_names[n_events]);}
 	n_events               = 0;
 	window                 = 1;        /* default store 1 sample */
-	silent                 = 0; 	   /* default not silent */     
+	silent                 = 0; 	   /* default not silent */
+        display                = 0; 	   /* default do not display */     
 	location_depth         = 0; 	   /* default on root */
 	n_reductions           = 0;
 	perf_plugin_name       = NULL;
@@ -122,9 +124,9 @@
 	}
 	
 	/* Build one monitor per location */
-	while((obj = hwloc_get_next_obj_by_depth(topology, location_depth, obj)) != NULL){
+	while((obj = hwloc_get_next_obj_by_depth(hmon_topology, location_depth, obj)) != NULL){
 	  hmon m = new_hmonitor(id, obj, (const char **)event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
-	  if(m!=NULL){hmon_register_hmonitor(m, silent, 0);}
+	  if(m!=NULL){hmon_register_hmonitor(m, silent, display);}
 	  
 	}
 	reset_monitor_fields();
@@ -145,7 +147,7 @@
     %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
+%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
 
 %type <str> term associative_expr commutative_expr associative_op commutative_op event 
 
@@ -177,7 +179,7 @@ field_list
 
 field
 : OBJ_FIELD NAME ';'{
-  hwloc_obj_t obj = location_parse(topology, $2);
+  hwloc_obj_t obj = location_parse(hmon_topology, $2);
     if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
     location_depth = obj->depth;
     free($2);
@@ -185,6 +187,7 @@ field
 | REDUCTION_FIELD  reduction ';'
 | PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
 | SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
+| DISPLAY_FIELD    INTEGER   ';' {display = atoi($2); free($2);}
 | WINDOW_FIELD     INTEGER   ';' {window = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}
 ;

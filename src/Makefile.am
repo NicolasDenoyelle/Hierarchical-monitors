@@ -1,7 +1,5 @@
 AM_CFLAGS=-DCC=$(CC) -DSTATS_PLUGINS=@stat_plugins@
 
-
-
 lib_LTLIBRARIES=libhmon.la
 libhmon_la_SOURCES=hmonitor.c harray.c synchronize.c hwloc_utils.c proc.c parser.c scanner.c console.c plugin.c sampling.c
 include_HEADERS=hmon.h
@@ -21,4 +19,5 @@ scanner.c: scanner.l
 
 clean-local:
 	rm -f parser.c parser.h scanner.c
+
 

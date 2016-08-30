@@ -7,7 +7,7 @@
 
 /************************************************ Monitor lib **************************************************/
 extern harray           monitors;
-extern hwloc_topology_t topology;
+extern hwloc_topology_t hmon_topology;
 
 /**
  * Initialize the library.
@@ -43,6 +43,14 @@ void hmon_restrict_pid_running_tasks(pid_t pid, int recurse);
 void hmon_register_hmonitor(hmon m, int silent, int display);
 
 /**
+ * Retrieve monitor on monitors topology.
+ * @param depth, the depth of monitors.
+ * @param logical_index, the index of monitors.
+ * @return An harray of monitors if there are monitor at this location, else NULL.
+ **/
+harray hmon_get_monitors_by_depth(unsigned depth, unsigned logical_index);
+
+/**
  * Start all monitors
  **/
 void hmon_start();
@@ -72,7 +80,7 @@ int hmon_import(char * input_path);
 /**
  * Additionnaly to print text file using update, one can display monitors on topology.
  **/
-void hmon_display_all(int verbose);
+void hmon_display_topology(int verbose);
 
 /**
  * Update monitors every us micro seconds.

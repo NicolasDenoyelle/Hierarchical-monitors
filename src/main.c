@@ -256,7 +256,7 @@ main (int argc, char *argv[])
       if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
       /* monitor topology */ 
       hmon_sampling_start(refresh_opt.value.int_value);
-      if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
+      if(display_opt.set){hmon_periodic_display_start(hmon_display_topology, 1);}
       while(!hmonitor_utility_stop){usleep(10);}
       hmon_sampling_stop(refresh_opt.value.int_value);
       if(display_opt.set){hmon_periodic_display_stop();}
@@ -270,11 +270,11 @@ main (int argc, char *argv[])
 	hmon_update();
 	waitpid(pid, &status, 0);
 	hmon_update();
-	if(display_opt.set){hmon_display_all(1);}
+	if(display_opt.set){hmon_display_topology(1);}
       }
       else{
 	hmon_sampling_start(refresh_opt.value.int_value);
-	if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
+	if(display_opt.set){hmon_periodic_display_start(hmon_display_topology, 1);}
       hmon_wait_child:
 	err = waitpid(pid, &status, 0);
 	if(err < 0){

@@ -1,5 +1,5 @@
 #include <float.h>
-#include <hmon/hmonitor.h>
+#include "../../hmon/hmonitor.h"
 
 #define STAT_MAX(a,b) ((a)>(b)?(a):(b))
 #define STAT_MIN(a,b) ((a)<(b)?(a):(b))

@@ -1,6 +1,6 @@
 #include <signal.h>
 #include <sys/time.h>
-#include "hmon.h"
+#include "./hmon.h"
 
 int handler_isset = 0;
 timer_t update_timer;

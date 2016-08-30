@@ -20,6 +20,10 @@ void  proc_get_running_cpuset(pid_t, hwloc_cpuset_t out, int recurse);
 void  proc_move_tasks        (pid_t, hwloc_obj_t to, hwloc_obj_t from, int recurse);
 pid_t start_executable       (char * exe, char * args[]);
 
+/********************************************* console utils ***************************************************/
+
+void hmon_display_all(hwloc_topology_t topology, int verbose);
+
 /********************************************* plugin utils ****************************************************/
 
 #define HMON_PLUGIN_STAT 0

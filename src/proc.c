@@ -4,7 +4,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "internal.h"
+#include "./internal.h"
 
 static DIR * proc_open_dir(char * path){
     DIR * dir = NULL;

@@ -1,28 +1,25 @@
 #include <pthread.h>
-
-#include <hmon/hmonitor.h>
-#include <hmon.h>
-#include "internal.h"
+#include "./hmon/hmonitor.h"
+#include "./hmon.h"
+#include "./internal.h"
 
 
 #define hmonitors_do(hmons, call, ...)					\
   do{for(unsigned i = 0; i< harray_length(hmons); i++){call(harray_get(hmons,i), ##__VA_ARGS__);}}while(0)
 
 harray                     monitors;                 /* The array of monitors */
-static harray              monitors_to_display;      /* The array of monitors to display on topology */
-
-hwloc_topology_t           topology;                 /* The topology with monitor on hwloc_obj_t->userdata */
+hwloc_topology_t           hmon_topology;            /* The topology with monitor on hwloc_obj_t->userdata */
 static FILE *              output;                   /* The output where to write the trace */
 
 /** Monitors threads **/
 static hwloc_obj_t         restrict_location;        /* The location where to spawn threads */
 static unsigned            ncores;                   /* Number of cores inside restrict location */
 static int                 uptodate;                 /* Number of threads uptodate */
-harray*                    core_monitors;            /* An array of monitor per core in restrict location */
+static harray*             core_monitors;            /* An array of monitor per core in restrict location */
 static unsigned            thread_count;             /* Number of threads */
 static pthread_t *         threads;                  /* Threads id */
 static pthread_barrier_t   barrier;                  /* Common barrier between monitors' thread and main thread */
-int                        hmon_lib_stop;            /* A flag telling whether library should stop */
+static int                 hmon_lib_stop;            /* A flag telling whether library should stop */
 static void *              hmonitor_thread(void * arg);
 
 static int hmon_compare(void* hmonitor_a, void* hmonitor_b){
@@ -33,8 +30,12 @@ static int hmon_compare(void* hmonitor_a, void* hmonitor_b){
   if(a->location->depth<b->location->depth){return 1;}
   if(a->location->logical_index<b->location->logical_index){return -1;}
   if(a->location->logical_index<b->location->logical_index){return 1;}
-
-  /* both monitors are at the same location */
+  if(a->display && !b->display){return -1;}
+  if(!a->display && b->display){return 1;}
+  if(a->silent && !b->silent){return -1;}
+  if(!a->silent && b->silent){return 1;}
+  
+  /* both monitors are at the same location and have same properties */
   return strcmp(a->id, b->id);
 }
 
@@ -72,14 +73,14 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
 
   /* initialize topology */
   if(topo == NULL){
-    hwloc_topology_init(&topology); 
-    hwloc_topology_set_icache_types_filter(topology, HWLOC_TYPE_FILTER_KEEP_ALL);
-    hwloc_topology_load(topology);
+    hwloc_topology_init(&hmon_topology); 
+    hwloc_topology_set_icache_types_filter(hmon_topology, HWLOC_TYPE_FILTER_KEEP_ALL);
+    hwloc_topology_load(hmon_topology);
   }
   else
-    hwloc_topology_dup(&topology,topo);
+    hwloc_topology_dup(&hmon_topology,topo);
 
-  if(topology==NULL){
+  if(hmon_topology==NULL){
     fprintf(stderr, "Failed to init topology\n");
     return -1;
   }
@@ -95,24 +96,23 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
 
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, NULL);
-  monitors_to_display = new_harray(sizeof(hmon), 32, NULL);
   
   /* Restrict topology to first group and set an array of monitor per core */
-  if(restrict_obj == NULL){restrict_location = hwloc_get_root_obj(topology);}
-  else{restrict_location = location_parse(topology,restrict_obj);}
+  if(restrict_obj == NULL){restrict_location = hwloc_get_root_obj(hmon_topology);}
+  else{restrict_location = location_parse(hmon_topology,restrict_obj);}
   if(restrict_location == NULL){
     fprintf(stderr, "Warning: restrict location %s cannot be set, root is set instead", restrict_obj);
-    restrict_location = hwloc_get_root_obj(topology);
+    restrict_location = hwloc_get_root_obj(hmon_topology);
   }
 
   /* Create one thread per core */
-  ncores = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+  ncores = hwloc_get_nbobjs_by_type(hmon_topology, HWLOC_OBJ_CORE);
   malloc_chk(core_monitors, sizeof(*core_monitors) * ncores);
-  for(unsigned i=0; i<ncores; i++){core_monitors[i] = new_harray(sizeof(hmon), hwloc_topology_get_depth(topology), NULL);}
+  for(unsigned i=0; i<ncores; i++){core_monitors[i] = new_harray(sizeof(hmon), hwloc_topology_get_depth(hmon_topology), NULL);}
   pthread_barrier_init(&barrier, NULL, ncores+1);
   threads = malloc(sizeof(*threads)*ncores);
   for(unsigned i = 0; i<ncores; i++){
-    hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_type(topology, restrict_location->cpuset, HWLOC_OBJ_CORE, i);
+    hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_type(hmon_topology, restrict_location->cpuset, HWLOC_OBJ_CORE, i);
     pthread_create(&(threads[i]), NULL, hmonitor_thread, (void*)(core));
   }
   
@@ -126,10 +126,10 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
 static unsigned hmon_find_core_host(hmon m){
   hwloc_obj_t near = m->location;
   /* match near to be in restricted topology */
-  int cousins = get_max_objs_inside_cpuset_by_type(topology, restrict_location->cpuset, near->type);
+  int cousins = get_max_objs_inside_cpuset_by_type(hmon_topology, restrict_location->cpuset, near->type);
   /* near type is deeper than restricted topology root */
   if(cousins > 0)
-    near = hwloc_get_obj_inside_cpuset_by_depth(topology, restrict_location->cpuset, near->depth, near->logical_index%cousins);
+    near = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, restrict_location->cpuset, near->depth, near->logical_index%cousins);
   /* near is above restricted topology */
   else 
     near = restrict_location;
@@ -140,7 +140,7 @@ static unsigned hmon_find_core_host(hmon m){
   /* If core then host is the matching core in group */
   else if(near->type == HWLOC_OBJ_CORE){host = near;}
   /* Other wise we choose the first child on Core leaves */
-  else {host = hwloc_get_obj_inside_cpuset_by_type(topology, near->cpuset, HWLOC_OBJ_CORE, 0);}
+  else {host = hwloc_get_obj_inside_cpuset_by_type(hmon_topology, near->cpuset, HWLOC_OBJ_CORE, 0);}
 
   /* if no hmon.have ever been hosted here, a thread will be spawned */
   unsigned core_idx = host->logical_index%ncores;
@@ -154,27 +154,16 @@ static unsigned hmon_find_core_host(hmon m){
 void hmon_register_hmonitor(hmon m, int silent, int display){
   if(m==NULL){return;}
   
+  /* Make monitor printable (or not) */
+  m->silent = silent;
+  m->display = display;
+
   /* push monitor to array holding monitor on Core */
   hmon_find_core_host(m);
   
   /* Add monitor to existing monitors*/
   harray_insert_sorted(monitors, m, hmon_compare);
   
-  /* Make monitor printable (or not) */
-  m->silent = silent;
-
-  /* Add monitor to monitors to display list */
-  if(display){
-    int key = harray_find(monitors_to_display, m, location_compare);
-    if(key == -1)
-      harray_insert_sorted(monitors_to_display, m, location_compare);
-    else{
-      hmon displayed = harray_get(monitors_to_display, key);
-      fprintf(stderr, "Monitor %s required to be displayed on location %s:%d, but monitor %s is already displayed here",
-	      m->id, hwloc_type_name(m->location->type), m->location->logical_index, displayed->id);
-    }
-  }
-
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
   harray_push(m->location->userdata, m);
@@ -203,6 +192,17 @@ void hmon_update(){
   }
 }
 
+harray hmon_get_monitors_by_depth(unsigned depth, unsigned logical_index){
+  hwloc_obj_t obj =  hwloc_get_obj_by_depth(hmon_topology, depth, logical_index);
+  if(obj != NULL){return obj->userdata;}
+  return NULL;
+}
+
+
+void hmon_display_topology(int verbose){
+  hmon_display_all(hmon_topology, verbose);
+}
+
 void hmon_lib_finalize(){
   unsigned i;
   /* Stop monitors */
@@ -215,9 +215,8 @@ void hmon_lib_finalize(){
     fclose(output);
     free(core_monitors);
     delete_harray(monitors);
-    delete_harray(monitors_to_display);
     free(threads);
-    hwloc_topology_destroy(topology);
+    hwloc_topology_destroy(hmon_topology);
   }
 }
 
@@ -225,14 +224,14 @@ static void * hmonitor_thread(void * arg)
 {
   hwloc_obj_t Core = (hwloc_obj_t)(arg);
   /* Bind the thread */
-  hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(topology,
+  hwloc_obj_t PU = hwloc_get_obj_inside_cpuset_by_type(hmon_topology,
 						       Core->cpuset,
 						       HWLOC_OBJ_PU,
-						       hwloc_get_nbobjs_inside_cpuset_by_type(topology,
+						       hwloc_get_nbobjs_inside_cpuset_by_type(hmon_topology,
 											      Core->cpuset,
 											      HWLOC_OBJ_PU) -1);
-  location_cpubind(topology, PU); 
-  location_membind(topology, PU);
+  location_cpubind(hmon_topology, PU); 
+  location_membind(hmon_topology, PU);
   harray _monitors = core_monitors[Core->logical_index%ncores];
     
   /* Wait first update */

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <hmon/harray.h>
-#include "internal.h"
+#include "./hmon/harray.h"
+#include "./internal.h"
 
 /* An harray of objects */
 harray 

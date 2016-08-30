@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <float.h>
 #include <time.h>
-#include "internal.h"
-#include <hmon/hmonitor.h>
+#include "./internal.h"
+#include "./hmon/hmonitor.h"
 
 static void print_avail_events(struct hmon_plugin * lib){
   char ** (* events_list)(int *) = hmon_plugin_load_fun(lib, "hmonitor_events_list", 1);

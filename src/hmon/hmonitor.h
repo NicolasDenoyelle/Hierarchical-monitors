@@ -41,6 +41,8 @@ typedef struct hmon{
 
   /** Do we output this one ? **/
   int silent;
+  /** Do we display this one on topology **/
+  int display;
   /** If stopped do not stop twice **/
   int stopped;
   /** another monitor depend on this one and is in charge for updating it **/
