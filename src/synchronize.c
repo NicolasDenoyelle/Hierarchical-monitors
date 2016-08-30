@@ -84,7 +84,7 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
     fprintf(stderr, "Failed to init topology\n");
     return -1;
   }
-    
+  
   if(out){
     output = fopen(out, "w");
     if(output == NULL){
@@ -166,7 +166,7 @@ void hmon_register_hmonitor(hmon m, int silent, int display){
   
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
-  harray_push(m->location->userdata, m);
+  harray_insert_sorted(m->location->userdata, m, hmon_compare);
 }
 
 void hmon_start(){
@@ -204,7 +204,7 @@ void hmon_display_topology(int verbose){
 }
 
 void hmon_lib_finalize(){
-  unsigned i;
+  unsigned i, j;
   /* Stop monitors */
   if(__sync_bool_compare_and_swap(&hmon_lib_stop, 0, 1)){
     pthread_barrier_wait(&barrier);
@@ -216,6 +216,12 @@ void hmon_lib_finalize(){
     free(core_monitors);
     delete_harray(monitors);
     free(threads);
+    for(i=0; i<hwloc_topology_get_depth(hmon_topology); i++){
+      for(j=0;j<hwloc_get_nbobjs_by_depth(hmon_topology,i);j++){
+	hwloc_obj_t obj = hwloc_get_obj_by_depth(hmon_topology, i, j);
+	if(obj->userdata){delete_harray(obj->userdata);}
+      }
+    }
     hwloc_topology_destroy(hmon_topology);
   }
 }
