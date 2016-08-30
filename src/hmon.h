@@ -38,7 +38,7 @@ void hmon_restrict_pid_running_tasks(pid_t pid, int recurse);
  * Add a monitor to update with others monitor.
  * @param m, the monitor to register.
  * @param silent, a boolean telling whether m should be updated.
- * @param display, a bollean telling whether m should be displayed on topology.
+ * @param display, an int telling whether m display_th sample should be displayed on topology.
  **/
 void hmon_register_hmonitor(hmon m, int silent, int display);
 

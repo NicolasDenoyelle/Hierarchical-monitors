@@ -49,7 +49,7 @@ void hmon_display_depth(hwloc_topology_t topology, unsigned depth, unsigned cols
     arr = obj->userdata;
     if(arr!=NULL){monitor = harray_get(arr, 0);}
 
-    if(monitor != NULL && monitor->display && monitor->display < monitor->n_samples)
+    if(monitor != NULL && monitor->display && monitor->display <= monitor->n_samples)
       memset(obj_content,0,width+1);
       if(monitor != NULL && !monitor->stopped ){
 	val = monitor->samples[monitor->display];
