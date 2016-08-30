@@ -278,8 +278,9 @@ int hmon_import(char * input_path)
 	    import_finalize();
 	}
 	else {
-	    fprintf (stderr, "Could not open %s\n", input_path);
-	    return -1;
+	  fprintf (stderr, "Cannot open %s\n", input_path);
+	  perror("fopen");
+	  return -1;
 	}
     }
     else {
