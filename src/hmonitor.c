@@ -180,39 +180,51 @@ int hmonitor_stop(hmon m){
   return 0;
 }
 
+int hmonitor_trylock(hmon m, int wait){
+ int err = pthread_mutex_trylock(&m->available);
+ if(err == EBUSY){
+   if(wait){
+     pthread_mutex_lock(&m->available);
+     pthread_mutex_unlock(&m->available);
+   }
+   return 0;
+ }
+ pthread_mutex_unlock(&m->available);
+ if(err != 0){perror("pthread_mutex_trylock"); return -1;}
+ return 1;
+}
+
+int hmonitor_release(hmon m){
+  if(pthread_mutex_unlock(&m->available) != 0){perror("pthread_mutex_unlock"); return -1;}
+  return 0;
+}
+
 int hmonitor_read(hmon m){
-  int err = pthread_mutex_trylock(&m->available);
-  /* read only if monitor is not up to date and if monitor active */
-  if(err == EBUSY){
-    m->last = (m->last+1)%(m->window);
+  m->last = (m->last+1)%(m->window);
     
-    /* Save timestamp */
-    struct timespec tp;
-    clock_gettime(CLOCK_MONOTONIC, &tp);
-    hmonitor_set_timestamp(m, 1000000000 * tp.tv_sec + tp.tv_nsec - m->ref_time);
+  /* Save timestamp */
+  struct timespec tp;
+  clock_gettime(CLOCK_MONOTONIC, &tp);
+  hmonitor_set_timestamp(m, 1000000000 * tp.tv_sec + tp.tv_nsec - m->ref_time);
     
-    /* Read events */
-    if((m->eventset_read(m->eventset, hmonitor_get_events(m, m->last))) == -1){
-      fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
-	      hwloc_type_name(m->location->type), m->location->logical_index);
-      return -1;
-    }
-    m->total = m->total+1;	
-  } else {pthread_mutex_unlock(&m->available);}
+  /* Read events */
+  if((m->eventset_read(m->eventset, hmonitor_get_events(m, m->last))) == -1){
+    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
+	    hwloc_type_name(m->location->type), m->location->logical_index);
+    return -1;
+  }
+  m->total = m->total+1;
+  hmonitor_release(m);
   return 0;
 }
 
 void hmonitor_reduce(hmon m){
-  int err = pthread_mutex_trylock(&m->available);
-  if(err == EBUSY){
-    /* Reduce events */
-    if(m->model!=NULL){m->model(m);}
-    else{memcpy(m->samples, hmonitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
-    for(unsigned i=0;i<m->n_samples;i++){
-      m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
-      m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
-    }
+  /* Reduce events */
+  if(m->model!=NULL){m->model(m);}
+  else{memcpy(m->samples, hmonitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
+  for(unsigned i=0;i<m->n_samples;i++){
+    m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
+    m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
   }
-  pthread_mutex_unlock(&(m->available));
 }
 

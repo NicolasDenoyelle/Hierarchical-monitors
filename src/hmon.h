@@ -67,6 +67,10 @@ void hmon_stop();
  **/
 void hmon_update();
 
+/**
+ * Check update completion.
+ **/
+int hmon_is_uptodate();
 
 /**
  * Import monitors from a configuration file. Imported monitors are stored in global list of monitors: monitors,

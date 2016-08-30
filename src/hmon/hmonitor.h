@@ -56,14 +56,14 @@ typedef struct hmon{
 
 /** 
  * Create a new monitor 
- * @arg id: The monitor name identifier. Can be the same for several monitors at same depth location.
- * @arg location: The toplogy location the monitor is supposed to monitor.
- * @arg event_names: Event names to add to monitor eventset.
- * @arg n_events: The number of events to record.
- * @arg window: The number of records to keep into the monitor.
- * @arg n_samples: The number of outputs of the monitor.
- * @arg perf_plugin: The plugin's name used to collect input events.
- * @arg model_plugin: The plugin's name used to reduce collected events into monitor output samples.
+ * @param id: The monitor name identifier. Can be the same for several monitors at same depth location.
+ * @param location: The toplogy location the monitor is supposed to monitor.
+ * @param event_names: Event names to add to monitor eventset.
+ * @param n_events: The number of events to record.
+ * @param window: The number of records to keep into the monitor.
+ * @param n_samples: The number of outputs of the monitor.
+ * @param perf_plugin: The plugin's name used to collect input events.
+ * @param model_plugin: The plugin's name used to reduce collected events into monitor output samples.
  * @return A new monitor.
  **/
 hmon new_hmonitor(const char * id, hwloc_obj_t location, const char ** event_names, const unsigned n_events,
@@ -71,73 +71,88 @@ hmon new_hmonitor(const char * id, hwloc_obj_t location, const char ** event_nam
 
 /**
  * Delete a monitor
- * @arg m: The monitor to delete.
+ * @param m: The monitor to delete.
  **/
 void delete_hmonitor(hmon m);
 
 /**
  * Reset a monitor attributes as if it was newly created. 
- * @arg m: The monitor to reset.
+ * @param m: The monitor to reset.
  **/
 void hmonitor_reset(hmon m);
 
 /**
  * Start recording events.
- * @arg m: The monitor to start.
+ * @param m: The monitor to start.
  * @return 0 on success, -1 if eventset_start call failed.
  **/
 int hmonitor_start(hmon m);
 
 /**
  * Stop recording events.
- * @arg m: The monitor to stop.
+ * @param m: The monitor to stop.
  * @return 0 on success, -1 if eventset_stop call failed.
  **/
 int hmonitor_stop(hmon m);
 
 /**
  * Update monitor timestamp and input events..
- * @arg m: The monitor to update.
+ * @param m: The monitor to update.
  * @return 0 on success, -1 if eventset_read call failed.
  **/
 int hmonitor_read(hmon m);
 
 /**
  * Call monitor reduction function and update maximum and minimum value of each output event.
- * @arg m: The monitor to reduce.
+ * @param m: The monitor to reduce.
  **/
 void hmonitor_reduce(hmon m);
 
 /**
+ * Lock monitor to avoid concurrent updates
+ * @param m: The monitor to lock.
+ * @param wait: block until monitor is available.
+ * @return -1 if an error occured, 0 if monitor was busy, 1 if lock is acquired.
+ **/
+int hmonitor_trylock(hmon m, int wait);
+
+/**
+ * Unlock monitor.
+ * @param m: The monitor to unlock.
+ * @return -1 if an error occured, else 0.
+ **/
+int hmonitor_release(hmon h);
+
+/**
  * Output monitor's output to a file.
- * @arg out: The file where to print monitor.
- * @arg m: The monitor to print.
- * @arg wait: If 0 print immediately, else block until monitor update is done, 
+ * @param out: The file where to print monitor.
+ * @param m: The monitor to print.
+ * @param wait: If 0 print immediately, else block until monitor update is done, 
  *            e.g hmonitor_reduce has been called and no call to hmonitor_read has been made since.
  **/
 void hmonitor_output(hmon m, FILE* out, int wait);
 
 /**
  * Get the events of a previous read stored into the monitor.
- * @arg m: The monitor which events are to be retrieved.
- * @arg i: The index/oldness of the events. Must be less than m->window.
+ * @param m: The monitor which events are to be retrieved.
+ * @param i: The index/oldness of the events. Must be less than m->window.
  * @return The ith events collected from now. 
  **/
 double * hmonitor_get_events(hmon m, unsigned i);
 
 /**
  * Get the ith event of one of previously read events.
- * @arg m: The monitor which event value is to be retrieved.
- * @arg row: the index of the previous read of events from now. Must be less than m->window.
- * @arg event: The event index among row events.
+ * @param m: The monitor which event value is to be retrieved.
+ * @param row: the index of the previous read of events from now. Must be less than m->window.
+ * @param event: The event index among row events.
  * @return An event value.
  **/
 double   hmonitor_get_event(hmon m, unsigned row, unsigned event);
 
 /**
  * Get the monitor timestamp of a previously collected set of events.
- * @arg m: The monitor from which a timestamp is to be retrieved.
- * @arg i: The index/oldness of the timestamp. Must be less than m->window.
+ * @param m: The monitor from which a timestamp is to be retrieved.
+ * @param i: The index/oldness of the timestamp. Must be less than m->window.
  * @return A timestamp in nanoseconds since the previous resset.
  **/
 long hmonitor_get_timestamp(hmon m, unsigned i);

@@ -177,15 +177,13 @@ void hmon_stop(){
   hmonitors_do(monitors, hmonitor_stop);
 }
 
+int hmon_is_uptodate(){
+  return __sync_fetch_and_and(&uptodate, 0);
+}
+
 void hmon_update(){
   /* Check that all monitors or uptodate */
   if(__sync_bool_compare_and_swap(&uptodate, 0, ncores)){
-    /* make Monitors busy */
-    int err;
-    for(unsigned i = 0; i<harray_length(monitors); i++){
-      hmon m = harray_get(monitors,i);
-      pthread_mutex_lock(&m->available);
-    }
     /* Trigger monitors */
     pthread_barrier_wait(&barrier);
     pthread_barrier_wait(&barrier);
@@ -226,6 +224,14 @@ void hmon_lib_finalize(){
   }
 }
 
+static void hmon_read_hmonitor(hmon m){
+  /* Lock monitors */
+  if(hmonitor_trylock(m, 0) == 1){
+    /* read if we have the lock, other wise it is beeing updated already */
+    hmonitor_read(m);
+  }
+}
+
 static void * hmonitor_thread(void * arg)
 {
   hwloc_obj_t Core = (hwloc_obj_t)(arg);
@@ -249,7 +255,7 @@ static void * hmonitor_thread(void * arg)
     /* Stop event collection */
     hmonitors_do(_monitors, hmonitor_stop);
     /* Read monitors */
-    hmonitors_do(_monitors, hmonitor_read);
+    hmonitors_do(_monitors, hmon_read_hmonitor);
     /* Analyze monitors */
     hmonitors_do(_monitors, hmonitor_reduce);
     /* Output monitors */

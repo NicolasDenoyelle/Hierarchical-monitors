@@ -132,8 +132,11 @@ int hmonitor_eventset_read(void * monitor_eventset, double * values){
   for(j=0; j<harray_length(set->child_events); j++){
     m = harray_get(set->child_events, j);
     /* make sure m is up to date */
-    hmonitor_read(m);
-    hmonitor_reduce(m);
+    if(hmonitor_trylock(m, 1) == 1){
+      hmonitor_read(m);
+      hmonitor_reduce(m);
+      hmonitor_release(m);
+    }
     for(i=0;i<m->n_samples;i++){values[i+offset] = m->samples[i];}
     offset+=i;
   }

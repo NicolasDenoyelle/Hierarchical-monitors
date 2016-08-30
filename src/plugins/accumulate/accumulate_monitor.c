@@ -138,12 +138,15 @@ int hmonitor_eventset_read(void * monitor_eventset, double * values){
     for(j=0; j<m->n_events; j++){values[j] = events[j];}
     
     for(unsigned i = 1; i< harray_length(set->child_events); i++){
-	m  = harray_get(set->child_events,i);
-	/* make sure m is up to date */
+      m  = harray_get(set->child_events,i);
+      /* make sure m is up to date */
+      if(hmonitor_trylock(m, 1) == 1){
 	hmonitor_read(m);
 	hmonitor_reduce(m);
-	events = hmonitor_get_events(m, m->last);
-	for(j=0; j<m->n_events; j++){values[j] += events[j];}
+	hmonitor_release(m);
+      }
+      events = hmonitor_get_events(m, m->last);
+      for(j=0; j<m->n_events; j++){values[j] += events[j];}
     }
 
     return 0;
