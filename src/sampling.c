@@ -80,7 +80,7 @@ int hmon_periodic_display_start(void (*display_monitors)(int), int arg){
   display_arg = arg;
   if(!handler_isset && set_handler() == -1){return -1;}
   if(create_timer(&display_timer) == -1){return -1;}
-  return set_timer(display_timer, 1000);
+  return set_timer(display_timer, 100000);
 }
 
 int hmon_periodic_display_stop(){

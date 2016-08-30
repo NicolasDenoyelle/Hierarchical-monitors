@@ -259,6 +259,7 @@ main (int argc, char *argv[])
       if(display_opt.set){hmon_periodic_display_start(hmon_display_all, 1);}
       while(!hmonitor_utility_stop){usleep(10);}
       hmon_sampling_stop(refresh_opt.value.int_value);
+      if(display_opt.set){hmon_periodic_display_stop();}
     }
     
     if(pid>0){
