@@ -49,36 +49,35 @@ void hmon_display_depth(hwloc_topology_t topology, unsigned depth, unsigned cols
     arr = obj->userdata;
     if(arr!=NULL){monitor = harray_get(arr, 0);}
 
-    if(monitor != NULL && monitor->display && monitor->display <= monitor->n_samples)
+    if(monitor != NULL && monitor->display > 0 && monitor->display <= monitor->n_samples && !monitor->stopped){
       memset(obj_content,0,width+1);
-      if(monitor != NULL && !monitor->stopped ){
-	val = monitor->samples[monitor->display];
-	max = monitor->max[monitor->display];
-	min = monitor->min[monitor->display];
-	if(max == min){
-	  fill=width;
-	}
-	else{
-	  scale = max - min;
-	  fill =  val * width / scale;
-	}
-	if(verbose){
-	  nc = snprintf(obj_content, fill, "%lf", val);
-	  nc = nc>fill ? fill : nc;
-	  snprintf(obj_content+nc, width-nc, "%.*s", fill-nc, FILL_STR);
-	}
-	else{
-	  snprintf(obj_content, fill, "%.*s", fill, FILL_STR);
-	}
-	printf("[%-*s]", width, obj_content);
+      val = monitor->samples[monitor->display-1];
+      max = monitor->max[monitor->display-1];
+      min = monitor->min[monitor->display-1];
+      if(max == min){
+	fill=width;
       }
       else{
-	nc = hwloc_obj_type_snprintf(obj_content, width, obj, verbose);
-	nc = nc>width ? width : nc;
-	nc += snprintf(obj_content+nc, width-nc, "#%u",obj->logical_index);
-	nc = nc>width ? width : nc;
-	printf("[%*s%s%*s]", (width-nc)/2, " ", obj_content, width-nc-((width-nc)/2), "");
+	scale = max - min;
+	fill =  val * width / scale;
       }
+      if(verbose){
+	nc = snprintf(obj_content, fill, "%lf", val);
+	nc = nc>fill ? fill : nc;
+	snprintf(obj_content+nc, width-nc, "%.*s", fill-nc, FILL_STR);
+      }
+      else{
+	snprintf(obj_content, fill, "%.*s", fill, FILL_STR);
+      }
+      printf("[%-*s]", width, obj_content);
+    }
+    else{
+      nc = hwloc_obj_type_snprintf(obj_content, width, obj, verbose);
+      nc = nc>width ? width : nc;
+      nc += snprintf(obj_content+nc, width-nc, "#%u",obj->logical_index);
+      nc = nc>width ? width : nc;
+      printf("[%*s%s%*s]", (width-nc)/2, " ", obj_content, width-nc-((width-nc)/2), "");
+    }
   }
   printf("\n");
   free(obj_content);
