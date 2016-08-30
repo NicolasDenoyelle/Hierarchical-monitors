@@ -38,6 +38,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->window = window;
   monitor->userdata = NULL;
   monitor->silent = 0;
+  monitor->display = 0;
     
   /* Load perf plugin functions */
   struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
