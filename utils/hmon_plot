@@ -147,7 +147,8 @@ plot_monitor = function(frame, ylim = NULL, xlim=NULL, ann = FALSE, logscale = F
 
 plot_monitors <- function(frame){
   par(ann=FALSE)
-  frame = frame[is.finite(rowSums(frame[, 4:ncol(frame)])),]
+  if(ncol(frame) == 4){frame = frame[is.finite(frame[, 4]),]}
+  else{frame = frame[is.finite(rowSums(frame[, 4:ncol(frame)])),]}
   if(options$column != 4) frame = swap_cols(frame,4,options$column)
   if(!options$split){
     ylim = c(min(frame[, 4],  na.rm = TRUE), max(frame[, 4],  na.rm = TRUE))
