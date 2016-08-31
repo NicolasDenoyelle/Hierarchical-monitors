@@ -144,12 +144,16 @@ void hmonitor_reset(hmon m){
 void hmonitor_output(hmon m, FILE* out, int wait){
   if(!m->silent){
     unsigned j;
+    char samples[m->n_samples*20]; memset(samples, 0, sizeof(samples));
+    char *c = samples;
     if(wait){pthread_mutex_lock(&(m->available));}
-    fprintf(out,"%-16s ",  m->id);
-    fprintf(out,"%8s:%u ", hwloc_type_name(m->location->type), m->location->logical_index);
-    fprintf(out,"%14ld ",  hmonitor_get_timestamp(m,m->last));
-    for(j=0;j<m->n_samples;j++){fprintf(out, "%-.6e ", m->samples[j]);}
-    fprintf(out,"\n");
+    for(j=0;j<m->n_samples;j++){c+=sprintf(c, "%-.6e ", m->samples[j]);}
+    fprintf(out,"%-16s %8s:%u %14ld %s\n",
+	    m->id,
+	    hwloc_type_name(m->location->type),
+	    m->location->logical_index,
+	    hmonitor_get_timestamp(m,m->last),
+	    samples);
     if(wait){pthread_mutex_unlock(&(m->available));}
   }
 }
