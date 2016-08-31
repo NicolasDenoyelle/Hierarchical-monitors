@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <hmon.h>
+#include "./hmon.h"
 #include "internal.h"
 
 volatile int hmonitor_utility_stop;

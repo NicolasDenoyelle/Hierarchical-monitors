@@ -63,7 +63,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
 
   /* Initialize eventset */
   int err;
-  unsigned added_events = 0;
+  unsigned i, added_events = 0;
   int (* eventset_init)(void **, hwloc_obj_t);
   int (* eventset_init_fini)(void*);
   int (* add_named_event)(void*, const char*);
@@ -75,7 +75,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
     monitor_print_err("%s failed to initialize eventset\n", id);
     exit(EXIT_FAILURE);
   }
-  for(unsigned i=0; i<n_events; i++){
+  for(i=0; i<n_events; i++){
     err = add_named_event(monitor->eventset, event_names[i]);
     if(err == -1){
       monitor_print_err("failed to add event %s to %s eventset\n", event_names[i], id);
@@ -124,12 +124,13 @@ void delete_hmonitor(hmon monitor){
 }
 
 void hmonitor_reset(hmon m){
+  unsigned i;
   m->last = 0;
   m->total = 0;
   m->last = m->window-1;
   m->stopped = 1;
-  for(unsigned i=0;i<m->window*m->n_events+1;i++){m->events[i] = 0;}
-  for(unsigned i=0;i<m->n_samples;i++){
+  for(i=0;i<m->window*m->n_events+1;i++){m->events[i] = 0;}
+  for(i=0;i<m->n_samples;i++){
     m->samples[i]=0;
     m->max[i]=DBL_MIN;
     m->min[i]=DBL_MAX;
@@ -220,10 +221,11 @@ int hmonitor_read(hmon m){
 }
 
 void hmonitor_reduce(hmon m){
+  unsigned i;
   /* Reduce events */
   if(m->model!=NULL){m->model(m);}
   else{memcpy(m->samples, hmonitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
-  for(unsigned i=0;i<m->n_samples;i++){
+  for(i=0;i<m->n_samples;i++){
     m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
     m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
   }

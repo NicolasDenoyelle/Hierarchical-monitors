@@ -5,7 +5,7 @@
 
 
 #define hmonitors_do(hmons, call, ...)					\
-  do{for(unsigned i = 0; i< harray_length(hmons); i++){call(harray_get(hmons,i), ##__VA_ARGS__);}}while(0)
+  do{unsigned i; for(i = 0; i< harray_length(hmons); i++){call(harray_get(hmons,i), ##__VA_ARGS__);}}while(0)
 
 harray                     monitors;                 /* The array of monitors */
 hwloc_topology_t           hmon_topology;            /* The topology with monitor on hwloc_obj_t->userdata */
@@ -68,6 +68,7 @@ void hmon_restrict_pid_running_tasks(pid_t pid, int recurse){
 }
 
 int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
+  unsigned i;
   /* Check hwloc version */
   if(hwloc_check_version_mismatch() != 0){return -1;}
 
@@ -108,10 +109,10 @@ int hmon_lib_init(hwloc_topology_t topo, const char* restrict_obj, char * out){
   /* Create one thread per core */
   ncores = hwloc_get_nbobjs_by_type(hmon_topology, HWLOC_OBJ_CORE);
   malloc_chk(core_monitors, sizeof(*core_monitors) * ncores);
-  for(unsigned i=0; i<ncores; i++){core_monitors[i] = new_harray(sizeof(hmon), hwloc_topology_get_depth(hmon_topology), NULL);}
+  for(i=0; i<ncores; i++){core_monitors[i] = new_harray(sizeof(hmon), hwloc_topology_get_depth(hmon_topology), NULL);}
   pthread_barrier_init(&barrier, NULL, ncores+1);
   threads = malloc(sizeof(*threads)*ncores);
-  for(unsigned i = 0; i<ncores; i++){
+  for(i = 0; i<ncores; i++){
     hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_type(hmon_topology, restrict_location->cpuset, HWLOC_OBJ_CORE, i);
     pthread_create(&(threads[i]), NULL, hmonitor_thread, (void*)(core));
   }

@@ -128,7 +128,8 @@ int harray_find(harray array, void * key, int (* compare)(void*, void*)){
 }
 
 int harray_find_unsorted(harray array, void * key){
-  for(unsigned i = 0; i<harray_length(array); i++){
+  unsigned i;
+  for(i = 0; i<harray_length(array); i++){
     if(harray_get(array, i) == key){return (int)i;}
   }
   return -1;
