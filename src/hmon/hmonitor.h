@@ -1,6 +1,7 @@
 #ifndef HMONITOR_H
 #define HMONITOR_H
 
+#include <pthread.h>
 #include <hwloc.h>
 
 /**
@@ -45,10 +46,9 @@ typedef struct hmon{
   int display;
   /** If stopped do not stop twice **/
   int stopped;
-  /** another monitor depend on this one and is in charge for updating it **/
-  struct hmon * depend;
-  /** Not available while reading events **/
-  pthread_mutex_t available;
+  /** Handle concurrent updates **/
+  pthread_t owner;
+  pthread_mutex_t mutex;
 
   /* Set to NULL, unused by the library, but maybe by some plugins */
   void * userdata;
@@ -82,34 +82,49 @@ void delete_hmonitor(hmon m);
 void hmonitor_reset(hmon m);
 
 /**
- * Start recording events.
+ * Start recording events. If the monitor is concurrent, the call succeed only if done from the owner thread. In the latter case,
+ * the lock is released.
+ * If the monitor is already started, it won't start twice.
  * @param m: The monitor to start.
- * @return 0 on success, -1 if eventset_start call failed.
+ * @return 1 on success, 0 if monitor is busy, -1 if eventset_start call failed.
  **/
 int hmonitor_start(hmon m);
 
 /**
- * Stop recording events.
+ * Stop recording events. If the monitor is concurrent, the call succeed only if done from the owner thread, or the lock is successfully acquired during this call.
+ * If the monitor is already stopped, it won't stop twice.
  * @param m: The monitor to stop.
- * @return 0 on success, -1 if eventset_stop call failed.
+ * @return 1 on success, 0 if monitor is busy, -1 if eventset_stop call failed.
  **/
 int hmonitor_stop(hmon m);
 
 /**
- * Update monitor timestamp and input events..
+ * Update monitor timestamp and input events...
+ * If the monitor is concurrent, the call may succceed only if monitor is released, or the calling thread is the same that 
+ * acquired this monitor lock.
  * @param m: The monitor to update.
- * @return 0 on success, -1 if eventset_read call failed.
+ * @return 1 on success, 0 if the monitor was locked by another thread, -1 if eventset_read call failed.
  **/
 int hmonitor_read(hmon m);
 
 /**
  * Call monitor reduction function and update maximum and minimum value of each output event.
+ * The call may succceed only if the calling thread owns the monitor.
  * @param m: The monitor to reduce.
+ * @return 0 if the call does not come from the owner thread, 1 if reduction succeeded.
  **/
-void hmonitor_reduce(hmon m);
+int hmonitor_reduce(hmon m);
 
 /**
- * Lock monitor to avoid concurrent updates
+ * Print monitor to file.
+ * The monitor will only be print if
+ **/
+void hmonitor_output(hmon m, FILE* out);
+
+/**
+ * Lock monitor to avoid concurrent updates.
+ * If the monitor is already locked, then the lock is not acquired.
+ * If wait flag is not 0, then the call block until monitor is available.
  * @param m: The monitor to lock.
  * @param wait: block until monitor is available.
  * @return -1 if an error occured, 0 if monitor was busy, 1 if lock is acquired.
@@ -117,20 +132,11 @@ void hmonitor_reduce(hmon m);
 int hmonitor_trylock(hmon m, int wait);
 
 /**
- * Unlock monitor.
+ * Unlock monitor. This call may succeed only if called from the hmonitor_trylock calling pthread.
  * @param m: The monitor to unlock.
- * @return -1 if an error occured, else 0.
+ * @return -1 if an error occured, 1 if the monitor is released, 0 if is not.
  **/
-int hmonitor_release(hmon h);
-
-/**
- * Output monitor's output to a file.
- * @param out: The file where to print monitor.
- * @param m: The monitor to print.
- * @param wait: If 0 print immediately, else block until monitor update is done, 
- *            e.g hmonitor_reduce has been called and no call to hmonitor_read has been made since.
- **/
-void hmonitor_output(hmon m, FILE* out, int wait);
+int hmonitor_release(hmon m);
 
 /**
  * Get the events of a previous read stored into the monitor.

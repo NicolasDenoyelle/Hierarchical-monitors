@@ -1,14 +1,20 @@
 #include <hmon.h>
+#include <stdio.h>
 
-int main(){
-    monitor_lib_init(NULL, NULL, "/dev/stdout");
-    monitors_import("./example_monitor");
-    monitors_start();
-    monitors_update();
-    sleep(1);
-    monitors_update();
-    monitors_output(monitor_output, 1);
-    monitor_lib_finalize();
-    return 0;
+void usage(const char * argv0){
+  printf("%s <input_monitors>\n", argv0);
+}
+
+int main(int argc, char ** argv){
+  if(argc!=2){usage(argv[0]); return -1;}
+  
+  hmon_lib_init(NULL, "/dev/stdout");
+  hmon_import(argv[1]);
+  hmon_start();
+  hmon_update();
+  sleep(1);
+  hmon_update();
+  hmon_lib_finalize();
+  return 0;
 }
 

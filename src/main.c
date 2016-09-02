@@ -227,7 +227,7 @@ main (int argc, char *argv[])
     if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
 
     /* Monitors initialization */
-    hmon_lib_init(NULL, restrict_opt.value.str_value, output_opt.value.str_value);
+    hmon_lib_init(NULL, output_opt.value.str_value);
     hmon_import(input_opt.value.str_value);
 
     if(harray_length(monitors) == 0){

@@ -16,7 +16,7 @@ extern hwloc_topology_t hmon_topology;
  * @param out, the file where to print the trace.
  * @return -1 on error, 0 on success;
  **/
-int hmon_lib_init(hwloc_topology_t topology, const char* restrict_obj, char * out);
+int hmon_lib_init(hwloc_topology_t topology, char * out);
 
 /**
  * Delete all library internal structures.
@@ -24,7 +24,13 @@ int hmon_lib_init(hwloc_topology_t topology, const char* restrict_obj, char * ou
 void hmon_lib_finalize();
 
 /**
- * Destroy monitors outside of pid allowed cpuset.
+ * Restrict monitor registration into sepcified domain. If monitor outside of domain are already registered, they are deleted.
+ * @param domain, the domain cpuset to restrict.
+ **/
+void hmon_restrict(hwloc_cpuset_t domain);
+
+/**
+ * Call hmon_restrict on pid execution domain.
  * @param pid, the pid of the process to look at.
  **/
 void hmon_restrict_pid(pid_t pid);
@@ -32,7 +38,7 @@ void hmon_restrict_pid(pid_t pid);
 /**
  * Stop monitors on cores where there is no pid's tasks or pid's tasks are sleeping.
  **/
-void hmon_restrict_pid_running_tasks(pid_t pid, int recurse);
+void hmon_restrict_pid_taskset(pid_t pid, int recurse);
 
 /**
  * Add a monitor to update with others monitor.

@@ -39,7 +39,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->userdata = NULL;
   monitor->silent = 0;
   monitor->display = 0;
-    
+  monitor->owner = pthread_self();
   /* Load perf plugin functions */
   struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
   if(plugin == NULL){
@@ -106,20 +106,21 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
     
   /* reset values */
   hmonitor_reset(monitor);
-  pthread_mutex_init(&(monitor->available), NULL);
+  pthread_mutex_init(&(monitor->mutex), NULL);
         
   /* Initialization succeed */
   return monitor;
 }
 
 void delete_hmonitor(hmon monitor){
+  hmonitor_stop(monitor);
   free(monitor->events);
   free(monitor->samples);
   free(monitor->max);
   free(monitor->min);
   free(monitor->id);
   monitor->eventset_destroy(monitor->eventset);
-  pthread_mutex_destroy(&(monitor->available));
+  pthread_mutex_destroy(&(monitor->mutex));
   free(monitor);
 }
 
@@ -141,12 +142,11 @@ void hmonitor_reset(hmon m){
   m->ref_time = 1000000000 * tp.tv_sec + tp.tv_nsec;
 }
 
-void hmonitor_output(hmon m, FILE* out, int wait){
-  if(!m->silent){
+void hmonitor_output(hmon m, FILE* out){
+  if(!m->silent && m->owner == pthread_self()){
     unsigned j;
     char samples[m->n_samples*20]; memset(samples, 0, sizeof(samples));
     char *c = samples;
-    if(wait){pthread_mutex_lock(&(m->available));}
     for(j=0;j<m->n_samples;j++){c+=sprintf(c, "%-.6e ", m->samples[j]);}
     fprintf(out,"%-16s %8s:%u %14ld %s\n",
 	    m->id,
@@ -154,7 +154,6 @@ void hmonitor_output(hmon m, FILE* out, int wait){
 	    m->location->logical_index,
 	    hmonitor_get_timestamp(m,m->last),
 	    samples);
-    if(wait){pthread_mutex_unlock(&(m->available));}
   }
 }
 
@@ -171,67 +170,81 @@ long hmonitor_get_timestamp(hmon m, unsigned i){
 }
 
 int hmonitor_start(hmon m){
-  if(m->stopped){
+  if(!m->stopped){return 1;}
+  if(m->owner == pthread_self()){
     if(m->eventset_start(m->eventset) == -1){return -1;}
     m->stopped = 0;
+    if(pthread_mutex_unlock(&m->mutex) != 0){perror("pthread_mutex_unlock"); return -1;}
+    return 1;
   }
   return 0;
 }
 
 int hmonitor_stop(hmon m){
-  if(!m->stopped){
+  if(m->stopped){return 1;}
+  if(m->owner == pthread_self() || hmonitor_trylock(m, 0) == 1){
     if(m->eventset_stop(m->eventset) == -1){return -1;}
     m->stopped = 1;
+    return 1;
   }
   return 0;
 }
 
 int hmonitor_trylock(hmon m, int wait){
- int err = pthread_mutex_trylock(&m->available);
- if(err == EBUSY){
-   if(wait){
-     pthread_mutex_lock(&m->available);
-     pthread_mutex_unlock(&m->available);
-   }
-   return 0;
- }
- pthread_mutex_unlock(&m->available);
- if(err != 0){perror("pthread_mutex_trylock"); return -1;}
- return 1;
+  int err = pthread_mutex_trylock(&m->mutex);
+  if(err == EBUSY){
+    if(m->owner == pthread_self()){return 1;}
+    else if(wait){
+      pthread_mutex_lock(&m->mutex);
+      pthread_mutex_unlock(&m->mutex);
+      return 0;
+    }
+  }
+  else if(err != 0){perror("pthread_mutex_trylock"); return -1;}
+  m->owner = pthread_self();
+  return 1;
 }
 
 int hmonitor_release(hmon m){
-  if(pthread_mutex_unlock(&m->available) != 0){perror("pthread_mutex_unlock"); return -1;}
+  if(m->owner == pthread_self()){
+    if(pthread_mutex_unlock(&m->mutex) != 0){perror("pthread_mutex_unlock"); return -1;}
+    return 1;
+  }
   return 0;
 }
 
 int hmonitor_read(hmon m){
-  m->last = (m->last+1)%(m->window);
-    
-  /* Save timestamp */
-  struct timespec tp;
-  clock_gettime(CLOCK_MONOTONIC, &tp);
-  hmonitor_set_timestamp(m, 1000000000 * tp.tv_sec + tp.tv_nsec - m->ref_time);
-    
-  /* Read events */
-  if((m->eventset_read(m->eventset, hmonitor_get_events(m, m->last))) == -1){
-    fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
-	    hwloc_type_name(m->location->type), m->location->logical_index);
-    return -1;
+  /* Only if caller took the lock, or we don't care about concurrent calls or we can acquire the lock and become owner */
+  if(m->owner == pthread_self()){
+    m->last = (m->last+1)%(m->window);
+    m->total = m->total+1;
+    /* Save timestamp */
+    struct timespec tp;
+    clock_gettime(CLOCK_MONOTONIC, &tp);
+    hmonitor_set_timestamp(m, 1000000000 * tp.tv_sec + tp.tv_nsec - m->ref_time);
+    /* Read events */
+    if((m->eventset_read(m->eventset, hmonitor_get_events(m, m->last))) == -1){
+      fprintf(stderr, "Failed to read counters from monitor on obj %s:%d\n",
+	      hwloc_type_name(m->location->type), m->location->logical_index);
+      return -1;
+    }
+    return 1;
   }
-  m->total = m->total+1;
-  hmonitor_release(m);
   return 0;
 }
 
-void hmonitor_reduce(hmon m){
+int hmonitor_reduce(hmon m){
   unsigned i;
-  /* Reduce events */
-  if(m->model!=NULL){m->model(m);}
-  else{memcpy(m->samples, hmonitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
-  for(i=0;i<m->n_samples;i++){
-    m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
-    m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
+  if(m->owner == pthread_self()){
+    /* Reduce events */
+    if(m->model!=NULL){m->model(m);}
+    else{memcpy(m->samples, hmonitor_get_events(m, m->last), sizeof(double)*(m->n_samples));}
+    for(i=0;i<m->n_samples;i++){
+      m->max[i] = (m->max[i] > m->samples[i]) ? m->max[i] : m->samples[i];
+      m->min[i] = (m->min[i] < m->samples[i]) ? m->min[i] : m->samples[i];
+    }
+    return 1;
   }
+  return 0;
 }
 
