@@ -73,14 +73,16 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
 
   if(eventset_init(&monitor->eventset, location)){
     monitor_print_err("%s failed to initialize eventset\n", id);
-    exit(EXIT_FAILURE);
+    free(monitor);
+    return NULL;
   }
   for(i=0; i<n_events; i++){
     err = add_named_event(monitor->eventset, event_names[i]);
     if(err == -1){
       monitor_print_err("failed to add event %s to %s eventset\n", event_names[i], id);
-      print_avail_events(plugin);	    
-      exit(EXIT_FAILURE);
+      print_avail_events(plugin);
+      free(monitor);
+      return NULL;
     }
     added_events += err;
   }

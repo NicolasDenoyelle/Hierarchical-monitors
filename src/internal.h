@@ -24,8 +24,12 @@ pid_t start_executable       (char * exe, char * args[]);
 
 void hmon_display_all(hwloc_topology_t topology, int verbose);
 
-/********************************************* plugin utils ****************************************************/
+/********************************************* parser utils ****************************************************/
 
+int hmon_import(const char * input_path, const hwloc_cpuset_t domain);
+
+/********************************************* plugin utils ****************************************************/
+  
 #define HMON_PLUGIN_STAT 0
 #define HMON_PLUGIN_PERF 1
 
@@ -42,6 +46,7 @@ void *                  hmon_stat_plugins_lookup_function(const char * name);
 
 /*********************************************** misc utils ****************************************************/
 
+int hmon_compare(void* hmonitor_a, void* hmonitor_b);
 #define perror_EXIT(msg) do{perror(msg); exit(EXIT_FAILURE);} while(0)
 #define malloc_chk(ptr, size) do{ptr = malloc(size); if(ptr == NULL){perror_EXIT("malloc");}} while(0)
 #define realloc_chk(ptr, size) do{if((ptr = realloc(ptr,size)) == NULL){perror_EXIT("realloc");}} while(0)

@@ -45,8 +45,9 @@ void hmon_restrict_pid_taskset(pid_t pid, int recurse);
  * @param m, the monitor to register.
  * @param silent, a boolean telling whether m should be updated.
  * @param display, an int telling whether m display_th sample should be displayed on topology.
+ * @return -1 if the monitor could not be registered (cause: monitor is out of library cpuset), else 0.
  **/
-void hmon_register_hmonitor(hmon m, int silent, int display);
+int hmon_register_hmonitor(hmon m, int silent, int display);
 
 /**
  * Retrieve monitor on monitors topology.
@@ -82,10 +83,9 @@ int hmon_is_uptodate();
  * Import monitors from a configuration file. Imported monitors are stored in global list of monitors: monitors,
  * and also on topology node local lists of monitors.
  * @param input_path, the path to the input configuration file.
- * @param output_path, the path to the file where to print monitors.
  * @return -1 on error, 0 on success to import new monitors;
  **/
-int hmon_import(char * input_path);
+int hmon_import_hmonitors(const char * input_path);
 
 /**
  * Additionnaly to print text file using update, one can display monitors on topology.

@@ -15,7 +15,7 @@ struct accumulate_eventset{
 
 char ** hmonitor_events_list(int * n_events){
   unsigned i, j, n = 0, depth = hwloc_topology_get_depth(hmon_topology);
-  char ** names = malloc(sizeof(*names) * depth); 
+  char ** names = malloc(sizeof(*names) * depth * 100); 
   *n_events=0;
 
   for(i=0; i<depth; i++){
@@ -23,7 +23,7 @@ char ** hmonitor_events_list(int * n_events){
     harray _monitors = obj->userdata;
     if(_monitors != NULL){
       for(j = 0; j<harray_length(_monitors); j++){
-	hmon m  = harray_get(_monitors,i);
+	hmon m  = harray_get(_monitors,j);
 	names[n++] = strdup(m->id);
       }
     }
@@ -60,20 +60,18 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
   struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
   harray child_events = NULL;
   hwloc_obj_t child_obj;
-  unsigned i;
-  if(event==NULL || monitor_eventset == NULL)
-    return -1;
+  unsigned i, n_events;
+  if(event==NULL || monitor_eventset == NULL) return -1;
 
-  /* Decend fist children to look if event exists */
+  /* Descend fist children to look if event exists */
   child_obj = set->location;
   while(child_obj != NULL){
     child_events = child_obj->userdata;
     if(child_events != NULL){
       for(i = 0; i<harray_length(child_events); i++){
 	hmon m  = harray_get(child_events,i);
-	if(!strcmp(m->id, event)){
-	  goto add_events;
-	}
+	printf("look %s\n", m->id);
+	if(!strcmp(m->id, event)){n_events = m->n_events; goto add_events;}
       }
     }
     child_obj = child_obj->first_child;
@@ -89,11 +87,11 @@ add_events:;
   unsigned nbobjs = hwloc_get_nbobjs_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, child_obj->depth);
   for(j = 0; j<nbobjs; j++){
     child_events = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, child_obj->depth, j)->userdata;
-    harray_push(set->child_events, harray_get(child_events, i));
+    hmon m = harray_get(child_events, i);
+    if(m!= NULL) {harray_push(set->child_events, m);}
   }
 
-  hmon m = harray_get(child_events, i);
-  return m->n_events;
+  return n_events;
 }
 
 int hmonitor_eventset_init_fini(__attribute__ ((unused)) void * monitor_eventset){

@@ -21,7 +21,11 @@ static int                 threads_stop = 0;
 static pthread_barrier_t   barrier;                 /* Common barrier between monitors' thread and main thread */
 static void *              hmonitor_thread(void * arg);
 
-static int hmon_compare(void* hmonitor_a, void* hmonitor_b){
+int hmon_import_hmonitors(const char * path){
+  return hmon_import(path, allowed_cpuset);
+}
+
+int hmon_compare(void* hmonitor_a, void* hmonitor_b){
   hmon a = *((hmon*) hmonitor_a);
   hmon b = *((hmon*) hmonitor_b);
   
@@ -137,9 +141,9 @@ int hmon_lib_init(hwloc_topology_t topo, char * out){
 }
 
 
-void hmon_register_hmonitor(hmon m, int silent, int display){
-  if(m==NULL){return;}
-  
+int hmon_register_hmonitor(hmon m, int silent, int display){
+  if(m==NULL){return -1;}
+  if(!hwloc_bitmap_isincluded(m->location->cpuset, allowed_cpuset)){return -1;}
   /* Make monitor printable (or not) */
   m->silent = silent;
   m->display = display;
@@ -150,6 +154,8 @@ void hmon_register_hmonitor(hmon m, int silent, int display){
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
   harray_insert_sorted(m->location->userdata, m, hmon_compare);
+
+  return 0;
 }
 
 void hmon_update(){

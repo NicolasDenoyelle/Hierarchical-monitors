@@ -21,7 +21,9 @@
    * REDUCTION:=1#monitor_evset_var;
    * }
    **/
-    
+
+  static hwloc_obj_t root;
+
   /* Default fields */
   const char * default_perf_lib = "fake"; 
 
@@ -125,9 +127,9 @@
     }
 	
     /* Build one monitor per location */
-    while((obj = hwloc_get_next_obj_by_depth(hmon_topology, location_depth, obj)) != NULL){
+    while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
       hmon m = new_hmonitor(id, obj, (const char **)event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
-      if(m!=NULL){hmon_register_hmonitor(m, silent, display);}
+      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}
 	  
     }
     reset_monitor_fields();
@@ -265,8 +267,11 @@ term
 
 %%
 
-int hmon_import(char * input_path)
+int hmon_import(const char * input_path, const hwloc_cpuset_t domain)
 {
+  if(domain == NULL) root = hwloc_get_root_obj(hmon_topology);
+  else root = hwloc_get_obj_covering_cpuset(hmon_topology, domain);
+  
   /* parsing input file and creating functions.c file */
   FILE *input = NULL;
   if (input_path!=NULL) {

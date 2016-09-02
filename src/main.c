@@ -200,6 +200,8 @@ main (int argc, char *argv[])
 	exit(EXIT_SUCCESS);
     }
 
+    hwloc_cpuset_t restrict_domain = hwloc_bitmap_alloc();
+    
     /* Translate pid_opt to pid value */
     pid_t pid = 0;
     if(pid_opt.set){
@@ -212,10 +214,20 @@ main (int argc, char *argv[])
 	output_opt.set = 0;
     }
 
+    /* Monitors initialization */
+    hmon_lib_init(NULL, output_opt.value.str_value);
+
     /* Restrict monitors */
-    if(!restrict_opt.set){
-	set_option((&restrict_opt), restrict_opt.def_val);
+    if(restrict_opt.set){
+      hwloc_obj_t obj_domain = location_parse(hmon_topology, restrict_opt.value.str_value);
+      if(obj_domain!=NULL){
+        hwloc_bitmap_copy(restrict_domain, obj_domain->cpuset);
+	hmon_restrict(restrict_domain);
+	hwloc_bitmap_copy(restrict_domain, obj_domain->cpuset);
+      }
     }
+
+    hmon_import_hmonitors(input_opt.value.str_value);
 
     /* check if configuration file was provided */
     if(!input_opt.set){
@@ -225,10 +237,6 @@ main (int argc, char *argv[])
 
     /* Set timer delay */
     if(!refresh_opt.set){refresh_opt.value.int_value = atoi(refresh_opt.def_val);}
-
-    /* Monitors initialization */
-    hmon_lib_init(NULL, output_opt.value.str_value);
-    hmon_import(input_opt.value.str_value);
 
     if(harray_length(monitors) == 0){
 	monitor_print_err( "No monitor defined. Leaving.\n");
@@ -241,7 +249,11 @@ main (int argc, char *argv[])
 
     /* Start executable */
     if(runnable){
-	pid = start_executable(runnable,run_args); 
+	pid = start_executable(runnable,run_args);
+	if(restrict_opt.set){
+	  if(hwloc_set_proc_cpubind(hmon_topology, pid, restrict_domain, HWLOC_CPUBIND_PROCESS|HWLOC_CPUBIND_STRICT))
+	    perror("hwloc_set_proc_cpubind");
+	}
     }
     
     /* while executable is running, or until user input if there is no executable */
@@ -265,7 +277,6 @@ main (int argc, char *argv[])
     if(pid>0){
       int err;
       int status;
-      hmon_restrict_pid(pid);
       if(!refresh_opt.set){
 	hmon_update();
 	waitpid(pid, &status, 0);
@@ -290,6 +301,7 @@ main (int argc, char *argv[])
 out_with_lib:
     free(output_opt.value.str_value);
     free(restrict_opt.value.str_value);
+    hwloc_bitmap_free(restrict_domain);
     hmon_lib_finalize();
     return EXIT_SUCCESS;
 }

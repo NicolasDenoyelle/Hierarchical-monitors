@@ -15,7 +15,7 @@ struct hierarchical_eventset{
 
 char ** hmonitor_events_list(int * n_events){
   unsigned i, j, n = 0, depth = hwloc_topology_get_depth(hmon_topology);
-  char ** names = malloc(sizeof(*names) * depth); 
+  char ** names = malloc(sizeof(*names) * depth * 100); 
   *n_events=0;
 
   for(i=0; i<depth; i++){
@@ -23,7 +23,7 @@ char ** hmonitor_events_list(int * n_events){
     harray _monitors = obj->userdata;
     if(_monitors != NULL){
       for(j = 0; j<harray_length(_monitors); j++){
-	hmon m  = harray_get(_monitors,i);
+	hmon m  = harray_get(_monitors,j);
 	names[n++] = strdup(m->id);
       }
     }
@@ -72,9 +72,7 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
     if(child_events != NULL){
       for(i = 0; i<harray_length(child_events); i++){
 	m  = harray_get(child_events,i);
-	if(!strcmp(m->id, event)){
-	  goto add_events;
-	}
+	if(!strcmp(m->id, event)){goto add_events;}
       }
     }
     child_obj = child_obj->first_child;
@@ -91,8 +89,10 @@ add_events:;
   for(j = 0; j<nbobjs; j++){
     child_events = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, child_obj->depth, j)->userdata;
     m = harray_get(child_events, i);
-    harray_push(set->child_events, m);
-    n_events+=m->n_samples;
+    if(m!= NULL) {
+      harray_push(set->child_events, m);
+      n_events+=m->n_samples;
+    }
   }
   return n_events;
 }
