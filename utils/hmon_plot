@@ -92,7 +92,7 @@ fourier_fit <- function(data, col=1, cex=.4, pch=-1){
   T=(data[,3][nrow(data)]-data[,3][1])/nrow(data)
   K=2*pi/T
   H=1:8
-  harmonics=paste(c("data[,4] ~ 1", as.vector(sapply(H,function(n){paste("cos(",(n*K),"*data[,3])")}))), collapse="+")
+  harmonics=paste(c("data[,4]~1", as.vector(sapply(H,function(n){paste("cos(",(n*K),"*data[,3])")}))), collapse="+")
   model=as.formula(harmonics)
   fit=lm(model, data=data);
   pred=predict(fit)
@@ -204,7 +204,7 @@ plot_monitors <- function(frame){
        col = c(col, 2)
        pch = c(pch, 10)
      }
-     legend("bottomright", legend=legend, cex=.7, col=col, pch=pch)
+     legend("bottomright", legend=legend, cex=.7, col=col, pch=pch, bg="white")
      if(options$distribution){
        xlab="monitors value"
        ylab="frequency"
