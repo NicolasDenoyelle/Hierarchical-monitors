@@ -1,6 +1,7 @@
 #!/usr/bin/Rscript
 
 library("optparse")
+source("./nmeans.R")
 
 #Parse options
 inOpt=make_option(opt_str=c("-i", "--input"), type="character", default=NULL, help="Data set input file")
@@ -17,7 +18,7 @@ colOpt=make_option(opt_str=c("-y", "--column"), type="integer", default=4, help=
 
 splitOpt=make_option(opt_str=c("-s", "--split"), type="logical", default=FALSE,action="store_true", help="split one plot per monitor")
 
-clusterOpt=make_option(opt_str=c("-c", "--cluster"), type="integer", default=1, help="If split option is enabled, compute two clusters and colorize plot with a color per cluster")
+clusterOpt=make_option(opt_str=c("-c", "--cluster"), type="logical", default=FALSE, ,action="store_true", help="cluster input data and plot with different colors")
 
 histOpt=make_option(opt_str=c("-d", "--distribution"), type="logical", default=FALSE,action="store_true", help="plot histogram of values distribution instead of values")
 
@@ -112,7 +113,7 @@ histogram_monitor=function(frame, ylim=NULL, col=1){
   if(options$split){par(new=TRUE)}
 }
 
-plot_monitor=function(frame, split=FALSE, cluster=1, ylim=NULL, xlim=NULL, ann=FALSE, ylog=FALSE, col=1, cex=.4, legend=NULL){
+plot_monitor=function(frame, split=FALSE, cluster=FALSE, ylim=NULL, xlim=NULL, ann=FALSE, ylog=FALSE, col=1, cex=.4, legend=NULL){
   # prepare plot
   if(is.null(ylim)) ylim=c(min(frame[, 4],  na.rm=TRUE), max(frame[, 4],  na.rm=TRUE))
   if(is.null(xlim)) xlim=c( min(frame[, 3], na.rm=TRUE), max(frame[, 3], na.rm=TRUE))
@@ -126,13 +127,13 @@ plot_monitor=function(frame, split=FALSE, cluster=1, ylim=NULL, xlim=NULL, ann=F
   else{yticks=seq(from=ylim[1], to=ylim[2], by=(ylim[2] - ylim[1]) / 10)}
 
   #check whether we apply clustering
-  if(cluster>1){
+  if(cluster){
     points=scale(frame[,4], center=TRUE, scale=TRUE)
     points[1]=points[1]*(ncol(frame)-3)
-    km=kmeans(x=points, centers=options$cluster, iter.max=20)
+    km=nmeans(x=points)
     col=km$cluster
-    for(i in 1:cluster){
-      plot_monitor(frame[which(col==i),], split=split, cluster=1, ann=ann, ylim=ylim, xlim=xlim, ylog=ylog, col=i, cex=cex, legend=sprintf("cluster:%d %s", i, legend[1]))
+    for(i in 1:nrow(km$centers)){
+      plot_monitor(frame[which(col==i),], split=split, cluster=FALSE, ann=ann, ylim=ylim, xlim=xlim, ylog=ylog, col=i, cex=cex, legend=sprintf("cluster:%d %s", i, legend[1]))
     }
     return()
   }
