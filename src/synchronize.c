@@ -126,7 +126,7 @@ int hmon_lib_init(hwloc_topology_t topo, char * out){
 
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, (void (*)(void *))delete_hmonitor);
-  allowed_cpuset = hwloc_bitmap_alloc_full();
+  allowed_cpuset = hwloc_bitmap_dup(hwloc_topology_get_complete_cpuset((hmon_topology)));
 
   /* Create one thread per core */
   ncores = hwloc_get_nbobjs_by_type(hmon_topology, HWLOC_OBJ_CORE);
