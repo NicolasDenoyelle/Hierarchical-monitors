@@ -23,7 +23,7 @@ var               \${integer}
 hexa              "0x"[0-9A-Fa-f]+
 affectation       {name}={name}|{name}={integer}|{name}={hexa}
 perf_prefix       "perf::"{name}
-perf_attr         ":"{affectation}
+perf_attr         (":"{affectation})|(":"{affectation})
 perf_ctr          {perf_prefix}?{name}{perf_attr}*
 file              ([\.]?{name})+
 path              [~]?([/]{file})+
