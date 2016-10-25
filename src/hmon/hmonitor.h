@@ -43,8 +43,8 @@ typedef struct hmon{
   /** Do we output this one ? **/
   int silent;
   /** Do we display this one on topology **/
-  int display;
-  /** If stopped do not stop twice **/
+  unsigned display;
+  /** If smaketopped do not stop twice **/
   int stopped;
   /** Handle concurrent updates **/
   pthread_t owner;
