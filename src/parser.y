@@ -141,7 +141,6 @@
   extern int yylineno;
   
   int yyerror(const char *s) {
-    fflush(stdout);
     monitor_print_err("\n%d:%d: %s while scanning input file\n", yylineno, column, s);
     exit(EXIT_FAILURE);
   }
@@ -150,7 +149,7 @@
   %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR ATTRIBUTE
+%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR PERF_CTR
 
 %type <str> term associative_expr commutative_expr associative_op commutative_op event 
 
@@ -208,7 +207,7 @@ event_list
 
 event
 : NAME  {$$=$1;}
-| NAME ATTRIBUTE {$$=concat_expr(2,$1,$2); free($1); free($2);}
+| PERF_CTR {$$=$1;}
 ;
 
 reduction
