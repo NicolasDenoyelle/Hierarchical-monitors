@@ -94,6 +94,14 @@ AC_CHECK_LIB(
 	dnl [AC_MSG_ERROR([hwloc library is required])])
 
 
+#check for liblstopo
+hmon_have_liblstopo=no
+AC_CHECK_HEADERS([hwloc/lstopo.h],
+AC_CHECK_LIB([lstopo], [lstopo_prepare], [hmon_have_liblstopo=yes], [hmon_have_liblstopo=no]),
+[hmon_have_liblstopo=no])
+AM_CONDITIONAL([HMON_HAVE_LSTOPO], [test "x$hmon_have_liblstopo" = "xyes"])		
+AS_IF([test "x$hmon_have_liblstopo" = "xyes"], [AC_DEFINE([HMON_HAVE_LSTOPO], [], [build lstopo display support])])
+
 # Check for statistic plugins to build
 stat_plugins="defstats"
 
@@ -115,7 +123,11 @@ AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [], [build_learning=no])
 AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 
 # Check for performance plugins
-AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
+AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile src/plugins/linux/Makefile])
+
+## Check for linux plugin
+build_linux="yes"
+AC_CHECK_HEADERS([sys/time.h sys/resource.h], [], [build_linux=no])
 
 ## Check for papi plugin
 build_papi="yes"
@@ -139,6 +151,7 @@ AS_IF([test "x$build_maqao" = xyes],
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
 
+AM_CONDITIONAL([BUILD_LINUX],     [test "x$build_linux" = xyes])
 AM_CONDITIONAL([BUILD_PAPI],     [test "x$build_papi" = xyes])
 AM_COND_IF([BUILD_PAPI], [AC_CONFIG_FILES([src/plugins/papi/Makefile])])
 AM_CONDITIONAL([BUILD_MAQAO],    [test "x$build_maqao" = xyes])
@@ -154,6 +167,8 @@ echo "##########################################################################
 echo "#                                               Configure summary                                              #"
 echo "################################################################################################################"
 printf "%-20s: %-3s\n" "hmon library" "$library_ok"
+printf "%-20s: %-3s\n" "lstopo display" "$hmon_have_liblstopo"
+printf "%-20s: %-3s\n" "linux plugin" "$build_papi"
 printf "%-20s: %-3s\n" "papi plugin" "$build_papi"
 printf "%-20s: %-3s\n" "maqao plugin" "$build_maqao"
 printf "%-20s: %-3s\n" "learning plugin" "$build_learning"

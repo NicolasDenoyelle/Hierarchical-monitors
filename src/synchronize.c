@@ -173,11 +173,6 @@ harray hmon_get_monitors_by_depth(unsigned depth, unsigned logical_index){
   return NULL;
 }
 
-
-void hmon_display_topology(int verbose){
-  hmon_display_all(hmon_topology, verbose);
-}
-
 void hmon_lib_finalize(){
   unsigned i, j;
   /* Stop monitors */

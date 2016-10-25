@@ -88,11 +88,6 @@ int hmon_is_uptodate();
 int hmon_import_hmonitors(const char * input_path);
 
 /**
- * Additionnaly to print text file using update, one can display monitors on topology.
- **/
-void hmon_display_topology(int verbose);
-
-/**
  * Update monitors every us micro seconds.
  * @param us, the delay between each update.
  * @return -1 if an error occured, else 0.

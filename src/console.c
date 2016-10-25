@@ -1,5 +1,7 @@
 #include "./hmon.h"
 
+static hwloc_topology_t display_topology = NULL;
+
 static unsigned get_term_width(){
   unsigned cols;
   char cols_str[16];
@@ -26,7 +28,7 @@ static inline void clear_term(){if(system("clear")){return;}}
 #define FILL_STR  "::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 #define UNDERLINE_STR  "_________________________________________________________________________________________________________________________________________________________________________________________________________________"
 
-void hmon_display_depth(hwloc_topology_t topology, unsigned depth, unsigned cols, int verbose){
+static void hmon_display_depth(unsigned depth, unsigned cols, int verbose){
   hwloc_obj_t obj;
   harray arr;
   hmon monitor;
@@ -35,17 +37,17 @@ void hmon_display_depth(hwloc_topology_t topology, unsigned depth, unsigned cols
   unsigned i, n_obj;
   double val, scale, min, max;
 
-  n_obj = hwloc_get_nbobjs_by_depth(topology, depth);
+  n_obj = hwloc_get_nbobjs_by_depth(display_topology, depth);
 
   /* Print obj type */
-  obj = hwloc_get_obj_by_depth(topology, depth, 0);
+  obj = hwloc_get_obj_by_depth(display_topology, depth, 0);
   printf("%-9s ", hwloc_obj_type_string(obj->type));
   width = (cols - 10 - n_obj*2) / n_obj;
   obj_content = malloc(width+1);
 
   for(i=0;i<n_obj;i++){
     monitor = NULL;
-    obj = hwloc_get_obj_by_depth(topology,depth, i);
+    obj = hwloc_get_obj_by_depth(display_topology,depth, i);
     arr = obj->userdata;
     if(arr!=NULL){monitor = harray_get(arr, 0);}
 
@@ -83,17 +85,24 @@ void hmon_display_depth(hwloc_topology_t topology, unsigned depth, unsigned cols
   free(obj_content);
 }
 
-void hmon_display_all(hwloc_topology_t topology, int verbose){
+
+void hmon_display_init(hwloc_topology_t topology){
+  display_topology = topology;
+}
+
+void hmon_display_finalize(){}
+
+void hmon_display_refresh(int verbose){
   unsigned i, depth;
   unsigned term_width;
     
   term_width = get_term_width();
-  depth = hwloc_topology_get_depth(topology);
+  depth = hwloc_topology_get_depth(display_topology);
   clear_term();
   fflush(stdout);
   printf("%.*s\n", term_width, UNDERLINE_STR);
   for(i=0; i<depth; i++){
-    hmon_display_depth(topology, i, term_width, verbose);
+    hmon_display_depth(i, term_width, verbose);
   }
 }
 

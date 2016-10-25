@@ -6,6 +6,7 @@
 
 #include "./hmon.h"
 #include "internal.h"
+#include "display.h"
 
 volatile int hmonitor_utility_stop;
 static int timerfd;
@@ -243,7 +244,10 @@ main (int argc, char *argv[])
         hmon_lib_finalize();
 	exit(EXIT_SUCCESS);
     }
-    
+
+    /* Prepare display */
+    if(display_opt.set){hmon_display_init(hmon_topology);}
+
     /* start monitoring */
     hmon_start();
 
@@ -266,12 +270,13 @@ main (int argc, char *argv[])
       if(sigaction(SIGQUIT, &sa, NULL) == -1){perror("sigaction"); return -1;}
       if(sigaction(SIGINT, &sa, NULL) == -1){perror("sigaction"); return -1;}
       if(sigaction(SIGTERM, &sa, NULL) == -1){perror("sigaction"); return -1;}
+
       /* monitor topology */ 
-      hmon_sampling_start(refresh_opt.value.int_value);
-      if(display_opt.set){hmon_periodic_display_start(hmon_display_topology, 1);}
-      while(!hmonitor_utility_stop){usleep(10);}
-      hmon_sampling_stop(refresh_opt.value.int_value);
-      if(display_opt.set){hmon_periodic_display_stop();}
+      while(!hmonitor_utility_stop){
+	hmon_update();
+	if(display_opt.set){hmon_display_refresh(0);}
+	usleep(refresh_opt.value.int_value);
+      }
     }
     
     if(pid>0){
@@ -281,11 +286,11 @@ main (int argc, char *argv[])
 	hmon_update();
 	waitpid(pid, &status, 0);
 	hmon_update();
-	if(display_opt.set){hmon_display_topology(1);}
+	if(display_opt.set){hmon_display_refresh(1);}
       }
       else{
 	hmon_sampling_start(refresh_opt.value.int_value);
-	if(display_opt.set){hmon_periodic_display_start(hmon_display_topology, 1);}
+	if(display_opt.set){hmon_periodic_display_start(hmon_display_refresh, 1);}
       hmon_wait_child:
 	err = waitpid(pid, &status, 0);
 	if(err < 0){
@@ -302,6 +307,7 @@ out_with_lib:
     free(output_opt.value.str_value);
     free(restrict_opt.value.str_value);
     hwloc_bitmap_free(restrict_domain);
+    if(display_opt.set) hmon_display_finalize();
     hmon_lib_finalize();
     return EXIT_SUCCESS;
 }
