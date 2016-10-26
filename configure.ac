@@ -123,12 +123,8 @@ AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [], [build_learning=no])
 AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 
 # Check for performance plugins
-AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile src/plugins/linux/Makefile])
-
-## Check for linux plugin
-dnl build_linux="yes"
-dnl AC_CHECK_HEADERS([sys/time.h sys/resource.h], [], [build_linux=no])
-
+AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
+						   
 ## Check for papi plugin
 build_papi="yes"
 AC_CHECK_LIB([papi], [PAPI_library_init], [], [build_papi=no])
@@ -151,7 +147,6 @@ AS_IF([test "x$build_maqao" = xyes],
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
 
-dnl AM_CONDITIONAL([BUILD_LINUX],     [test "x$build_linux" = xyes])
 AM_CONDITIONAL([BUILD_PAPI],     [test "x$build_papi" = xyes])
 AM_COND_IF([BUILD_PAPI], [AC_CONFIG_FILES([src/plugins/papi/Makefile])])
 AM_CONDITIONAL([BUILD_MAQAO],    [test "x$build_maqao" = xyes])
@@ -168,7 +163,6 @@ echo "#                                               Configure summary         
 echo "################################################################################################################"
 printf "%-20s: %-3s\n" "hmon library" "$library_ok"
 printf "%-20s: %-3s\n" "lstopo display" "$hmon_have_liblstopo"
-printf "%-20s: %-3s\n" "linux plugin" "$build_papi"
 printf "%-20s: %-3s\n" "papi plugin" "$build_papi"
 printf "%-20s: %-3s\n" "maqao plugin" "$build_maqao"
 printf "%-20s: %-3s\n" "learning plugin" "$build_learning"
