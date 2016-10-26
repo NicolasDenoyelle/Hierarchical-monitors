@@ -10,8 +10,7 @@ This project includes a library and a utility to set up and run monitors, as wel
 
 ![](E5-2650.png?raw=true)
 
-This output of a [previous implementation](https://github.com/NicolasDenoyelle/dynamic_lstopo) of the library with lstopo (hwloc) shows monitors on topology object with value and color. (It is still possible to get this output by using our [hwloc fork](https://github.com/NicolasDenoyelle/liblstopo) with --enable-liblstopo at configure)
-
+This output of a machine topology with monitors.
 ## Requirements:
 
 * libtool, automake for compilation chain
@@ -80,7 +79,15 @@ INS_per_CYC{
 ### Utility
 The utility let you monitor the machine or a part of a machine restricted to a program execution domain, along time.
 
-`hmon -h` will output utility help.
+`hmonitor -h` will output utility help.
+
+#### Graphical output.
+The hmonitor utility allows to display the topology with monitors using the option `--display-topology`:
+All the monitors with a field `DISPLAY:=n` (`n` is the n-th event of monitor) will be displayed on topology with a unique (the first one) marked monitor per topology nodes.
+
+By default, this output is in ascii but it is possible to get output on lstopo utility (from hwloc) using our [hwloc fork](https://github.com/NicolasDenoyelle/liblstopo).
+This fork has to be compiled setup with --enable-liblstopo at configure time.
+If liblstopo is successfully built and installed, then hmonitor configure summary should show that lstopo displyed is enabled.
 
 ### Library
 The header file `hmon.h` stands as the library documentation.
@@ -96,6 +103,8 @@ A code snippet is given [here](example/test.c).
 The plot script is not installed and is located [here](utils/hmon_plot.R).
 
 Use the command `Rscript hmon_plot.R -h` to output usage help of the script.
+
+All the monitor without field `SILENT:=1` are printed to a trace file usable by the script.
 
 Below is an example of plot output, on an application producing L2 miss phases.
 L2 misses accumulation was recorded along time, and clustered in the plot script.
