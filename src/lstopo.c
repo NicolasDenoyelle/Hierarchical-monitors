@@ -98,11 +98,12 @@ void hmon_display_finalize(){
   hwloc_topology_destroy(display_topology);
 }
 
-void hmon_display_refresh(int verbose){
-  /* if(is_initialized && display_output.methods && display_output.methods->iloop){ */
-  if(display_output.methods->iloop(&display_output, 0) >= 0){
-    /* hmon_display_finalize(); */
+int hmon_display_refresh(int verbose){
+  if(is_initialized && display_output.methods && display_output.methods->iloop){
+    if(display_output.methods->iloop(&display_output, 0) == -1){
+      return -1;
+    }
   }
-/* } */
+  return 0;
 }
 

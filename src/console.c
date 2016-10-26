@@ -92,7 +92,7 @@ void hmon_display_init(hwloc_topology_t topology){
 
 void hmon_display_finalize(){}
 
-void hmon_display_refresh(int verbose){
+int hmon_display_refresh(int verbose){
   unsigned i, depth;
   unsigned term_width;
     
@@ -104,5 +104,6 @@ void hmon_display_refresh(int verbose){
   for(i=0; i<depth; i++){
     hmon_display_depth(i, term_width, verbose);
   }
+  return 0;
 }
 
