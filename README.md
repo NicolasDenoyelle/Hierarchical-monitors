@@ -138,7 +138,7 @@ A performance plugin is a file with pattern name: `<name>_hmonitor_plugin.so` lo
 The plugin must implement the [performance plugin interface](./src/plugins/performance_interface.h).
 
 ## Reducing Events
-Events reduction can be done by defining arithmetic expressions of output or using a statistic plugins.
+Events reduction can be done by defining arithmetic expressions of events or using a statistic plugins.
 
 * Arithmetic expressions must follow the syntax `$j op $k op ...`
 
