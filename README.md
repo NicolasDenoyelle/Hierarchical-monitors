@@ -143,7 +143,7 @@ Events reduction can be done by defining arithmetic expressions of events or usi
 * Arithmetic expressions must follow the syntax `$j op $k op ...`
 
 Where `$j` is the j_st element of events, and `$k` is the k_st element of events.
-`$j` and `$k` may also be integer or flaoting point values.
+`$j` and `$k` may also be integer or floating point values.
 
 `REDUCTION` field can be a list of arrithmetic expressions: `$0+$1, $2*$3;`
 
