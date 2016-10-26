@@ -126,8 +126,8 @@ AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile src/plugins/linux/Makefile])
 
 ## Check for linux plugin
-build_linux="yes"
-AC_CHECK_HEADERS([sys/time.h sys/resource.h], [], [build_linux=no])
+dnl build_linux="yes"
+dnl AC_CHECK_HEADERS([sys/time.h sys/resource.h], [], [build_linux=no])
 
 ## Check for papi plugin
 build_papi="yes"
@@ -151,7 +151,7 @@ AS_IF([test "x$build_maqao" = xyes],
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
 
-AM_CONDITIONAL([BUILD_LINUX],     [test "x$build_linux" = xyes])
+dnl AM_CONDITIONAL([BUILD_LINUX],     [test "x$build_linux" = xyes])
 AM_CONDITIONAL([BUILD_PAPI],     [test "x$build_papi" = xyes])
 AM_COND_IF([BUILD_PAPI], [AC_CONFIG_FILES([src/plugins/papi/Makefile])])
 AM_CONDITIONAL([BUILD_MAQAO],    [test "x$build_maqao" = xyes])
