@@ -81,7 +81,7 @@ static struct perf_option pid_opt =     {.name = "--pid",
 static struct perf_option refresh_opt = {.name = "--frequency",
 					 .short_name = "-f",
 					 .arg = "<usec>",
-					 .desc = "Update monitors every -f milliseconds.",
+					 .desc = "Update monitors every -f microseconds.",
 					 .type = OPT_TYPE_INT,
 					 .value.int_value = 100000,
 					 .def_val = "1000",
@@ -274,7 +274,9 @@ main (int argc, char *argv[])
       /* monitor topology */ 
       while(!hmonitor_utility_stop){
 	hmon_update();
-	if(display_opt.set){hmon_display_refresh(0);}
+	if(display_opt.set){
+	  if(hmon_display_refresh(0) == -1) break;
+	}
 	usleep(refresh_opt.value.int_value);
       }
     }
