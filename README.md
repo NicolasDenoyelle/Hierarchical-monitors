@@ -49,20 +49,20 @@ Several examples and help on how to build this file can be found [here](./exampl
 
 
 The configuration of a monitor let you choose: 
-* (Compulsory) Its depth location on topology: PU,CORE, L1d, L1i, L2, ...
+* `OBJ:=` (Compulsory) Its depth location on topology: PU,CORE, L1d, L1i, L2, ...
   as long as it is parsable by the function [hwloc_type_sscanf_as_depth](https://github.com/open-mpi/hwloc/blob/master/hwloc/traversal.c#L320) from hwloc library.
 
-* (Compulsory) The library from which events come from. (See [Choosing Events Source](#choosing-events-source)).
+* `PERF_LIB:=` (Compulsory) The library from which events come from. (See [Choosing Events Source](#choosing-events-source)).
 
-* (Compulsory) Its events.
+* `EVSET:=` (Compulsory) Its event names. Available events should be found using events source documentation (papi, maqao...).
 
-* (Optional) A reduction function to apply on events. (See [Reducing Events](#reducing-events)).
+* `REDUCTION:=` (Optional) A reduction function to apply on events. (See [Reducing Events](#reducing-events)).
 
-* (Optional) The length of the history of events.
+* `WINDOW:=` (Optional) The length of the history of events.
 
-* (Optional) A boolean to tell if the monitor should be printed to output trace.
+* `SILENT:=` (Optional) A boolean to tell if the monitor should be printed to output trace.
 
-* (Optional) A boolean to tell if the monitor should be displayed on topology when using hmonitor utility. (See [Graphical Output](#graphical-output)).
+* `DISPLAY:=` (Optional) A boolean to tell if the monitor should be displayed on topology when using hmonitor utility. (See [Graphical Output](#graphical-output)).
 
 Here is an example of a monitor which output instruction per cycle of each processing unit using papi library:
 
