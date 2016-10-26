@@ -34,30 +34,30 @@
 
 %%%% Get miss balance on L2 caches
 
-L2_MISS_PU{
-	OBJ:=PU;
-	PERF_LIB:=papi;	
-	EVSET:=PAPI_L2_DCM;
-	SILENT:=0;
-	DISPLAY:=1;
-}
+% L2_MISS_PU{
+% 	OBJ:=PU;
+% 	PERF_LIB:=papi;	
+% 	EVSET:=PAPI_L2_DCM;
+% 	SILENT:=0;
+% 	DISPLAY:=1;
+% }
 
-L2_MISS_L2{
-	OBJ:=L2;
-	EVSET:=L2_MISS_PU;
-	PERF_LIB:=accumulate;
-	SILENT:=1;
-	DISPLAY:=0;
-}
+% L2_MISS_L2{
+% 	OBJ:=L2;
+% 	EVSET:=L2_MISS_PU;
+% 	PERF_LIB:=accumulate;
+% 	SILENT:=1;
+% 	DISPLAY:=0;
+% }
 
-L2_balance{
-	OBJ:=Machine;
-	EVSET:=L2_MISS_L2;
-	PERF_LIB:=hierarchical;
-      %this reduction output the variance of events. Syntax: number_of_output#function
-	REDUCTION:=1#hmonitor_evset_var;
-	DISPLAY:=1;
-}
+% L2_balance{
+% 	OBJ:=Machine;
+% 	EVSET:=L2_MISS_L2;
+% 	PERF_LIB:=hierarchical;
+%       %this reduction output the variance of events. Syntax: number_of_output#function
+% 	REDUCTION:=1#hmonitor_evset_var;
+% 	DISPLAY:=1;
+% }
 
 %%%% Learning examples
 
@@ -106,6 +106,7 @@ L2_balance{
 %      REDUCTION: Compute output samples out of input events.
 %      WINDOW: Keep track of events WINDOW(default=1) times before overwritting.
 %      SILENT: 0 don't print monitor, 1(default) print monitor.
+%      DISPLAY: 0(default) do not display monitor on topology when using hmonitor utility, n display monitor n-th event.
 
 %default REDUCTION functions (some may not be available):
 %	 hmonitor_evset_var
