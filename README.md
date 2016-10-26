@@ -62,7 +62,7 @@ The configuration of a monitor let you choose:
 
 * (Optional) A boolean to tell if the monitor should be printed to output trace.
 
-* (Optional) A boolean to tell if the monitor should be displayed on topology when using hmonitor utility.
+* (Optional) A boolean to tell if the monitor should be displayed on topology when using hmonitor utility. (See [Graphical Output](#graphical-output)).
 
 Here is an example of a monitor which output instruction per cycle of each processing unit using papi library:
 
