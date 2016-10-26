@@ -8,7 +8,7 @@ timer_t update_timer;
 
 timer_t display_timer;
 int display_arg;
-void (*display_function)(int);
+int (*display_function)(int);
 
 void __attribute__ ((constructor)) hmon_block_SIGRTMIN(){
   /* avoid that signals are caught by threads */
@@ -75,7 +75,7 @@ int hmon_sampling_stop(){
   return 0;
 }
 
-int hmon_periodic_display_start(void (*display_monitors)(int), int arg){
+int hmon_periodic_display_start(int (*display_monitors)(int), int arg){
   display_function = display_monitors;
   display_arg = arg;
   if(!handler_isset && set_handler() == -1){return -1;}

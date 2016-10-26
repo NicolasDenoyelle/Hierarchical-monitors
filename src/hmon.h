@@ -106,7 +106,7 @@ int hmon_sampling_stop();
  * @arg arg: the argument to pass to the display function.
  * @return 0 on success, -1 on error, and error reason is output.
  **/
-int hmon_periodic_display_start(void (*display_monitors)(int), int arg);
+int hmon_periodic_display_start(int (*display_monitors)(int), int arg);
 
 /**
  * Stop automatic display of the monitors.
