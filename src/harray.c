@@ -137,19 +137,35 @@ int harray_find_unsorted(harray array, void * key){
 
 
 unsigned harray_insert_sorted(harray array, void * element, int (* compare)(void*, void*)){
-  if(array->length == 0){harray_push(array, element); return 0;}
-  
-  unsigned insert_index = array->length/2;
+  unsigned insert_index;
   unsigned left_bound = 0,right_bound = array->length-1;
   int comp;
-  while((comp = compare(&element, &array->cell[insert_index])) &&
-	(insert_index >= left_bound && insert_index <= right_bound)){
+
+  if(array->length == 0){harray_push(array, element); return 0;}
+  if(array->length == 1){
+    insert_index = compare(&element, &array->cell[0]) > 0 ? 1 : 0;
+    goto insertion;
+  }
+  
+  insert_index = 1+left_bound + (right_bound-left_bound)/2;
+  
+  do{
+    comp = compare(&element, &array->cell[insert_index]);
     if(comp > 0){left_bound = insert_index;}
     else if(comp < 0){right_bound = insert_index;}
-    insert_index = (right_bound - left_bound)/2;
+    else{break;}
+    insert_index = 1+left_bound + (right_bound-left_bound)/2;
+  } while(insert_index < right_bound);
+
+insertion:
+  if(insert_index >= array->length){
+    harray_push(array, element);
+    return array->length-1;
   }
-  harray_insert(array, insert_index, element);
-  return insert_index;
+  else{
+    harray_insert(array, insert_index, element);
+    return insert_index;
+  }
 }
 
 inline void harray_sort(harray array, int (* compare)(void*, void*)){

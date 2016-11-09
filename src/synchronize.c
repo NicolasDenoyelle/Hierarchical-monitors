@@ -32,7 +32,7 @@ int hmon_compare(void* hmonitor_a, void* hmonitor_b){
   if(a->location->depth>b->location->depth){return -1;}
   if(a->location->depth<b->location->depth){return 1;}
   if(a->location->logical_index<b->location->logical_index){return -1;}
-  if(a->location->logical_index<b->location->logical_index){return 1;}
+  if(a->location->logical_index>b->location->logical_index){return 1;}
   if(a->display && !b->display){return -1;}
   if(!a->display && b->display){return 1;}
   if(a->silent && !b->silent){return -1;}
@@ -149,12 +149,12 @@ int hmon_register_hmonitor(hmon m, int silent, int display){
   m->display = display;
   
   /* Add monitor to existing monitors*/
-  harray_insert_sorted(monitors, m, hmon_compare);
+  int insert_index = harray_insert_sorted(monitors, m, hmon_compare);
+  printf("inserted %s(%d:%d) at %d position\n", m->id, m->location->depth, m->location->logical_index, insert_index);
   
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
   harray_insert_sorted(m->location->userdata, m, hmon_compare);
-
   return 0;
 }
 
