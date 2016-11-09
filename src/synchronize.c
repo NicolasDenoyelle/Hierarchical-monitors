@@ -149,8 +149,7 @@ int hmon_register_hmonitor(hmon m, int silent, int display){
   m->display = display;
   
   /* Add monitor to existing monitors*/
-  int insert_index = harray_insert_sorted(monitors, m, hmon_compare);
-  printf("inserted %s(%d:%d) at %d position\n", m->id, m->location->depth, m->location->logical_index, insert_index);
+  harray_insert_sorted(monitors, m, hmon_compare);
   
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
