@@ -70,7 +70,6 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
     if(child_events != NULL){
       for(i = 0; i<harray_length(child_events); i++){
 	hmon m  = harray_get(child_events,i);
-	printf("look %s\n", m->id);
 	if(!strcmp(m->id, event)){n_events = m->n_events; goto add_events;}
       }
     }
