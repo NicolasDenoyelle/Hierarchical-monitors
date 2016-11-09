@@ -84,7 +84,7 @@ static struct perf_option refresh_opt = {.name = "--frequency",
 					 .desc = "Update monitors every -f microseconds.",
 					 .type = OPT_TYPE_INT,
 					 .value.int_value = 100000,
-					 .def_val = "1000",
+					 .def_val = "100000",
 					 .set = 0};
 
 static struct perf_option display_opt = {.name = "--display-topology",
