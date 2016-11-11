@@ -162,7 +162,7 @@ get.trajectory <- function(X.k,ts,acq.freq) {
   for(n in 0:(N-1)) {       # compute each time point x_n based on freqs X.k
     x.n[n+1] <- sum(X.k * exp(i*2*pi*ks*n/N)) / N
   }
-  x.n * acq.freq 
+  Re(x.n) * acq.freq 
 }
 
 
