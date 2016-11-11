@@ -63,7 +63,7 @@ fitOpt = make_option(
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
   and output absolute error of cross validation points.
   If (--model = \"periodic\"), then fit y columns with a fourier serie of time column
-  If (--model = \"gaussian\"), then apply kmeans clustering on xaxis and events (except y)"
+  If (--model = \"gaussian\"), then apply kmeans clustering on events"
   )
 
 winOpt = make_option(
