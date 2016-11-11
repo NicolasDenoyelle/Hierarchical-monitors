@@ -307,9 +307,9 @@ monitor.plot.merge <- function(monitor) {
   legend.text = sapply(sequence, function(i) monitor.obj(monitor.list[[i]]), simplify = "array")
   legend.col = sequence
   legend.pch = sequence
-  if (!is.null(options$fit)){
-    monitor.plot.fit(monitor, type=options$fit, pch=length(monitor.list)+1, col=length(monitor.list)+1)
-    legend.text = c(legend.text, sprintf("%s fit likelihood",options$fit))
+  if (!is.null(options$model)){
+    monitor.plot.fit(monitor, type=options$model, pch=length(monitor.list)+1, col=length(monitor.list)+1)
+    legend.text = c(legend.text, sprintf("%s fit likelihood",options$model))
     legend.col = c(legend.col, length(monitor.list)+1)
     legend.pch = c(legend.pch, length(monitor.list)+1)
   }
@@ -356,9 +356,9 @@ monitor.plot.split <- function(monitor) {
     legend.text = monitor.obj(m)
     legend.col = i
     legend.pch = i
-    if (!is.null(options$fit)){
-      monitor.plot.fit(m, options$fit, pch=i+1, col=i+1) 
-      legend.text = c(legend.text, sprintf("%s fit likelihood",options$fit))
+    if (!is.null(options$model)){
+      monitor.plot.fit(m, options$model, pch=i+1, col=i+1) 
+      legend.text = c(legend.text, sprintf("%s fit likelihood",options$model))
       legend.col = c(legend.col, i+1)
       legend.pch = c(legend.pch, i+1)
     }
@@ -532,20 +532,21 @@ monitors.stream = function() {
 #########################################################################################################
 
   # setwd(dir = "~/Documents/hmon/utils/")
-  # options$input="./hpccg/hpccg.out"
+  # options$input="./hpccg.out"
   # options$output="./test.pdf"
-  # options$split=TRUE
-  # options$title="test_title"
-  # options$xaxis=3
-  # options$yaxis=4
-  # options$fit="gaussian"
-  # options$window=100
-  # options$frequency=0.5
-  
-  #monitors = monitors.read()
-  #monitor = monitors[[1]]
-  #monitor.create.x11(monitor)
-  #monitors.plot.x11()
+  # options$grep="write"
+  # # options$split=TRUE
+  # # options$title="test_title"
+  # # options$xaxis=3
+  # # options$yaxis=4
+  # options$model="gaussian"
+  # # options$window=100
+  # # options$frequency=0.5
+  # 
+  # monitors = monitors.read()
+  # #monitor = monitors[[1]]
+  # #monitor.create.x11(monitor)
+  # monitors.plot.x11(monitors)
   #monitor.plot.split(monitor)
   #monitor.plot.merge(monitor)
   #monitor = monitors.stream()[[2]]
@@ -553,7 +554,6 @@ monitors.stream = function() {
 
 
 if(options$window>0){
-  options(timeout=options$frequency)
   repeat {
     monitors.plot.x11(monitors.stream())
     Sys.sleep(options$frequency)
