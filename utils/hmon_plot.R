@@ -247,7 +247,7 @@ monitor.split <- function(monitor) {
 ##
 # Get a monitor mapping object
 ##
-monitor.obj <- function(monitor.list)
+monitor.obj <- function(monitor)
   as.character(monitor[1, id.obj])
 
 ##
@@ -531,16 +531,16 @@ monitors.stream = function() {
 
 #########################################################################################################
 
-  setwd(dir = "~/Documents/hmon/utils/")
-  options$input="./hpccg.out"
-  options$output="./test.pdf"
-  options$split=TRUE
-  options$title="test_title"
-  options$xaxis=3
-  options$yaxis=4
-  options$fit="gaussian"
-  options$window=100
-  #options$frequency=0.5
+  # setwd(dir = "~/Documents/hmon/utils/")
+  # options$input="./hpccg/hpccg.out"
+  # options$output="./test.pdf"
+  # options$split=TRUE
+  # options$title="test_title"
+  # options$xaxis=3
+  # options$yaxis=4
+  # options$fit="gaussian"
+  # options$window=100
+  # options$frequency=0.5
   
   #monitors = monitors.read()
   #monitor = monitors[[1]]
@@ -553,6 +553,7 @@ monitors.stream = function() {
 
 
 if(options$window>0){
+  options(timeout=options$frequency)
   repeat {
     monitors.plot.x11(monitors.stream())
     Sys.sleep(options$frequency)
@@ -561,6 +562,8 @@ if(options$window>0){
   monitors = monitors.read()
   if(is.null(options$output)){
     monitors.plot.x11(monitors)
+    print("Press [enter] to close windows")
+    readLines(con="stdin", n= 1)
   } else {
     monitors.plot.pdf(monitors)
   }
