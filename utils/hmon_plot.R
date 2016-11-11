@@ -130,7 +130,7 @@ rmse <- function(error) sapply(error, function(x) sqrt(mean(x^2)))
 # Output cross validation set Root Mean Squared Error
 ##
 monitor.linear.fit <- function(monitor){
-  if(ncol(monitor<=4)){
+  if(ncol(monitor)<=4){
     print("linear plot cannot be applied on a monitor with a single event")
     return()
   }
@@ -138,7 +138,7 @@ monitor.linear.fit <- function(monitor){
   fit.range = fit.range[order(fit.range)]
   fit.x = monitor[fit.range, setdiff(4:ncol(monitor), options$yaxis)]
   fit.y = monitor[fit.range, options$yaxis]
-  if(ncol(monitor==5)){
+  if(ncol(monitor)==5){
     fit.lm = lm(fit.y ~ fit.x)  
   } else {
     fit.lm = lm(fit.y ~ ., data = fit.x)  
@@ -405,7 +405,7 @@ monitors.set.colnames <-function(){
 
 monitors.read <- function(){
   monitors.frame <<-
-    read.table(options$input, stringsAsFactors=F)
+    read.table(options$input, stringsAsFactors=F, fill=T)
   monitors.set.colnames()
   if (!is.null(options$grep)) {
     monitors.frame <<-
@@ -534,23 +534,22 @@ monitors.stream = function() {
   # setwd(dir = "~/Documents/hmon/utils/")
   # options$input="./hpccg.out"
   # options$output="./test.pdf"
-  # options$grep="write"
-  # # options$split=TRUE
-  # # options$title="test_title"
-  # # options$xaxis=3
-  # # options$yaxis=4
-  # options$model="gaussian"
-  # # options$window=100
-  # # options$frequency=0.5
-  # 
+  # options$grep="papi"
+  # options$split=TRUE
+  # options$title="test_title"
+  # options$xaxis=3
+  # options$yaxis=7
+  # options$model="linear"
+  # options$window=100
+  # options$frequency=0.5
   # monitors = monitors.read()
-  # #monitor = monitors[[1]]
-  # #monitor.create.x11(monitor)
+  # monitor = monitors[[1]]
+  # monitor.create.x11(monitor)
   # monitors.plot.x11(monitors)
-  #monitor.plot.split(monitor)
-  #monitor.plot.merge(monitor)
-  #monitor = monitors.stream()[[2]]
-  #monitor.plot.x11(monitor)
+  # monitor.plot.split(monitor)
+  # monitor.plot.merge(monitor)
+  # monitor = monitors.stream()[[2]]
+  # monitor.plot.x11(monitor)
 
 
 if(options$window>0){
