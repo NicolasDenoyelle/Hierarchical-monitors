@@ -529,6 +529,9 @@ x11.keyboardHandler <- function(key) {
   NULL
 }
 
+##
+# get screen dimensions as a list c(width, height) in inches
+##
 screen.dim <- function(){
   #get screen size
   scrn = system("xrandr  | fgrep '*'", wait = FALSE, intern = TRUE)
