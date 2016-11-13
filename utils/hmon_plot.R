@@ -485,7 +485,7 @@ monitors.read <- function(){
   monitors.set.colnames()
   if (!is.null(options$grep)) {
     monitors.frame <<-
-      monitors.frame[grep(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
+      monitors.frame[grepl(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
   }
   start = monitors.frame[1,id.time]
   monitors.frame[,id.time] = monitors.frame[,id.time] - start 
@@ -589,7 +589,7 @@ monitors.stream = function() {
     } else {
       frame_line = read.table(textConnection(line), flush = T,col.names = colnames(monitors.frame))
     }
-    if (is.null(options$grep) || grep(options$grep, frame_line[1, 1], ignore.case = TRUE)) {
+    if (is.null(options$grep) || grepl(options$grep, frame_line[1, 1], ignore.case = TRUE)) {
       if(is.null(monitors.frame)){
         monitors.frame <<- frame_line
       } else{
@@ -630,14 +630,14 @@ script.run()
 # setwd(dir = "~/Documents/hmon/utils/")
 # options$input="./hpccg.out"
 # options$output="./test.pdf"
-# options$grep="papi"
-# options$split=TRUE
+# options$grep="write"
+# options$split=T
 # options$cluster=T
 # options$title="test_title"
 # options$xaxis=3
 # options$yaxis=7
 # options$model="linear"
-# options$window=100
+# options$window=1000
 # options$frequency=0.5
 # monitors = monitors.read()
 # monitor = monitors[[1]]
