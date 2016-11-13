@@ -26,8 +26,8 @@ titleOpt = make_option(
   help = "Plot title"
 )
 
-grepOpt = make_option(
-  opt_str = c("-g", "--grep"),
+filterOpt = make_option(
+  opt_str = c("-f", "--filter"),
   type = "character",
   default = NULL,
   help = "Provide a regex to filter input monitor base on their id (first column)"
@@ -81,7 +81,7 @@ winOpt = make_option(
 )
 
 freqOpt = make_option(
-  opt_str = c("-f", "--frequency"),
+  opt_str = c("-u", "--update"),
   type = "numeric",
   default = 0.5,
   help = "frequency of read from trace file and plot in seconds. Plot should be displayed as parts of a large or updated trace.
@@ -92,7 +92,7 @@ option_list = c(
   inOpt,
   outOpt,
   titleOpt,
-  grepOpt,
+  filterOpt,
   xOpt,
   yOpt,
   splitOpt,
@@ -287,21 +287,18 @@ monitor.obj.index <- function(monitor)
 # Get a monitor id
 ##
 monitor.id <- function(monitor) 
-  monitor[1, id.id]
+    as.character(monitor[1, id.id])
+
+# Monitors limits and ticks
+monitors.xlim = new.env(hash = T)
+monitors.xticks = new.env(hash = T)
+monitors.ylim = new.env(hash = T)
+monitors.yticks = new.env(hash = T)
 
 ##
 # Plot a unsplitted monitor
 ##
 monitor.plot.merge <- function(monitor) {
-  xmin = min(monitor[, options$xaxis], na.rm = T)
-  xmax = max(monitor[, options$xaxis], na.rm = T)
-  xlim = c(xmin, xmax)
-  xticks=seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10)
-  ymin = min(monitor[, options$yaxis], na.rm = T)
-  ymax = max(monitor[, options$yaxis], na.rm = T)
-  ylim = c(ymin, ymax)
-  yticks=seq(from=ylim[1], to=ylim[2], by=(ylim[2] - ylim[1]) / 10)
-  
   monitor.list = monitor.split(monitor)
   for (i in 1:length(monitor.list)) {
     m = monitor.list[[i]]
@@ -310,8 +307,8 @@ monitor.plot.merge <- function(monitor) {
       y = m[, options$yaxis],
       type = 'p',
       col = i,
-      xlim = xlim,
-      ylim = ylim,
+      xlim = monitors.xlim[[monitor.id(monitor)]],
+      ylim = monitors.ylim[[monitor.id(monitor)]],
       axes = FALSE,
       ann = FALSE,
       pch = i,
@@ -332,12 +329,8 @@ monitor.plot.merge <- function(monitor) {
     ylab = monitor.id(m),
     xlab = colnames(monitor)[options$xaxis]
   )
-  axis(1, at = seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10))
-  axis(2, at = seq(
-    from = ylim[1],
-    to = ylim[2],
-    by = (ylim[2] - ylim[1]) / 10
-  ))
+  axis(1, at = monitors.xticks[[monitor.id(monitor)]])
+  axis(2, at = monitors.yticks[[monitor.id(monitor)]])
   sequence = 1:length(monitor.list)
   legend.text = sapply(sequence, function(i) monitor.obj(monitor.list[[i]]), simplify = "array")
   legend.col = sequence
@@ -370,13 +363,6 @@ monitor.plot.split <- function(monitor) {
   monitor.list = monitor.list[order(sapply(monitor.list, monitor.obj.index))]
   par(mfrow = c(1,length(monitor.list)), oma = c(0,0,2.5,0))
   
-  xmax = max(sapply(monitor.list, function(m) max(m[,options$xaxis], na.rm = TRUE)), na.rm = TRUE)
-  xmin = min(sapply(monitor.list, function(m) min(m[,options$xaxis], na.rm = TRUE)), na.rm = TRUE)
-  ymax = max(sapply(monitor.list, function(m) max(m[,options$yaxis], na.rm = TRUE)), na.rm = TRUE)
-  ymin = min(sapply(monitor.list, function(m) min(m[,options$yaxis], na.rm = TRUE)), na.rm = TRUE)
-  xticks = seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
-  yticks = seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
-  
   for (i in 1:length(monitor.list)) {
     m = monitor.list[[i]]
     xlab = colnames(m)[options$xaxis]
@@ -401,12 +387,12 @@ monitor.plot.split <- function(monitor) {
       ylab = ylab,
       yaxt = "n",
       xaxt = "n",
-      xlim = c(xmin, xmax),
-      ylim = c(ymin, ymax),
+      xlim = monitors.xlim[[monitor.id(monitor)]],
+      ylim = monitors.ylim[[monitor.id(monitor)]],
       log="",
       abline(
-        h = yticks,
-        v = xticks,
+        h = monitors.yticks[[monitor.id(monitor)]],
+        v = monitors.xticks[[monitor.id(monitor)]],
         col = "darkgray",
         lty = 3
       )
@@ -421,22 +407,36 @@ monitor.plot.split <- function(monitor) {
       legend.pch = c(legend.pch, i+1)
     }
     legend("bottomright", legend = legend.text, bg="white", pch=legend.pch, col=legend.col)
-    axis(1, at = xticks, labels = xticks)
+    axis(1, at = monitors.xticks[[monitor.id(monitor)]])
     if(i==1){
-      axis(2, at = yticks, labels = yticks)
+      axis(2, at = monitors.yticks[[monitor.id(monitor)]])
     }
   }
   title(main = get_title(monitor.id(monitor)), outer=T)
 }
 
+monitor.set.limits <- function(monitor){
+  # xlim = monitors.xlim[[monitor.id(monitor)]]
+  # ylim = monitors.xlim[[monitor.id(monitor)]]
+  xmax = max(monitor[,options$xaxis], na.rm = TRUE)
+  xmin = min(monitor[,options$xaxis], na.rm = TRUE)
+  ymax = max(monitor[,options$yaxis], na.rm = TRUE)
+  ymin = min(monitor[,options$yaxis], na.rm = TRUE)
+  monitors.xlim[[monitor.id(monitor)]] <<- c(xmin, xmax)
+  monitors.ylim[[monitor.id(monitor)]] <<- c(ymin, ymax)
+  monitors.xticks[[monitor.id(monitor)]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
+  monitors.yticks[[monitor.id(monitor)]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+}
 
 monitor.plot <- function(monitor) {
-    monitor = monitor.check(monitor)
-    if (options$split)
-      monitor.plot.split(monitor)
-    if (!options$split)
-      monitor.plot.merge(monitor)
+  monitor = monitor.check(monitor)
+  monitor.set.limits(monitor)
+  if (options$split)
+    monitor.plot.split(monitor)
+  if (!options$split)
+    monitor.plot.merge(monitor)
 }
+
 #########################################################################################################
 #                                          Static monitors handling                                     #
 #########################################################################################################
@@ -483,9 +483,9 @@ monitors.read <- function(){
   monitors.frame <<-
     read.table(options$input, stringsAsFactors=F, fill=T)
   monitors.set.colnames()
-  if (!is.null(options$grep)) {
+  if (!is.null(options$filter)) {
     monitors.frame <<-
-      monitors.frame[grepl(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
+      monitors.frame[grepl(options$filter, monitors.frame[, id.id], ignore.case = TRUE),]
   }
   start = monitors.frame[1,id.time]
   monitors.frame[,id.time] = monitors.frame[,id.time] - start 
@@ -580,26 +580,31 @@ monitors.plot.x11 <- function(monitors) {
 # Stream monitor trace.
 # Can be called several times.
 ##
-monitors.stream = function() {
+monitors.stream = function(n = options$window) {
   #Open a fifo if the trace is to be read by parts
   if (is.null(monitors.connexion)) {
     monitors.connexion <<- fifo(options$input, open = "r")
   }
   #read by part
-  lines = readLines(monitors.connexion, n = options$window)
+  lines = readLines(monitors.connexion, n = n)
   for (line in lines) {
     if(is.null(monitors.frame)){
       frame_line = read.table(textConnection(line), flush = T)  
     } else {
       frame_line = read.table(textConnection(line), flush = T,col.names = colnames(monitors.frame))
     }
-    if (is.null(options$grep) || grepl(options$grep, frame_line[1, 1], ignore.case = TRUE)) {
+    if (is.null(options$filter) || grepl(options$filter, frame_line[1, 1], ignore.case = TRUE)) {
       if(is.null(monitors.frame)){
         monitors.frame <<- frame_line
       } else{
         monitors.frame <<- rbind(monitors.frame, frame_line)
       }
     }
+  }
+  #check the frame is not too large after expension
+  if(nrow(monitors.frame)>n*10){
+    start = nrow(monitors.frame)-n*9
+    monitors.frame <<- monitors.frame[start:nrow(monitors.frame), ]
   }
   monitors.set.colnames()
   monitors.list(monitors.frame)
@@ -615,7 +620,7 @@ script.run <- function() {
   if (options$window > 0) {
     repeat {
       monitors.plot.x11(monitors.stream())
-      Sys.sleep(options$frequency)
+      Sys.sleep(options$update)
     }
   } else {
     monitors = monitors.read()
@@ -634,7 +639,7 @@ script.run()
 # setwd(dir = "~/Documents/hmon/utils/")
 # options$input="./hpccg.out"
 # options$output="./test.pdf"
-# options$grep="write"
+# options$filter="write"
 # options$split=T
 # options$cluster=T
 # options$title="test_title"
@@ -642,7 +647,7 @@ script.run()
 # options$yaxis=7
 # options$model="linear"
 # options$window=1000
-# options$frequency=0.5
+# options$update=0.5
 # monitors = monitors.read()
 # monitor = monitors[[1]]
 # sapply(monitors, monitor.plot)
