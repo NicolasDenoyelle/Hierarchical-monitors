@@ -529,23 +529,24 @@ x11.keyboardHandler <- function(key) {
   NULL
 }
 
-# screen.dim <- function(){
-#   #get screen size
-#   scrn = system("xrandr  | fgrep '*'", wait = FALSE, intern = TRUE)
-#   sc.dim = as.numeric(unlist(regmatches(scrn, regexec(
-#     "(\\d+)x(\\d+)", scrn
-#   )))[-1])
-#   res = system("xdpyinfo  | grep 'resolution:'",
-#                wait = FALSE,
-#                intern = TRUE)
-#   dpi = as.numeric(unlist(regmatches(res, regexec(
-#     "(\\d+)x(\\d+)",  res
-#   )))[-1])
-#   c(sc.dim[1] / dpi[1], sc.dim[2] / dpi[2])
-# }
+screen.dim <- function(){
+  #get screen size
+  scrn = system("xrandr  | fgrep '*'", wait = FALSE, intern = TRUE)
+  sc.dim = as.numeric(unlist(regmatches(scrn, regexec(
+    "(\\d+)x(\\d+)", scrn
+  )))[-1])
+  res = system("xdpyinfo  | grep 'resolution:'",
+               wait = FALSE,
+               intern = TRUE)
+  dpi = as.numeric(unlist(regmatches(res, regexec(
+    "(\\d+)x(\\d+)",  res
+  )))[-1])
+  c(sc.dim[1] / dpi[1], sc.dim[2] / dpi[2])
+}
 
 monitor.create.x11 <- function(monitor) {
-  dev = x11(type = "Xlib")
+  dim = screen.dim()
+  dev = x11(type = "Xlib", width = dim[1], height=dim[2])
   #set event handlers for this device
   setGraphicsEventHandlers(onKeybd = x11.keyboardHandler)
   monitors.graphicEnv <<- getGraphicsEventEnv()
