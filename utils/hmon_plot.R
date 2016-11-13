@@ -55,6 +55,14 @@ splitOpt = make_option(
   help = "Split each monitor into several plots, one per hwloc obj"
 )
 
+clusterOpt = make_option(
+  opt_str = c("-c", "--cluster"),
+  type = "logical",
+  default = FALSE,
+  action = "store_true",
+  help = "Split each monitor into several clusters using kmean on monitor events"
+)
+
 fitOpt = make_option(
   opt_str = c("-m", "--model"),
   type = "character",
@@ -62,8 +70,7 @@ fitOpt = make_option(
   help = "fit y data according to model argument.
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
   and output absolute error of cross validation points.
-  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column
-  If (--model = \"gaussian\"), then apply kmeans clustering on events"
+  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column"
   )
 
 winOpt = make_option(
@@ -89,22 +96,20 @@ option_list = c(
   xOpt,
   yOpt,
   splitOpt,
+  clusterOpt,
   fitOpt,
   winOpt,
   freqOpt
 )
 
 opt_parser = OptionParser(option_list = option_list)
+
 options = parse_args(
   opt_parser,
   args = commandArgs(trailingOnly = TRUE),
   print_help_and_exit = TRUE,
   positional_arguments = FALSE
 )
-
-#Check input is provided
-# if (is.null(options$input))
-#   stop("Input option is mandatory")
 
 ##
 #Provide a title according to options
@@ -198,21 +203,7 @@ monitor.plot.fit <-
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
-    } else if (type == "gaussian" && nrow(monitor)>=2*n){
-      p = monitor[, 4:ncol(monitor)]
-      p = scale(p, center = TRUE, scale = TRUE)
-      model = kmeans(x = p, centers = n)
-      for (i in 1:n) {
-        m = monitor[model$cluster == i,]
-        points(
-          x = m[, options$xaxis],
-          y = m[, options$yaxis],
-          col = i,
-          pch = pch
-        )
-      }
     }
-    
     #neural network fit
     # library(neuralnet)
     # scaleX=scale(X.fit)
@@ -228,18 +219,54 @@ monitor.plot.fit <-
   }
 
 #########################################################################################################
-#                                              plot monitor                                             #
+#                                            monitors partitionning                                     #
 #########################################################################################################
 
+##
+# list monitors in a monitor frame
+##
+monitors.list <- function(monitors){
+  ids = unique(monitors[, id.id])
+  ret = vector("list", length = length(ids))
+  for(i in 1:length(ids)){
+    ret[[i]] = subset(monitors, monitors[,id.id] == ids[[i]])
+  }
+  ret
+}
 
 ##
-# Split a monitor into several object (column 2)
+# Split a monitor in several monitors using kmeans clustering
+##
+monitor.cluster <- function(monitor, n=2){
+  if(nrow(monitor)<=10){return(list(monitor))}
+  cluster.set = vector("list", length=n)
+  p = monitor[, 4:ncol(monitor)]
+  p = scale(p, center = TRUE, scale = TRUE)
+  model = kmeans(x = p, centers = n)
+  for (i in 1:n) cluster.set[[i]] = monitor[model$cluster == i,]
+  cluster.set
+}
+
+##
+# Split a monitor into several hwloc_obj (column 2)
+# If option cluster is set, also split in several clusters
 ##
 monitor.split <- function(monitor) {
-  obj.list = unique(monitor[, id.obj])
-  split.set = list()
-  for (i in 1:length(obj.list)){
-    split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
+  if(options$split) {
+    obj.list = unique(monitor[, id.obj])
+    split.set = vector("list", length=length(obj.list))
+    for (i in 1:length(obj.list)) {
+      split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
+    }
+  } else {
+    split.set = vector("list", length=1)
+    split.set[[1]] = monitor
+  }
+  
+  if(options$cluster){
+    cluster.set = c()
+    for(i in 1:length(split.set)) cluster.set = c(cluster.set, monitor.cluster(split.set[[i]]))
+    return(cluster.set)
   }
   split.set
 }
@@ -251,6 +278,12 @@ monitor.obj <- function(monitor)
   as.character(monitor[1, id.obj])
 
 ##
+# Get a monitor obj index
+##
+monitor.obj.index <- function(monitor) 
+  as.integer(strsplit(monitor.obj(monitor), ":", fixed=T)[[1]][2])
+
+##
 # Get a monitor id
 ##
 monitor.id <- function(monitor) 
@@ -260,12 +293,12 @@ monitor.id <- function(monitor)
 # Plot a unsplitted monitor
 ##
 monitor.plot.merge <- function(monitor) {
-  xmin = min(monitor[, options$xaxis])
-  xmax = max(monitor[, options$xaxis])
+  xmin = min(monitor[, options$xaxis], na.rm = T)
+  xmax = max(monitor[, options$xaxis], na.rm = T)
   xlim = c(xmin, xmax)
   xticks=seq(xlim[1], xlim[2], (xlim[2] - xlim[1]) / 10)
-  ymin = min(monitor[, options$yaxis])
-  ymax = max(monitor[, options$yaxis])
+  ymin = min(monitor[, options$yaxis], na.rm = T)
+  ymax = max(monitor[, options$yaxis], na.rm = T)
   ylim = c(ymin, ymax)
   yticks=seq(from=ylim[1], to=ylim[2], by=(ylim[2] - ylim[1]) / 10)
   
@@ -289,6 +322,8 @@ monitor.plot.merge <- function(monitor) {
         lty = 3
       )
     )
+    if (!is.null(options$model))
+      monitor.plot.fit(m, type=options$model, pch=i+1, col=i)
     if (length(monitor.list) > 1)
       par(new = TRUE)
   }
@@ -308,10 +343,14 @@ monitor.plot.merge <- function(monitor) {
   legend.col = sequence
   legend.pch = sequence
   if (!is.null(options$model)){
-    monitor.plot.fit(monitor, type=options$model, pch=length(monitor.list)+1, col=length(monitor.list)+1)
-    legend.text = c(legend.text, sprintf("%s fit likelihood",options$model))
-    legend.col = c(legend.col, length(monitor.list)+1)
-    legend.pch = c(legend.pch, length(monitor.list)+1)
+    legend.text = c(legend.text, 
+                    sapply(sequence, 
+                           function(i) sprintf("%s fit likelihood on %s",
+                                                options$model, 
+                                               monitor.obj(monitor.list[[i]])),
+                           simplify = "array"))
+    legend.col = c(legend.col, sequence)
+    legend.pch = c(legend.pch, 2:(length(monitor.list)+1))
   }
   legend(
     "bottomright",
@@ -324,34 +363,53 @@ monitor.plot.merge <- function(monitor) {
 
 
 ##
-# split plot window
-##
-plot.split <- function(n) {
-  if (n <= 4) {
-    split = c(n, 1)
-  } else {
-    split = c(4, 1 + n / 4)
-  }
-  par(mfrow = split)
-}
-
-##
 # Split a monitor into parts and plot these parts in a split device
 ##
 monitor.plot.split <- function(monitor) {
   monitor.list = monitor.split(monitor)
-  plot.split(length(monitor.list))
+  monitor.list = monitor.list[order(sapply(monitor.list, monitor.obj.index))]
+  par(mfrow = c(1,length(monitor.list)), oma = c(0,0,2.5,0))
+  
+  xmax = max(sapply(monitor.list, function(m) max(m[,options$xaxis], na.rm = TRUE)), na.rm = TRUE)
+  xmin = min(sapply(monitor.list, function(m) min(m[,options$xaxis], na.rm = TRUE)), na.rm = TRUE)
+  ymax = max(sapply(monitor.list, function(m) max(m[,options$yaxis], na.rm = TRUE)), na.rm = TRUE)
+  ymin = min(sapply(monitor.list, function(m) min(m[,options$yaxis], na.rm = TRUE)), na.rm = TRUE)
+  xticks = seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
+  yticks = seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+  
   for (i in 1:length(monitor.list)) {
     m = monitor.list[[i]]
+    xlab = colnames(m)[options$xaxis]
+    if(i==1){
+      par(mar = c(5, 4, 0, 0) + 0.1)
+      ylab = monitor.id(m)
+    } else if(i == length(monitor.list)){
+      par(mar = c(5, 0, 0, 1) + 0.1)
+      ylab=""
+    } else{
+      par(mar = c(5, 0, 0, 0) + 0.1)
+      ylab=""
+    }
+    
     plot(
       x = m[, options$xaxis],
       y = m[, options$yaxis],
       type = 'p',
       col = i,
       pch = i,
-      main = get_title(monitor.id(monitor)),
-      xlab = colnames(m)[options$xaxis],
-      ylab = monitor.id(monitor)
+      xlab = xlab,
+      ylab = ylab,
+      yaxt = "n",
+      xaxt = "n",
+      xlim = c(xmin, xmax),
+      ylim = c(ymin, ymax),
+      log="",
+      abline(
+        h = yticks,
+        v = xticks,
+        col = "darkgray",
+        lty = 3
+      )
     )
     legend.text = monitor.obj(m)
     legend.col = i
@@ -363,11 +421,17 @@ monitor.plot.split <- function(monitor) {
       legend.pch = c(legend.pch, i+1)
     }
     legend("bottomright", legend = legend.text, bg="white", pch=legend.pch, col=legend.col)
+    axis(1, at = xticks, labels = xticks)
+    if(i==1){
+      axis(2, at = yticks, labels = yticks)
+    }
   }
+  title(main = get_title(monitor.id(monitor)), outer=T)
 }
 
 
 monitor.plot <- function(monitor) {
+    monitor = monitor.check(monitor)
     if (options$split)
       monitor.plot.split(monitor)
     if (!options$split)
@@ -383,16 +447,28 @@ id.obj = 2
 id.id  = 1
 
 
-##
-# list monitors
-##
-monitors.list <- function(){
-  ids = unique(monitors.frame[, id.id])
-  list = list()
-  for(i in 1:length(ids)){
-    list[[i]] = subset(monitors.frame, monitors.frame[, id.id] == id[i])
+monitor.check <- function(frame){
+  cols.del = c()
+  rows.del = c()
+  #Remove columns with only NA
+  for (i in 4:ncol(frame)) {
+    if (length(which(!is.na(frame[, i]))) == 0)
+      cols.del = c(cols.del, i)
   }
-  list
+  frame = frame[, setdiff(1:ncol(frame), cols.del)]
+  
+  #Remove lines with NA, NaN and inf
+  for (i in 1:nrow(frame)) {
+    for (j in 4:ncol(frame)) {
+      if (is.infinite(frame[i, j]) ||
+          is.na(frame[i, j]) || is.nan(frame[i, j])) {
+        rows.del = c(rows.del, i)
+        break
+      }
+    }
+  }
+  frame = frame[setdiff(1:nrow(frame), rows.del),]
+  frame
 }
 
 monitors.set.colnames <-function(){
@@ -411,7 +487,9 @@ monitors.read <- function(){
     monitors.frame <<-
       monitors.frame[grep(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
   }
-  monitors.list()
+  start = monitors.frame[1,id.time]
+  monitors.frame[,id.time] = monitors.frame[,id.time] - start 
+  monitors.list(monitors.frame)
 }
 
 
@@ -426,9 +504,7 @@ monitors.plot.pdf <- function(monitors) {
     height = 5,
     title = get_title(options$file)
   )
-  for(i in 1: length(monitors)){
-    monitor.plot(monitors[[i]]) 
-  }
+  sapply(monitors, monitor.plot)
   graphics.off()
 }
 
@@ -521,50 +597,56 @@ monitors.stream = function() {
       }
     }
   }
-  if(nrow(monitors.frame) > options$window){
-    monitors.frame <<-
-      monitors.frame[(nrow(monitors.frame) - options$window):nrow(monitors.frame), ]
-  }
   monitors.set.colnames()
-  monitors.list()
+  monitors.list(monitors.frame)
 }
 
 #########################################################################################################
 
-  # setwd(dir = "~/Documents/hmon/utils/")
-  # options$input="./hpccg.out"
-  # options$output="./test.pdf"
-  # options$grep="papi"
-  # options$split=TRUE
-  # options$title="test_title"
-  # options$xaxis=3
-  # options$yaxis=7
-  # options$model="linear"
-  # options$window=100
-  # options$frequency=0.5
-  # monitors = monitors.read()
-  # monitor = monitors[[1]]
-  # monitor.create.x11(monitor)
-  # monitors.plot.x11(monitors)
-  # monitor.plot.split(monitor)
-  # monitor.plot.merge(monitor)
-  # monitor = monitors.stream()[[2]]
-  # monitor.plot.x11(monitor)
-
-
-if(options$window>0){
-  repeat {
-    monitors.plot.x11(monitors.stream())
-    Sys.sleep(options$frequency)
-  }
-} else {
-  monitors = monitors.read()
-  if(is.null(options$output)){
-    monitors.plot.x11(monitors)
-    print("Press [enter] to close windows")
-    readLines(con="stdin", n= 1)
+script.run <- function() {
+  #Check input is provided
+  if (is.null(options$input))
+    stop("Input option is mandatory")
+  
+  if (options$window > 0) {
+    repeat {
+      monitors.plot.x11(monitors.stream())
+      Sys.sleep(options$frequency)
+    }
   } else {
-    monitors.plot.pdf(monitors)
+    monitors = monitors.read()
+    if (is.null(options$output)) {
+      monitors.plot.x11(monitors)
+      print("Press [enter] to close windows")
+      readLines(con = "stdin", n = 1)
+    } else {
+      monitors.plot.pdf(monitors)
+    }
   }
 }
+
+script.run()
+
+# setwd(dir = "~/Documents/hmon/utils/")
+# options$input="./hpccg.out"
+# options$output="./test.pdf"
+# options$grep="papi"
+# options$split=TRUE
+# options$cluster=T
+# options$title="test_title"
+# options$xaxis=3
+# options$yaxis=7
+# options$model="linear"
+# options$window=100
+# options$frequency=0.5
+# monitors = monitors.read()
+# monitor = monitors[[1]]
+# sapply(monitors, monitor.plot)
+# monitor.create.x11(monitor)
+# monitors.plot.x11(monitors)
+# monitors.plot.pdf(monitors)
+# monitor.plot.split(monitor)
+# monitor.plot.merge(monitor)
+# monitors = monitors.stream()
+# monitors.plot.x11(monitors)
 
