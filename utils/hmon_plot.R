@@ -252,20 +252,16 @@ monitor.cluster <- function(monitor, n=2){
 # If option cluster is set, also split in several clusters
 ##
 monitor.split <- function(monitor) {
-  if(options$split) {
-    obj.list = unique(monitor[, id.obj])
-    split.set = vector("list", length=length(obj.list))
-    for (i in 1:length(obj.list)) {
-      split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
-    }
-  } else {
-    split.set = vector("list", length=1)
-    split.set[[1]] = monitor
+  obj.list = unique(monitor[, id.obj])
+  split.set = vector("list", length = length(obj.list))
+  for (i in 1:length(obj.list)) {
+    split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
   }
   
-  if(options$cluster){
+  if (options$cluster) {
     cluster.set = c()
-    for(i in 1:length(split.set)) cluster.set = c(cluster.set, monitor.cluster(split.set[[i]]))
+    for (i in 1:length(split.set))
+      cluster.set = c(cluster.set, monitor.cluster(split.set[[i]]))
     return(cluster.set)
   }
   split.set
@@ -321,7 +317,7 @@ monitor.plot.merge <- function(monitor) {
     )
     if (!is.null(options$model))
       monitor.plot.fit(m, type=options$model, pch=i+1, col=i)
-    if (length(monitor.list) > 1)
+    if (i<length(monitor.list))
       par(new = TRUE)
   }
   title(
