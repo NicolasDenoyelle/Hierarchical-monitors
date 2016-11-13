@@ -313,8 +313,8 @@ monitor.plot.merge <- function(monitor) {
       ann = FALSE,
       pch = i,
       panel.first = abline(
-        h = yticks,
-        v = xticks,
+        h = monitors.yticks[[monitor.id(monitor)]],
+        v = monitors.xticks[[monitor.id(monitor)]],
         col = "darkgray",
         lty = 3
       )
