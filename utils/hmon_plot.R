@@ -267,6 +267,15 @@ monitor.split <- function(monitor) {
   split.set
 }
 
+#########################################################################################################
+#                                                monitor utils                                          #
+#########################################################################################################
+
+monitors.frame = NULL
+id.time = 3
+id.obj = 2
+id.id  = 1
+
 ##
 # Get a monitor mapping object
 ##
@@ -283,13 +292,84 @@ monitor.obj.index <- function(monitor)
 # Get a monitor id
 ##
 monitor.id <- function(monitor) 
-    as.character(monitor[1, id.id])
+  as.character(monitor[1, id.id])
+
+##
+# Filter NA cols then inf, NaN, NA lines
+##
+monitor.check <- function(frame){
+  cols.del = c()
+  rows.del = c()
+  #Remove columns with only NA
+  for (i in 4:ncol(frame)) {
+    if (length(which(!is.na(frame[, i]))) == 0)
+      cols.del = c(cols.del, i)
+  }
+  frame = frame[, setdiff(1:ncol(frame), cols.del)]
+  
+  #Remove lines with NA, NaN and inf
+  for (i in 1:nrow(frame)) {
+    for (j in 4:ncol(frame)) {
+      if (is.infinite(frame[i, j]) ||
+          is.na(frame[i, j]) || is.nan(frame[i, j])) {
+        rows.del = c(rows.del, i)
+        break
+      }
+    }
+  }
+  frame = frame[setdiff(1:nrow(frame), rows.del),]
+  frame
+}
+
+##
+# set column names of a monitor frame and return the updated frame
+##
+monitors.set.colnames <-function(frame){
+  names = colnames(frame)
+  names[1] = "id"
+  names[2] = "hwloc_obj"
+  names[3] = "nanoseconds"
+  colnames(frame) = names
+  frame
+}
+
+##
+# Acquire monitors from input and return a list of monitors
+##
+monitors.read <- function(){
+  monitors.frame <<- read.table(options$input, stringsAsFactors=F, fill=T)
+  monitors.frame <<- monitors.set.colnames(monitors.frame)
+  if (!is.null(options$filter))
+    monitors.frame <<- monitors.frame[grepl(options$filter, monitors.frame[, id.id], ignore.case = TRUE),]
+  monitors.list(monitors.frame)
+}
+
 
 # Monitors limits and ticks
 monitors.xlim = new.env(hash = T)
 monitors.xticks = new.env(hash = T)
 monitors.ylim = new.env(hash = T)
 monitors.yticks = new.env(hash = T)
+
+##
+# Save in environment a monitor limits and ticks
+##
+monitor.set.limits <- function(monitor){
+  # xlim = monitors.xlim[[monitor.id(monitor)]]
+  # ylim = monitors.xlim[[monitor.id(monitor)]]
+  xmax = max(monitor[,options$xaxis], na.rm = TRUE)
+  xmin = min(monitor[,options$xaxis], na.rm = TRUE)
+  ymax = max(monitor[,options$yaxis], na.rm = TRUE)
+  ymin = min(monitor[,options$yaxis], na.rm = TRUE)
+  monitors.xlim[[monitor.id(monitor)]] <<- c(xmin, xmax)
+  monitors.ylim[[monitor.id(monitor)]] <<- c(ymin, ymax)
+  monitors.xticks[[monitor.id(monitor)]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
+  monitors.yticks[[monitor.id(monitor)]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+}
+
+#########################################################################################################
+#                                                monitor ploting                                        #
+#########################################################################################################
 
 ##
 # Plot a unsplitted monitor
@@ -411,81 +491,22 @@ monitor.plot.split <- function(monitor) {
   title(main = get_title(monitor.id(monitor)), outer=T)
 }
 
-monitor.set.limits <- function(monitor){
-  # xlim = monitors.xlim[[monitor.id(monitor)]]
-  # ylim = monitors.xlim[[monitor.id(monitor)]]
-  xmax = max(monitor[,options$xaxis], na.rm = TRUE)
-  xmin = min(monitor[,options$xaxis], na.rm = TRUE)
-  ymax = max(monitor[,options$yaxis], na.rm = TRUE)
-  ymin = min(monitor[,options$yaxis], na.rm = TRUE)
-  monitors.xlim[[monitor.id(monitor)]] <<- c(xmin, xmax)
-  monitors.ylim[[monitor.id(monitor)]] <<- c(ymin, ymax)
-  monitors.xticks[[monitor.id(monitor)]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
-  monitors.yticks[[monitor.id(monitor)]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
-}
-
 monitor.plot <- function(monitor) {
   monitor = monitor.check(monitor)
+  if(options$yaxis > ncol(monitor)){
+    print(sprintf("yaxis option set to %d but monitor %s has only %d columns",options$yaxis,monitor.id(monitor),ncol(monitor)))
+    return()
+  }
+  if(options$xaxis > ncol(monitor)){
+    print(sprintf("yaxis option set to %d but monitor %s has only %d columns",options$xaxis,monitor.id(monitor),ncol(monitor)))
+    return()
+  }
   monitor.set.limits(monitor)
   if (options$split)
     monitor.plot.split(monitor)
   if (!options$split)
     monitor.plot.merge(monitor)
 }
-
-#########################################################################################################
-#                                          Static monitors handling                                     #
-#########################################################################################################
-
-monitors.frame = NULL
-id.time = 3
-id.obj = 2
-id.id  = 1
-
-
-monitor.check <- function(frame){
-  cols.del = c()
-  rows.del = c()
-  #Remove columns with only NA
-  for (i in 4:ncol(frame)) {
-    if (length(which(!is.na(frame[, i]))) == 0)
-      cols.del = c(cols.del, i)
-  }
-  frame = frame[, setdiff(1:ncol(frame), cols.del)]
-  
-  #Remove lines with NA, NaN and inf
-  for (i in 1:nrow(frame)) {
-    for (j in 4:ncol(frame)) {
-      if (is.infinite(frame[i, j]) ||
-          is.na(frame[i, j]) || is.nan(frame[i, j])) {
-        rows.del = c(rows.del, i)
-        break
-      }
-    }
-  }
-  frame = frame[setdiff(1:nrow(frame), rows.del),]
-  frame
-}
-
-monitors.set.colnames <-function(){
-  names = colnames(monitors.frame)
-  names[1] = "id"
-  names[2] = "hwloc_obj"
-  names[3] = "nanoseconds"
-  colnames(monitors.frame) <<- names
-}
-
-monitors.read <- function(){
-  monitors.frame <<-
-    read.table(options$input, stringsAsFactors=F, fill=T)
-  monitors.set.colnames()
-  if (!is.null(options$filter)) {
-    monitors.frame <<-
-      monitors.frame[grepl(options$filter, monitors.frame[, id.id], ignore.case = TRUE),]
-  }
-  monitors.list(monitors.frame)
-}
-
 
 ##
 # Plot all monitors in pdf file
@@ -560,11 +581,7 @@ monitor.plot.x11 <- function(monitor) {
   monitor.plot(monitor)
 }
 
-monitors.plot.x11 <- function(monitors) {
-  for(i in 1: length(monitors)){
-    monitor.plot.x11(monitors[[i]]) 
-  }
-}
+monitors.plot.x11 <- function(monitors) sapply(monitors, monitor.plot.x11)
 
 #########################################################################################################
 #                                          Streaming monitors                                           #
@@ -600,7 +617,7 @@ monitors.stream = function(n = options$window) {
     start = nrow(monitors.frame)-n*9
     monitors.frame <<- monitors.frame[start:nrow(monitors.frame), ]
   }
-  monitors.set.colnames()
+  monitors.frame <<- monitors.set.colnames(monitors.frame)
   monitors.list(monitors.frame)
 }
 
