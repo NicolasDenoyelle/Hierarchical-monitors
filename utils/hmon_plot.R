@@ -487,8 +487,6 @@ monitors.read <- function(){
     monitors.frame <<-
       monitors.frame[grepl(options$filter, monitors.frame[, id.id], ignore.case = TRUE),]
   }
-  start = monitors.frame[1,id.time]
-  monitors.frame[,id.time] = monitors.frame[,id.time] - start 
   monitors.list(monitors.frame)
 }
 
