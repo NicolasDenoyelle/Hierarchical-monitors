@@ -2,7 +2,7 @@
 #include "../../internal.h"
 #include "../performance_plugin.h"
 
-#define FAKE_NAME "FAKE_MONITOR"
+#define FAKE_NAME "FAKE"
 typedef int* fake_eventset;
 
 char ** hmonitor_events_list(int * n_events){
