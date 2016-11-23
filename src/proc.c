@@ -26,8 +26,6 @@ struct proc_task{
     int state;
 };
 
-
-
 static int
 read_proc_stats(const char * proc_path, struct proc_task * p_info)
 {
@@ -129,67 +127,108 @@ exit_error:
     hwloc_bitmap_fill(cpuset);
 }
 
+
 /***************************************************************************************************************/
-/*                                             Setting tasks placement                                         */
+/*                                             Looking at cpu usage                                            */
+/***************************************************************************************************************/
+
+struct proc_cpu{
+  hwloc_obj_t location;
+  unsigned long user[2];   /* normal processes executing in user mode */
+  unsigned long nice[2];   /* niced processes executing in user mode */
+  unsigned long system[2]; /* processes executing in kernel mode */
+  unsigned long idle[2];   /* twiddling thumbs */
+  unsigned long iowait[2]; /* waiting for I/O to complete */
+  unsigned long irq[2];    /* servicing interrupts */
+  unsigned long softirq[2];/* servicing softirqs */
+};
+
+
+struct proc_cpu * new_proc_cpu(hwloc_obj_t location){
+  if(location->type != HWLOC_OBJ_PU && location->type != HWLOC_OBJ_MACHINE){
+    monitor_print_err("Location of object collecting cpu info must be either HWLOC_OBJ_PU or HWLOC_OBJ_MACHINE (currently on %s)\n",
+		      hwloc_type_name(location->type));
+    return NULL;
+  }
+  
+  struct proc_cpu * p;
+  malloc_chk(p, sizeof(*p));
+  p->location   = location;  
+  p->user[0]    = p->user[1] = 0;
+  p->nice[0]    = p->nice[1] = 0;
+  p->system[0]  = p->system[1] = 0;
+  p->idle[0]    = p->idle[1] = 0;
+  p->iowait[0]  = p->iowait[1] = 0;
+  p->irq[0]     = p->irq[1] = 0;
+  p->softirq[0] = p->softirq[1] = 0;
+  return p;
+}
+
+void delete_proc_cpu(struct proc_cpu * p){free(p);}
+
+int proc_cpu_read(struct proc_cpu * p){
+  FILE * proc_file = fopen("/proc/stat", "r");
+  if(proc_file == NULL){
+    monitor_print_err("Can't open /proc/stat for reading");
+    return -1;
+  }
+
+  /* Save old values */
+  p->user[0]    = p->user[1];
+  p->nice[0]    = p->nice[1];
+  p->system[0]  = p->system[1];
+  p->idle[0]    = p->idle[1];
+  p->iowait[0]  = p->iowait[1];
+  p->irq[0]     = p->irq[1];
+  p->softirq[0] = p->softirq[1];
+
+  /* Read new values */
+  unsigned long cpu_num = 0;
+  do{
+    /* skip 'c' 'p' 'u' */
+    fgetc(proc_file); fgetc(proc_file); fgetc(proc_file);
+    if(p->location->type == HWLOC_OBJ_MACHINE){
+      int err = fscanf(proc_file,"%lu %lu %lu %lu %lu %lu %lu",
+		       &(p->user[1]),
+		       &(p->nice[1]),
+		       &(p->system[1]),
+		       &(p->idle[1]),
+		       &(p->iowait[1]),
+		       &(p->irq[1]),
+		       &(p->softirq[1]));
+      if(err==EOF) goto read_error;
+      break;
+    }
+    int err = fscanf(proc_file,"%lu %lu %lu %lu %lu %lu %lu %lu\n",
+		     &cpu_num,
+		     &(p->user[1]),
+		     &(p->nice[1]),
+		     &(p->system[1]),
+		     &(p->idle[1]),
+		     &(p->iowait[1]),
+		     &(p->irq[1]),
+		     &(p->softirq[1]));
+    if(err==EOF) goto read_error;
+  } while(cpu_num != p->location->os_index);
+
+  fclose(proc_file);
+  return 0;
+read_error:
+  fclose(proc_file);
+  {perror("fscanf"); return -1;}
+  return -1;
+}
+
+double proc_cpu_load(struct proc_cpu * p){
+  double usage = (p->user[1]-p->user[0]) + (p->nice[1]-p->nice[0]) + (p->system[1]-p->system[0]);
+  return usage == 0 ? 0 : 100*usage / (usage + (p->idle[1]-p->idle[0]));
+}
+
+/***************************************************************************************************************/
+/*                                             Starting runnable                                               */
 /***************************************************************************************************************/
 
 extern hwloc_topology_t monitor_topology;
-
-
-/**
- * Check whether linux cpuset filesystem can be used.
- * If so, create a hierarchy filesystem of topology cpusets.
- **/
-/* static const char * proc_cpuset_root = "/dev/cpuset/monitor"; */
-
-/* static int proc_cpuset_init(){ */
-/*     char        cpuset_path[2048]; */
-/*     char        cpuset_str[64]; */
-/*     hwloc_obj_t cpuset_obj = hwloc_get_root_obj(monitor_topology); */
-    
-/*     memset(cpuset_path, 0, sizeof(cpuset_path)); */
-/*     snprintf(cpuset_path, sizeof(cpuset_path), "%s", proc_cpuset_root);  */
-/*     if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){ */
-/* 	perror("mkdir in /dev/cpuset/monitor"); */
-/* 	return -1; */
-/*     } */
-/*     /\* Walk the topology and create a cpuset hierarchy of the topology restricted to monitors *\/ */
-/*  proc_cpuset_create: */
-/*     memset(cpuset_str,0,sizeof(cpuset_str)); */
-/*     hwloc_bitmap_snprintf(cpuset_str, sizeof(cpuset_str), cpuset_obj->cpuset); */
-/*     strcat(cpuset_path,"/"); strcat(cpuset_path,cpuset_str); */
-/*     if(mkdir(proc_cpuset_root, S_IRUSR|S_IWUSR) == -1){ */
-/* 	perror("mkdir in /dev/cpuset/monitor"); */
-/* 	return -1; */
-/*     } */
-/*  proc_topo_walk: */
-/*     if(cpuset_obj->first_child != NULL) */
-/* 	cpuset_obj = cpuset_obj->first_child; */
-/*     else if(cpuset_obj->next_sibling != NULL){ */
-/* 	cpuset_obj =  cpuset_obj->next_sibling; */
-/* 	if(cpuset_obj->userdata!=NULL) */
-/* 	    memset(cpuset_path+strlen(cpuset_path)-strlen(cpuset_str)-1, 0, strlen(cpuset_str)); */
-/*     } */
-/*     else{ */
-/* 	size_t len = strlen(cpuset_path); */
-/* 	char * c = &(cpuset_path[len]); */
-/* 	while(cpuset_obj != NULL && cpuset_obj->next_sibling == NULL){ */
-/* 	    cpuset_obj = cpuset_obj->parent; */
-/* 	    if(cpuset_obj->userdata==NULL) */
-/* 		continue; */
-/* 	    do{*c = *c-1;} while(*c!='/' || c!=cpuset_path); */
-/* 	} */
-/* 	memset(c , 0, len - (c - cpuset_path)); */
-/*     } */
-/*     if(cpuset_obj == NULL) */
-/* 	return 0; */
-/*     if(cpuset_obj->userdata == NULL) */
-/* 	goto proc_topo_walk; */
-    
-/*     cpuset_obj =  cpuset_obj->next_sibling; */
-/*     goto proc_cpuset_create; */
-/* } */
-
 
 pid_t
 start_executable(char * executable, char * exe_args[])
@@ -213,45 +252,5 @@ start_executable(char * executable, char * exe_args[])
   }
   return pid;
 }
-
-
-/* pid_t  */
-/* start_executable(char * executable, char * exe_args[]) */
-/* { */
-/*   printf("starting %s\n",executable); */
-/*   pid_t ret=0; */
-/*   pid_t *child = mmap(NULL, sizeof *child, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0); */
-/*   *child=0; */
-/*   pid_t pid2, pid1 = fork(); */
-/*   if(pid1<0){ */
-/*     perror("fork"); */
-/*     exit(EXIT_FAILURE); */
-/*   } */
-/*   if(pid1>0){ */
-/*     wait(NULL); */
-/*   } */
-/*   else if(pid1==0){ */
-/*     pid2=fork(); */
-/*     if(pid2){ */
-/*       *child = pid2; */
-/*       msync(child, sizeof(*child), MS_SYNC); */
-/*       exit(0); */
-/*     } */
-/*     else if(!pid2){ */
-/*       printf("starting %s\n",executable); */
-/*       ret = execvp(executable, exe_args); */
-/*       if (ret) { */
-/* 	monitor_print_err( "Failed to launch executable \"%s\"\n", */
-/* 		executable); */
-/* 	perror("execvp"); */
-/* 	exit(EXIT_FAILURE); */
-/*       } */
-/*     } */
-/*   } */
-/*   msync(child, sizeof(*child), MS_SYNC); */
-/*   ret = *child; */
-/*   munmap(child, sizeof *child); */
-/*   return ret;  */
-/* } */
 
 
