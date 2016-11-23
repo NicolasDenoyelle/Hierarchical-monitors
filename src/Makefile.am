@@ -8,13 +8,12 @@ hmoninclude_HEADERS=hmon/harray.h hmon/hmonitor.h
 
 bin_PROGRAMS=hmonitor
 hmonitor_SOURCES=main.c
-LDADD=-lhwloc
+hmonitor_LDFLAGS=-lhwloc
 hmonitor_LDADD=libhmon.la
 
 if HMON_HAVE_LSTOPO
-#hmonitor_SOURCES+=console.c
 hmonitor_SOURCES+=lstopo.c
-hmonitor_LDFLAGS=-llstopo
+hmonitor_LDFLAGS+=-llstopo
 else
 hmonitor_SOURCES+=console.c
 endif
