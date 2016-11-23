@@ -57,10 +57,9 @@ splitOpt = make_option(
 
 clusterOpt = make_option(
   opt_str = c("-c", "--cluster"),
-  type = "logical",
-  default = FALSE,
-  action = "store_true",
-  help = "Split each monitor into several clusters using kmean on monitor events"
+  type = "integer",
+  default = 1,
+  help = "Split each monitor into several --clusters using kmean on monitor events"
 )
 
 fitOpt = make_option(
@@ -237,13 +236,13 @@ monitors.list <- function(monitors){
 ##
 # Split a monitor in several monitors using kmeans clustering
 ##
-monitor.cluster <- function(monitor, n=2){
+monitor.cluster <- function(monitor){
   if(nrow(monitor)<=10){return(list(monitor))}
-  cluster.set = vector("list", length=n)
+  cluster.set = vector("list", length=options$cluster)
   p = monitor[, 4:ncol(monitor)]
   p = scale(p, center = TRUE, scale = TRUE)
-  model = kmeans(x = p, centers = n)
-  for (i in 1:n) cluster.set[[i]] = monitor[model$cluster == i,]
+  model = kmeans(x = p, centers = options$cluster)
+  for (i in 1:options$cluster) cluster.set[[i]] = monitor[model$cluster == i,]
   cluster.set
 }
 
@@ -258,7 +257,7 @@ monitor.split <- function(monitor) {
     split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
   }
   
-  if (options$cluster) {
+  if (options$cluster > 1) {
     cluster.set = c()
     for (i in 1:length(split.set))
       cluster.set = c(cluster.set, monitor.cluster(split.set[[i]]))
@@ -295,7 +294,7 @@ monitor.id <- function(monitor)
   as.character(monitor[1, id.id])
 
 ##
-# Filter NA cols then inf, NaN, NA lines
+# Filter NA cols then inf, NaN, NA lines, and return filtered frame
 ##
 monitor.check <- function(frame){
   cols.del = c()
