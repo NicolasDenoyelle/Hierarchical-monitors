@@ -57,13 +57,13 @@ void count();
 "REDUCTION:="      { count(); /* fprintf(stderr,"REDUCTION_FIELD\n"); */       return(REDUCTION_FIELD);};
 "WINDOW:="         { count(); /* fprintf(stderr,"WINDOW_FIELD\n"); */          return(WINDOW_FIELD);};
 "SILENT:="         { count(); /* fprintf(stderr,"SILENT_FIELD\n"); */          return(SILENT_FIELD);};
-"DISPLAY:="        { count(); /* fprintf(stderr,"SILENT_DISPLAY\n"); */          return(DISPLAY_FIELD);};
-{name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */      yylval.str = strdup(yytext); return(NAME);};
-{perf_ctr}         { count(); /* fprintf(stderr,"PERF_CTR:%s\n", yytext); */  yylval.str = strdup(yytext); return(PERF_CTR);};
-{var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */       yylval.str = var_to_reference(yytext); return(VAR); };
-{path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */      yylval.str = strdup(yytext); return(PATH);};
-{integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */   yylval.str = strdup(yytext); return(INTEGER);};
-{real}             { count(); /* fprintf(stderr,"REAL:%s\n", yytext); */      yylval.str = strdup(yytext); return(REAL);};
+"DISPLAY:="        { count(); /* fprintf(stderr,"SILENT_DISPLAY\n"); */        return(DISPLAY_FIELD);};
+{name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */       yylval.str = strdup(yytext); return(NAME);};
+{perf_ctr}         { count(); /* fprintf(stderr,"PERF_CTR:%s\n", yytext); */   yylval.str = strdup(yytext); return(PERF_CTR);};
+{var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */        yylval.str = var_to_reference(yytext); return(VAR); };
+{path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */       yylval.str = strdup(yytext); return(PATH);};
+{integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */    yylval.str = strdup(yytext); return(INTEGER);};
+{real}             { count(); /* fprintf(stderr,"REAL:%s\n", yytext); */       yylval.str = strdup(yytext); return(REAL);};
 \n                 { count();}
 %.*                { count();}
 x.                 { count();}
