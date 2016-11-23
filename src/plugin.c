@@ -203,7 +203,7 @@ void hmon_stat_plugin_build(const char * name, const char * code)
     break;
   }
 
-cleanup:
+cleanup:;
   /* Cleanup */ 
   unlink(input_file_path);
   unlink(output_file_path);
