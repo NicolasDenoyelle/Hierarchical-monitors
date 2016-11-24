@@ -36,7 +36,7 @@ static int callback(struct lstopo_output *loutput, hwloc_obj_t obj, unsigned dep
   switch (obj->type) {
   case HWLOC_OBJ_MACHINE:
   case HWLOC_OBJ_PACKAGE:
-    snprintf(value, sizeof(value), "%-.10e", monitor->samples[monitor->display-1]);
+    snprintf(value, sizeof(value), "%-.6e", monitor->samples[monitor->display-1]);
     methods->box(loutput, r, g, b, depth, x, width, y, height);
     methods->text(loutput, 0, 0, 0, fontsize, depth, x+gridsize, y+gridsize, value);
     return 0;
@@ -51,7 +51,7 @@ static int callback(struct lstopo_output *loutput, hwloc_obj_t obj, unsigned dep
     methods->text(loutput, 0, 0, 0, fontsize, depth, x+gridsize, y+gridsize, value);
     return 0;
   case HWLOC_OBJ_NUMANODE:
-    snprintf(value, sizeof(value), "%-.16e", monitor->samples[monitor->display-1]);
+    snprintf(value, sizeof(value), "%-.6e", monitor->samples[monitor->display-1]);
     methods->box(loutput, 0xd2, 0xe7, 0xa4, depth, x, width, y, height);
     methods->box(loutput, r, g, b, depth, x+gridsize, width-2*gridsize, y+gridsize, fontsize+2*gridsize);
     methods->text(loutput, 0, 0, 0, fontsize, depth, x+2*gridsize, y+2*gridsize, value);

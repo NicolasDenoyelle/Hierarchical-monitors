@@ -225,6 +225,77 @@ double proc_cpu_load(struct proc_cpu * p){
 }
 
 /***************************************************************************************************************/
+/*                                             Looking at mem usage                                            */
+/***************************************************************************************************************/
+
+struct proc_mem{
+  hwloc_obj_t location;
+  unsigned long total;  /* Total memory */
+  unsigned long free;   /* Free memory */
+  unsigned long used;   /* Used memory */
+};
+
+struct proc_mem * new_proc_mem(hwloc_obj_t location){
+  if(location->type != HWLOC_OBJ_NUMANODE && location->type != HWLOC_OBJ_MACHINE){
+    monitor_print_err("Location of object collecting mem info must be either HWLOC_OBJ_NUMANODE or HWLOC_OBJ_MACHINE (currently on %s)\n",
+		      hwloc_type_name(location->type));
+    return NULL;
+  }
+  
+  struct proc_mem * p;
+  malloc_chk(p, sizeof(*p));
+  p->location   = location;  
+  p->free = 0;
+  p->used = 0;
+  return p;
+}
+
+void delete_proc_mem(struct proc_mem * p){free(p);}
+
+int proc_mem_read(struct proc_mem * p){
+  char path[1024]; memset(path,0,sizeof(path));
+
+  if(p->location->type == HWLOC_OBJ_NUMANODE){
+    int nid = p->location->os_index;
+    snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/meminfo", nid);
+  }
+  else
+    snprintf(path, sizeof(path), "/proc/meminfo");
+
+  FILE * proc_file = fopen(path, "r");
+  if(proc_file == NULL){
+    monitor_print_err("Can't open %s for reading", path);
+    return -1;
+  }
+
+  if(p->location->type == HWLOC_OBJ_NUMANODE){
+    /* Read new values */
+    if(fscanf(proc_file,"Node %*d MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error;
+    if(fscanf(proc_file,"Node %*d MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error;
+    if(fscanf(proc_file,"Node %*d MemUsed: %lu kB\n", &(p->used) ) == EOF) goto read_error;
+  } else {
+    if(fscanf(proc_file,"MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error;
+    if(fscanf(proc_file,"MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error;
+    p->used = p->total - p->free;
+  }
+
+  fclose(proc_file);
+  return 0;
+read_error:
+  fclose(proc_file);
+  {perror("fscanf"); return -1;}
+  return -1;
+}
+
+double proc_mem_load(struct proc_mem * p){
+  return p->used == 0 ? 0 : 100*p->used / p->total;
+}
+
+double proc_mem_used(struct proc_mem * p){
+  return p->used*1024;
+}
+
+/***************************************************************************************************************/
 /*                                             Starting runnable                                               */
 /***************************************************************************************************************/
 

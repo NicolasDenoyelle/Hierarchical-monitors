@@ -2,38 +2,78 @@
 %%                            EXAMPLES                           %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% test monitor
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Obtaining some /proc infos %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Display for each processing unit the current load as htop does.
+cpu_load{
+	OBJ:=PU;
+	PERF_LIB:=proc;
+	EVSET:=cpuload;
+	SILENT:=1; %do not output to trace
+	DISPLAY:=1; %hmonitor -d (option required)
+}
+
+%% Display memory footprint on each memory
+mem_usage{
+	OBJ:=Node;
+	PERF_LIB:=proc;
+	EVSET:=memload;
+	SILENT:=1; %do not output to trace
+	DISPLAY:=1; %hmonitor -d (option required)
+}
+
+
+%% Display the machine total load
+machine_load{
+	OBJ:=Machine;
+	PERF_LIB:=proc;
+	EVSET:=cpuload;
+	SILENT:=1; %do not output to trace
+	DISPLAY:=1; %hmonitor -d (option required)
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Connecting monitors %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test monitor, output event value 1.0 always.
 % fake{
-% 	OBJ:=Machine;
+% 	OBJ:=Core;
 % 	PERF_LIB:=fake;
-% 	EVSET:=FAKE_MONITOR;
+% 	EVSET:=FAKE;
 % }
 
-%% accumulate each event from children of each OBJ.
-%accumulate{
+%% Accumulate each output event from children monitors (result is the number of cores).
+%accumulation{
 %	OBJ:=Machine;
 %	PERF_LIB:=accumulate;
 %	EVSET:=fake;
 %}
 
-%% make an input eventset on OBJ, out of children monitors' output.
+%% Make an input eventset on Machine, out of joined children "fake" monitors output.
 %hierarchical{
 %	OBJ:=Machine;
 %	PERF_LIB:=hierarchical;
 %	EVSET:=fake;
 %}
 
-%% manually reduce input event into output samples (assumes 2 PU per Core)
+%% Reduce input events into output samples
 %reduction{
 %	OBJ:=Core;
 %	PERF_LIB:=hierarchical;
-%	EVSET:=fake;
-%       %syntax: output0=input1 OP inputk... , output1=...
-%	REDUCTION:= $1/2+$0/2, $1*$0/2;
+%	EVSET:=fake; %(assumes 2 PU per Core)
+%	REDUCTION:= $1+$2, $1+$2/2; %syntax: output0=input1 OP inputk... , output1=...
 %}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%% Get miss balance on L2 caches
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Computing miss balance on L2 caches %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Create monitor for recording L2 cache misses (event on PU)
 % L2_MISS_PU{
 % 	OBJ:=PU;
 % 	PERF_LIB:=papi;	
@@ -42,14 +82,16 @@
 % 	DISPLAY:=1;
 % }
 
+%% Accumulate L2 cache misses on L2 obj, where they belong.
 % L2_MISS_L2{
 % 	OBJ:=L2;
 % 	EVSET:=L2_MISS_PU;
 % 	PERF_LIB:=accumulate;
 % 	SILENT:=1;
-% 	DISPLAY:=0;
+% 	DISPLAY:=1;
 % }
 
+%% Compute and output L2 miss balance
 % L2_balance{
 % 	OBJ:=Machine;
 % 	EVSET:=L2_MISS_L2;
@@ -58,9 +100,13 @@
 % 	REDUCTION:=1#hmonitor_evset_var;
 % 	DISPLAY:=1;
 % }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% More complicated analysis (Currently experimental) %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Learning examples
-
 %% Collect raw events
 % raw_events{
 % 	OBJ:=PU;
@@ -69,7 +115,7 @@
 % 	SILENT:=1;
 % }
 
-%% Accumulate events in a single monitor
+%% Accumulate events in a single monitor, and reduce obtained events into a new set of events.
 % accumulation{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=accumulate;
@@ -77,7 +123,7 @@
 % 	REDUCTION:=$0, $1*$2, $1*$3, $1*$1, $2*$2, $2*$3;
 % }
 
-%% Fit accumulation first event with others event, output coefficient of determination and model parameters.
+%% Fit first event with others event, output coefficient of determination and model parameters.
 % lsq_fit{
 % 	OBJ:=Machine;
 % 	PERF_LIB:=hierarchical;
@@ -94,6 +140,9 @@
 % 	 WINDOW:=8;
 % 	 REDUCTION:=8#clustering;
 % }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                             HELP                              %%
@@ -116,12 +165,13 @@
 %	 hmonitor_events_min
 %	 hmonitor_events_max
 
-%default PERF_LIB (some may not be available):
-%	 papi
-%	 hierarchical
-%	 accumulate
-%	 maqao
-%	 fake
+%default PERF_LIB (some may not be available) and events:
+%        proc (cpuload, memload, memusage)
+%	 papi (see papi_avail, and papi_native_avail)
+%	 hierarchical (previously defined monitors)
+%	 accumulate (previously defined monitors)
+%	 maqao (see maqao documentation)
+%	 fake  (FAKE)
 
 %EVSET depend on PERF_LIB value. Usually list of available events is dumped when EVSET field is filled with unavailable event.
 %Certain framework like PAPI also provides tools to list events.
