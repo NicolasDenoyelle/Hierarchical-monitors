@@ -183,39 +183,47 @@ int proc_cpu_read(struct proc_cpu * p){
   p->softirq[0] = p->softirq[1];
 
   /* Read new values */
-  unsigned long cpu_num = 0;
-  do{
-    /* skip 'c' 'p' 'u' */
-    fgetc(proc_file); fgetc(proc_file); fgetc(proc_file);
-    if(p->location->type == HWLOC_OBJ_MACHINE){
-      int err = fscanf(proc_file,"%lu %lu %lu %lu %lu %lu %lu",
+  char * line = NULL;
+  size_t len = 0;
+
+  if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;}
+  if((sscanf(line,"cpu %lu %lu %lu %lu %lu %lu %lu\n",
 		       &(p->user[1]),
 		       &(p->nice[1]),
 		       &(p->system[1]),
 		       &(p->idle[1]),
 		       &(p->iowait[1]),
 		       &(p->irq[1]),
-		       &(p->softirq[1]));
-      if(err==EOF) goto read_error;
-      break;
-    }
-    int err = fscanf(proc_file,"%lu %lu %lu %lu %lu %lu %lu %lu\n",
-		     &cpu_num,
-		     &(p->user[1]),
-		     &(p->nice[1]),
-		     &(p->system[1]),
-		     &(p->idle[1]),
-		     &(p->iowait[1]),
-		     &(p->irq[1]),
-		     &(p->softirq[1]));
-    if(err==EOF) goto read_error;
-  } while(cpu_num != p->location->os_index);
+	     &(p->softirq[1]))) == EOF){goto sscanf_error;}
+  
+  if(p->location->type == HWLOC_OBJ_PU){
+    unsigned long cpu_num = 0;
+    do{
+      len = 0; free(line); line = NULL;
+      if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;}
+      if((sscanf(line,"cpu%lu %lu %lu %lu %lu %lu %lu %lu\n",
+		 &cpu_num,
+		 &(p->user[1]),
+		 &(p->nice[1]),
+		 &(p->system[1]),
+		 &(p->idle[1]),
+		 &(p->iowait[1]),
+		 &(p->irq[1]),
+		 &(p->softirq[1]))) == EOF){goto sscanf_error;}
+    } while(cpu_num != p->location->os_index);
+  }
 
+  free(line);
   fclose(proc_file);
   return 0;
-read_error:
+getline_error:
   fclose(proc_file);
-  {perror("fscanf"); return -1;}
+  {perror("getline"); return -1;}
+  return -1;
+sscanf_error:
+  free(line);
+  fclose(proc_file);
+  {perror("sscanf"); return -1;}
   return -1;
 }
 
