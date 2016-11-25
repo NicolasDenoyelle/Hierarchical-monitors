@@ -4,32 +4,40 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Obtaining some /proc infos %
+% Obtaining some system infos %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Display for each processing unit the current load as htop does.
 cpu_load{
 	OBJ:=PU;
-	PERF_LIB:=proc;
+	PERF_LIB:=system;
 	EVSET:=cpuload;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
 }
 
 %% Display memory footprint on each memory
-mem_load{
+memload{
 	OBJ:=Node;
-	PERF_LIB:=proc;
+	PERF_LIB:=system;
 	EVSET:=memload;
-	REDUCTION:=$1;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
 }
 
+% Display the locality ratio: (numa hit / numa miss)
+% numa_balance{
+% 	OBJ:=Node;
+% 	PERF_LIB:=system;
+% 	EVSET:=numa_local, numa_remote;
+% 	REDUCTION:=$0, $1;
+% 	SILENT:=0; %do not output to trace
+% 	DISPLAY:=1; %hmonitor -d (option required)
+% }
 
 %% Display the machine total load
 machine_load{
 	OBJ:=Machine;
-	PERF_LIB:=proc;
+	PERF_LIB:=system;
 	EVSET:=cpuload;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
@@ -66,7 +74,7 @@ machine_load{
 %	OBJ:=Core;
 %	PERF_LIB:=hierarchical;
 %	EVSET:=fake; %(assumes 2 PU per Core)
-%	REDUCTION:= $1+$2, $1+$2/2; %syntax: output0=input1 OP inputk... , output1=...
+%	REDUCTION:= $0+$1, $0+$1/2; %syntax: output0=input1 OP inputk... , output1=...
 %}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -167,7 +175,7 @@ machine_load{
 %	 hmonitor_events_max
 
 %default PERF_LIB (some may not be available) and events:
-%        proc (cpuload, memload, memusage, numa_local, numa_remote)
+%        system (cpuload, memload, memusage, numa_local, numa_remote)
 %	 papi (see papi_avail, and papi_native_avail)
 %	 hierarchical (previously defined monitors)
 %	 accumulate (previously defined monitors)
