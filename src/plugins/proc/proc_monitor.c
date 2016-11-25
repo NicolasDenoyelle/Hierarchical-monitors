@@ -2,8 +2,8 @@
 #include "../../internal.h"
 #include "../performance_plugin.h"
 
-enum event_type {error, cpuload, memload, memused};
-const enum event_type allowed_events[] = {cpuload, memload, memused};
+enum event_type {error, cpuload, memload, memused, numa_local, numa_remote};
+const enum event_type allowed_events[] = {cpuload, memload, memused, numa_local, numa_remote};
 
 struct event{
   enum event_type type;
@@ -24,6 +24,10 @@ const char * event_name(const enum event_type event){
     return "memload";
   case memused:
     return "memused";
+  case numa_local:
+    return "numa_local";
+  case numa_remote:
+    return "numa_remote";
   default:
     return NULL;
   }
@@ -35,6 +39,8 @@ enum event_type event_type(const char * name){
   if(!strcmp(name, "cpuload")) event = cpuload;
   if(!strcmp(name, "memload")) event = memload;
   if(!strcmp(name, "memused")) event = memused;
+  if(!strcmp(name, "numa_local")) event = numa_local;
+  if(!strcmp(name, "numa_remote")) event = numa_remote;
   return event;
 }
 
@@ -78,6 +84,12 @@ int hmonitor_eventset_destroy(void * eventset){
     case memused:
       delete_proc_mem((struct proc_mem *) evset->events[i].proc_info);
       break;
+    case numa_local:
+      delete_proc_numa((struct proc_numa *) evset->events[i].proc_info);
+      break;
+    case numa_remote:
+      delete_proc_numa((struct proc_numa *) evset->events[i].proc_info);
+      break;
     default:
       break;
     }
@@ -92,7 +104,6 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
 {
   struct eventset * evset = (struct eventset *) monitor_eventset;
   struct event * new_event = &(evset->events[evset->n_events]);
-  
   new_event->type = event_type(event);
   if(new_event->type == error) return -1;
   
@@ -105,6 +116,12 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
     break;
   case memused:
     if((new_event->proc_info = new_proc_mem(evset->location)) == NULL){return -1;} 
+    break;
+  case numa_local:
+    if((new_event->proc_info = new_proc_numa(evset->location)) == NULL){return -1;} 
+    break;
+  case numa_remote:
+    if((new_event->proc_info = new_proc_numa(evset->location)) == NULL){return -1;} 
     break;
   default:
     break;
@@ -137,6 +154,14 @@ int hmonitor_eventset_read(void * monitor_eventset, double * values){
     case memused:
       proc_mem_read((struct proc_mem*)proc_info);
       values[i] = proc_mem_used((struct proc_mem*)proc_info);
+      break;
+    case numa_local:
+      proc_numa_read((struct proc_numa*)proc_info);
+      values[i] = proc_numa_local((struct proc_numa*)proc_info);
+      break;
+    case numa_remote:
+      proc_numa_read((struct proc_numa*)proc_info);
+      values[i] = proc_numa_remote((struct proc_numa*)proc_info);
       break;
     default:
       values[i] = 0;

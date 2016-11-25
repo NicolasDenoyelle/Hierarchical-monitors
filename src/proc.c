@@ -6,12 +6,21 @@
 #include <sys/types.h>
 #include "./internal.h"
 
-static DIR * proc_open_dir(char * path){
+static DIR * proc_open_dir(const char * path){
     DIR * dir = NULL;
     dir = opendir(path);
   if(dir==NULL)
       perror("attach opendir:");
  return dir;
+}
+
+static FILE * proc_open_file(const char * path){
+  FILE * proc_file = fopen("/proc/stat", "r");
+  if(proc_file == NULL){
+    monitor_print_err("Can't open %s for reading", path);
+    return NULL;
+  }
+  return proc_file;
 }
 
 /****************************************************************************************************************/
@@ -31,7 +40,7 @@ read_proc_stats(const char * proc_path, struct proc_task * p_info)
 {
     unsigned pu_num;
     char state;  
-    FILE * proc_file = fopen(proc_path, "r");
+    FILE * proc_file = proc_open_file(proc_path);
     if(proc_file == NULL){
 	p_info->state=0;
 	return -1;
@@ -104,8 +113,8 @@ void proc_get_allowed_cpuset(pid_t pid, hwloc_cpuset_t cpuset){
     memset(path, 0, sizeof(path));
     snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
     token_length = strlen(token);
-    status_file = fopen(path,"r");
-    if(status_file == NULL){perror("fopen");goto exit_error;}
+    status_file = proc_open_file(path);
+    if(status_file == NULL){goto exit_error;}
     
     line = malloc(8);
     do{
@@ -167,11 +176,8 @@ struct proc_cpu * new_proc_cpu(hwloc_obj_t location){
 void delete_proc_cpu(struct proc_cpu * p){free(p);}
 
 int proc_cpu_read(struct proc_cpu * p){
-  FILE * proc_file = fopen("/proc/stat", "r");
-  if(proc_file == NULL){
-    monitor_print_err("Can't open /proc/stat for reading");
-    return -1;
-  }
+  FILE * proc_file = proc_open_file("/proc/stat");
+  if(proc_file == NULL){return -1;}
 
   /* Save old values */
   p->user[0]    = p->user[1];
@@ -270,11 +276,8 @@ int proc_mem_read(struct proc_mem * p){
   else
     snprintf(path, sizeof(path), "/proc/meminfo");
 
-  FILE * proc_file = fopen(path, "r");
-  if(proc_file == NULL){
-    monitor_print_err("Can't open %s for reading", path);
-    return -1;
-  }
+  FILE * proc_file = proc_open_file(path);
+  if(proc_file == NULL){return -1;}
 
   if(p->location->type == HWLOC_OBJ_NUMANODE){
     /* Read new values */
@@ -301,6 +304,61 @@ double proc_mem_load(struct proc_mem * p){
 
 double proc_mem_used(struct proc_mem * p){
   return p->used*1024;
+}
+
+/***************************************************************************************************************/
+/*                                           Looking at memory balance                                         */
+/***************************************************************************************************************/
+struct proc_numa{
+  hwloc_obj_t location;
+  unsigned long local;  /* Number of hit on local pages */
+  unsigned long remote; /* Number of miss on local pages */
+};
+
+struct proc_numa * new_proc_numa(hwloc_obj_t location){
+  if(location->type != HWLOC_OBJ_NUMANODE){
+    monitor_print_err("Location of object collecting mem info must be HWLOC_OBJ_NUMANODE (currently on %s)\n",
+		      hwloc_type_name(location->type));
+    return NULL;
+  }
+  
+  struct proc_numa * p;
+  malloc_chk(p, sizeof(*p));
+  p->location   = location;  
+  p->local = 0;
+  p->remote = 0;
+  return p;
+}
+
+void delete_proc_numa(struct proc_numa * p){free(p);}
+
+int proc_numa_read(struct proc_numa * p){
+
+  char path[1024]; memset(path,0,sizeof(path));
+  int nid = p->location->os_index;
+  snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/numastat", nid);
+
+  FILE * proc_file = proc_open_file(path);
+  if(proc_file == NULL){return -1;}
+  
+  /* Read new values */
+  if(fscanf(proc_file,"numa_hit %lu\n", &(p->local)) == EOF) goto read_error;
+  if(fscanf(proc_file,"numa_miss %lu\n", &(p->remote)) == EOF) goto read_error;
+  fclose(proc_file);
+ 
+  return 0;
+read_error:
+  fclose(proc_file);
+  {perror("fscanf"); return -1;}
+  return -1;
+}
+
+double proc_numa_local(struct proc_numa * p){
+  return p->local;
+}
+
+double proc_numa_remote(struct proc_numa * p){
+  return p->remote;
 }
 
 /***************************************************************************************************************/

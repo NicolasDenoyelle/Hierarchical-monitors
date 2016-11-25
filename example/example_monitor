@@ -16,10 +16,11 @@ cpu_load{
 }
 
 %% Display memory footprint on each memory
-mem_usage{
+mem_load{
 	OBJ:=Node;
 	PERF_LIB:=proc;
 	EVSET:=memload;
+	REDUCTION:=$1;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
 }
@@ -166,7 +167,7 @@ machine_load{
 %	 hmonitor_events_max
 
 %default PERF_LIB (some may not be available) and events:
-%        proc (cpuload, memload, memusage)
+%        proc (cpuload, memload, memusage, numa_local, numa_remote)
 %	 papi (see papi_avail, and papi_native_avail)
 %	 hierarchical (previously defined monitors)
 %	 accumulate (previously defined monitors)
