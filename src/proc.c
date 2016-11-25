@@ -15,7 +15,7 @@ static DIR * proc_open_dir(const char * path){
 }
 
 static FILE * proc_open_file(const char * path){
-  FILE * proc_file = fopen("/proc/stat", "r");
+  FILE * proc_file = fopen(path, "r");
   if(proc_file == NULL){
     monitor_print_err("Can't open %s for reading", path);
     return NULL;
@@ -342,10 +342,10 @@ int proc_numa_read(struct proc_numa * p){
   if(proc_file == NULL){return -1;}
   
   /* Read new values */
-  if(fscanf(proc_file,"numa_hit %lu\n", &(p->local)) == EOF) goto read_error;
-  if(fscanf(proc_file,"numa_miss %lu\n", &(p->remote)) == EOF) goto read_error;
+  if(fscanf(proc_file,"%*s %lu\n", &(p->local)) == EOF) goto read_error;
+  if(fscanf(proc_file,"%*s %lu\n", &(p->remote)) == EOF) goto read_error;
+  
   fclose(proc_file);
- 
   return 0;
 read_error:
   fclose(proc_file);
