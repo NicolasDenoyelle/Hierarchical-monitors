@@ -34,6 +34,13 @@ int               proc_mem_read  (struct proc_mem * p);
 double            proc_mem_load  (struct proc_mem * p);
 double            proc_mem_used  (struct proc_mem * p);
 
+struct proc_numa;
+struct proc_numa * new_proc_numa   (hwloc_obj_t location);
+void               delete_proc_numa(struct proc_numa * p);
+int                proc_numa_read  (struct proc_numa * p);
+double             proc_numa_local (struct proc_numa * p);
+double             proc_numa_remote(struct proc_numa * p);
+
 /********************************************* console utils ***************************************************/
 
 void hmon_display_all(hwloc_topology_t topology, int verbose);
