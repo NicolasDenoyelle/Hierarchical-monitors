@@ -69,8 +69,8 @@ fitOpt = make_option(
   help = "fit y data according to model argument.
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
   and output absolute error of cross validation points.
-  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column
-  Else (--model = \"file\"), then try to load model from file. If file doesn't exists, compute linear model and save to file"
+  Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
+  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column"
   )
 
 winOpt = make_option(
@@ -208,15 +208,11 @@ monitor.plot.fit <-
            pch = 1,
            col = 1) {
     if (type == "linear") {
-      fit = monitor.linear.fit(monitor)
+      fit = monitor.linear.fit(monitor, save = sprintf("%s_%s.rda", monitor[1,1], monitor[1,2]))
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
-    }
-    else {
-      fit = monitor.linear.fit(monitor, save = type)
-      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     }
     #neural network fit
     # library(neuralnet)
