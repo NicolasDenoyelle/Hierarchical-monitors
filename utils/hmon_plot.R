@@ -69,7 +69,8 @@ fitOpt = make_option(
   help = "fit y data according to model argument.
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
   and output absolute error of cross validation points.
-  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column"
+  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column
+  Else (--model = \"file\"), then try to load model from file. If file doesn't exists, compute linear model and save to file"
   )
 
 winOpt = make_option(
@@ -129,31 +130,41 @@ get_title <- function(str) {
 # Function that returns Root Mean Squared Error
 rmse <- function(error) sapply(error, function(x) sqrt(mean(x^2)))
 
+monitor.predict <- function(monitor, model){
+  pred.lm = predict(model, newdata = monitor[, setdiff(4:ncol(monitor), options$yaxis)])
+  likelihood = rmse(pred.lm - monitor[, options$yaxis])
+  list(monitor[, options$xaxis], likelihood)
+}
+
 ##
 # Compute linear model of monitor output given monitor other events.
 # Output cross validation set Root Mean Squared Error
 ##
-monitor.linear.fit <- function(monitor){
+monitor.linear.fit <- function(monitor, save = NULL){
   if(ncol(monitor)<=4){
     print("linear plot cannot be applied on a monitor with a single event")
-    return()
+    return(NULL)
   }
-  fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
-  fit.range = fit.range[order(fit.range)]
-  fit.x = monitor[fit.range, setdiff(4:ncol(monitor), options$yaxis)]
-  fit.y = monitor[fit.range, options$yaxis]
-  if(ncol(monitor)==5){
-    fit.lm = lm(fit.y ~ fit.x)  
-  } else {
-    fit.lm = lm(fit.y ~ ., data = fit.x)  
+  if(is.null(save) || !file.exists(save)){
+    fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
+    fit.range = fit.range[order(fit.range)]
+    fit.x = monitor[fit.range, setdiff(4:ncol(monitor), options$yaxis)]
+    fit.y = monitor[fit.range, options$yaxis]
+    if(ncol(monitor)==5){
+      fit.lm = lm(fit.y ~ fit.x)  
+    } else {
+      fit.lm = lm(fit.y ~ ., data = fit.x)  
+    }
+    if(!is.null(save) && !file.exists(save)){
+       save(fit.lm, file = save)
+    }
+    return (monitor.predict(monitor[-fit.range,],fit.lm))
+  } else if(!is.null(save) && file.exists(save)){
+    load(file = save)
+    return (monitor.predict(monitor,fit.lm))
   }
-  
-  pred.lm = predict(fit.lm, newdata = monitor[-fit.range, setdiff(4:ncol(monitor), options$yaxis)])
-  pred.y  = monitor[-fit.range, options$yaxis]
-  pred.x = monitor[-fit.range, options$xaxis]
-  likelihood = rmse(pred.lm - pred.y)
-  list(pred.x, likelihood)
 }
+
 
 # Credit to http://www.di.fc.ul.pt/~jpn/r/fourier/fourier.html 
 # returns the x.n time series for a given time sequence (ts) and
@@ -198,10 +209,14 @@ monitor.plot.fit <-
            col = 1) {
     if (type == "linear") {
       fit = monitor.linear.fit(monitor)
-      points(fit[[1]], fit[[2]], pch = pch, col = col)
+      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
+    }
+    else {
+      fit = monitor.linear.fit(monitor, save = type)
+      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     }
     #neural network fit
     # library(neuralnet)
