@@ -40,6 +40,14 @@ yOpt = make_option(
   help = "Use column yaxis instead of column 4 as Y values to plot"
 )
 
+logOpt = make_option(
+  opt_str = c("-l", "--log"),
+  type = "logical",
+  default = FALSE,
+  action = "store_true",
+  help = "Plot yaxis in logscale"
+)
+
 xOpt = make_option(
   opt_str = c("-x", "--xaxis"),
   type = "integer",
@@ -57,9 +65,10 @@ splitOpt = make_option(
 
 clusterOpt = make_option(
   opt_str = c("-c", "--cluster"),
-  type = "integer",
-  default = 1,
-  help = "Split each monitor into several --clusters using kmean on monitor events"
+  type = "logical",
+  default = FALSE,
+  action = "store_true",
+  help = "Split each monitor into several clusters using dbscan on monitor events"
 )
 
 fitOpt = make_option(
@@ -68,9 +77,11 @@ fitOpt = make_option(
   default = NULL,
   help = "fit y data according to model argument.
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
-  and output absolute error of cross validation points.
+  and output root mean square error of cross validation points prediction.
   Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
-  If (--model = \"periodic\"), then fit y columns with a fourier serie of time column"
+  If (--model = \"periodic\"), then fit y column with a fourier serie of time column,
+  and output root mean square error of cross validation points prediction.
+  If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*(1-P(y)) on cross validation set."
   )
 
 winOpt = make_option(
@@ -95,6 +106,7 @@ option_list = c(
   filterOpt,
   xOpt,
   yOpt,
+  logOpt,
   splitOpt,
   clusterOpt,
   fitOpt,
@@ -153,7 +165,7 @@ monitor.linear.fit <- function(monitor, save = NULL){
     if(ncol(monitor)==5){
       fit.lm = lm(fit.y ~ fit.x)  
     } else {
-      fit.lm = lm(fit.y ~ ., data = fit.x)  
+      fit.lm = lm(fit.y ~ .^5, data = fit.x)  
     }
     if(!is.null(save) && !file.exists(save)){
        save(fit.lm, file = save)
@@ -165,6 +177,21 @@ monitor.linear.fit <- function(monitor, save = NULL){
   }
 }
 
+##
+# Model monitor as a gaussian distribution using random set of sample.
+# Output cross validation set (monitor_value - P(sample)*monitor_value).
+##
+monitor.gaussian.fit <- function(monitor){
+    fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
+    fit.range = fit.range[order(fit.range)]
+    fit.mean = mean(monitor[fit.range,options$yaxis])
+    fit.sd = sd(monitor[fit.range,options$yaxis])
+
+    fit.x = monitor[-fit.range,options$xaxis]
+    fit.y = monitor[-fit.range,options$yaxis]
+    pred.y = dnorm(fit.y, mean=fit.mean, sd = fit.sd)
+    list(fit.x, fit.y*(1-pred.y))
+}
 
 # Credit to http://www.di.fc.ul.pt/~jpn/r/fourier/fourier.html 
 # returns the x.n time series for a given time sequence (ts) and
@@ -213,6 +240,9 @@ monitor.plot.fit <-
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
+    } else if(type == "gaussian"){
+      fit = monitor.gaussian.fit(monitor)
+      points(fit[[1]], fit[[2]], pch = pch, col = col)
     }
     #neural network fit
     # library(neuralnet)
@@ -245,15 +275,17 @@ monitors.list <- function(monitors){
 }
 
 ##
-# Split a monitor in several monitors using kmeans clustering
+# Split a monitor in several monitors using dbscan clustering
 ##
 monitor.cluster <- function(monitor){
+  library("dbscan")
   if(nrow(monitor)<=10){return(list(monitor))}
-  cluster.set = vector("list", length=options$cluster)
   p = monitor[, 4:ncol(monitor)]
   p = scale(p, center = TRUE, scale = TRUE)
-  model = kmeans(x = p, centers = options$cluster)
-  for (i in 1:options$cluster) cluster.set[[i]] = monitor[model$cluster == i,]
+  model = dbscan(x = p, eps=.2)
+  n = max(model$cluster)
+  cluster.set = vector("list", length=n)
+  for (i in 1:n) cluster.set[[i]] = monitor[model$cluster == i,]
   cluster.set
 }
 
@@ -268,7 +300,7 @@ monitor.split <- function(monitor) {
     split.set[[i]] = subset(monitor, monitor[, id.obj] == obj.list[i])
   }
   
-  if (options$cluster > 1) {
+  if (options$cluster) {
     cluster.set = c()
     for (i in 1:length(split.set))
       cluster.set = c(cluster.set, monitor.cluster(split.set[[i]]))
@@ -319,11 +351,16 @@ monitor.check <- function(frame){
   
   #Remove lines with NA, NaN and inf
   for (i in 1:nrow(frame)) {
-    for (j in 4:ncol(frame)) {
-      if (is.infinite(frame[i, j]) ||
-          is.na(frame[i, j]) || is.nan(frame[i, j])) {
-        rows.del = c(rows.del, i)
-        break
+    #Remove unplottable y values in log scale.
+    if(is.nan(frame[i,options$yaxis]) || (options$log && frame[i,options$yaxis]<=0)){
+      rows.del = c(rows.del, i)
+    } else {
+      for (j in 4:ncol(frame)) {
+        if (is.infinite(frame[i, j]) ||
+            is.na(frame[i, j]) || is.nan(frame[i, j])) {
+          rows.del = c(rows.del, i)
+          break
+        }
       }
     }
   }
@@ -380,7 +417,8 @@ monitor.set.limits <- function(monitor){
 #########################################################################################################
 #                                                monitor ploting                                        #
 #########################################################################################################
-
+ylog = ""; if(options$log){ylog = "y"}
+  
 ##
 # Plot a unsplitted monitor
 ##
@@ -391,6 +429,7 @@ monitor.plot.merge <- function(monitor) {
     plot(
       x = m[, options$xaxis],
       y = m[, options$yaxis],
+      log = ylog,      
       type = 'p',
       col = i,
       xlim = monitors.xlim[[monitor.id(monitor)]],
@@ -447,7 +486,7 @@ monitor.plot.merge <- function(monitor) {
 monitor.plot.split <- function(monitor) {
   monitor.list = monitor.split(monitor)
   monitor.list = monitor.list[order(sapply(monitor.list, monitor.obj.index))]
-  par(mfrow = c(1,length(monitor.list)), oma = c(0,0,2.5,0))
+  par(mfrow = c(1,length(monitor.list)), oma = c(0,0,2.5,0), log=ylog)
   
   for (i in 1:length(monitor.list)) {
     m = monitor.list[[i]]
@@ -475,7 +514,7 @@ monitor.plot.split <- function(monitor) {
       xaxt = "n",
       xlim = monitors.xlim[[monitor.id(monitor)]],
       ylim = monitors.ylim[[monitor.id(monitor)]],
-      log="",
+      log=ylog,
       abline(
         h = monitors.yticks[[monitor.id(monitor)]],
         v = monitors.xticks[[monitor.id(monitor)]],
