@@ -182,7 +182,7 @@ monitor.linear.fit <- function(monitor, save = NULL){
 # Compute non-linear model of monitor based on an artificial neural network.
 # Output cross validation set absolute Error
 ##
-monitor.nnet.fit <- function(monitor, save = NULL, train=F){
+monitor.nnet.fit <- function(monitor, save = NULL, train=FALSE){
   if(ncol(monitor)<=4){
     print("linear plot cannot be applied on a monitor with a single event")
     return(NULL)
@@ -212,7 +212,7 @@ monitor.nnet.fit <- function(monitor, save = NULL, train=F){
     startweights = model$startweights
   }
 
-  if(train || startweights==NULL){
+  if(train || is.null(startweights)){
     #Learning set
     fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
     fit.range = fit.range[order(fit.range)]
@@ -302,9 +302,9 @@ monitor.plot.fit <-
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(grepl("nnet", substr(type, start=0, stop=nchar("nnet")))){
       if(type == "nnet:train"){
-        fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]))
-      } else {
         fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T)
+      } else {
+        fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = F)
       }
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "periodic"){
