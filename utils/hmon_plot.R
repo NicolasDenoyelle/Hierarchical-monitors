@@ -295,7 +295,7 @@ monitor.plot.fit <-
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "nnet"){
       fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]))
-      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col+1)}
+      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
@@ -492,7 +492,7 @@ monitor.plot.merge <- function(monitor) {
       )
     )
     if (!is.null(options$model))
-      monitor.plot.fit(m, type=options$model, pch=i+1, col=i)
+      monitor.plot.fit(m, type=options$model, pch=i+1, col=i+1)
     if (i<length(monitor.list))
       par(new = TRUE)
   }
@@ -514,7 +514,7 @@ monitor.plot.merge <- function(monitor) {
                                                 options$model, 
                                                monitor.obj(monitor.list[[i]])),
                            simplify = "array"))
-    legend.col = c(legend.col, sequence)
+    legend.col = c(legend.col, 2:(length(monitor.list)+1))
     legend.pch = c(legend.pch, 2:(length(monitor.list)+1))
   }
   legend(
@@ -740,25 +740,25 @@ script.run <- function() {
   }
 }
 
-#script.run()
+script.run()
 
-setwd(dir = "~/Documents/hmon/utils/")
-options$input="../tests/hpccg/hpccg.out"
+#setwd(dir = "~/Documents/hmon/utils/")
+#options$input="../tests/hpccg/hpccg.out"
 #options$input="../tests/hpccg/lulesh.out"
 # options$output="./test.pdf"
 # options$filter="write"
-options$log = T
+#options$log = T
 # options$split=T
 # options$cluster=T
 # options$title="test_title"
 # options$xaxis=3
 # options$yaxis=7
-options$model="nnet"
+#options$model="linear"
 # options$window=1000
 # options$update=0.5
-monitors = monitors.read()
+#monitors = monitors.read()
 # monitor = monitors[[1]]
-sapply(monitors, monitor.plot)
+#sapply(monitors, monitor.plot)
 # monitor.create.x11(monitor)
 # monitors.plot.x11(monitors)
 # monitors.plot.pdf(monitors)
