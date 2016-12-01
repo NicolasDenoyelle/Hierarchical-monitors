@@ -1,8 +1,7 @@
-library("optparse")
-
 #########################################################################################################
 #                                              Handle Options                                           #
 #########################################################################################################
+library("optparse")
 
 #Parse options
 inOpt = make_option(
@@ -77,10 +76,11 @@ fitOpt = make_option(
   default = NULL,
   help = "fit y data according to model argument.
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
-  and output root mean square error of cross validation points prediction.
+  and output absolute error of cross validation points prediction.
   Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
+  If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column,
-  and output root mean square error of cross validation points prediction.
+  and output absolute error of cross validation points prediction.
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*(1-P(y)) on cross validation set."
   )
 
@@ -99,25 +99,22 @@ freqOpt = make_option(
   In this case -w points will be plot and window will move by -w/4 steps ahead every -f seconds"
 )
 
-option_list = c(
-  inOpt,
-  outOpt,
-  titleOpt,
-  filterOpt,
-  xOpt,
-  yOpt,
-  logOpt,
-  splitOpt,
-  clusterOpt,
-  fitOpt,
-  winOpt,
-  freqOpt
-)
-
-opt_parser = OptionParser(option_list = option_list)
+optParse = OptionParser(option_list = c(
+    inOpt,
+    outOpt,
+    titleOpt,
+    filterOpt,
+    xOpt,
+    yOpt,
+    logOpt,
+    splitOpt,
+    clusterOpt,
+    fitOpt,
+    winOpt,
+    freqOpt))
 
 options = parse_args(
-  opt_parser,
+  optParse,
   args = commandArgs(trailingOnly = TRUE),
   print_help_and_exit = TRUE,
   positional_arguments = FALSE
@@ -140,11 +137,11 @@ get_title <- function(str) {
 #########################################################################################################
 
 # Function that returns Root Mean Squared Error
-rmse <- function(error) sapply(error, function(x) sqrt(mean(x^2)))
+rse <- function(error) sapply(error, function(x) sqrt(x^2))
 
 monitor.predict <- function(monitor, model){
   pred.lm = predict(model, newdata = monitor[, setdiff(4:ncol(monitor), options$yaxis)])
-  likelihood = rmse(pred.lm - monitor[, options$yaxis])
+  likelihood = rse(pred.lm - monitor[, options$yaxis])
   list(monitor[, options$xaxis], likelihood)
 }
 
@@ -175,6 +172,65 @@ monitor.linear.fit <- function(monitor, save = NULL){
     load(file = save)
     return (monitor.predict(monitor,fit.lm))
   }
+}
+
+##
+# Compute non-linear model of monitor based on an artificial neural network.
+# Output cross validation set absolute Error
+##
+monitor.nnet.fit <- function(monitor, save = NULL){
+  if(ncol(monitor)<=4){
+    print("linear plot cannot be applied on a monitor with a single event")
+    return(NULL)
+  }
+  
+  library("neuralnet")
+
+  #Comment lines 65-66 from calculate.neuralnet to avoid error
+  #fixInNamespace("calculate.neuralnet", pos="package:neuralnet")
+  #Compute input/output, scaled input/output, cross validation set
+  X = monitor[, setdiff(4:ncol(monitor), options$yaxis)]
+  y = monitor[, options$yaxis]
+
+  scale.X=scale(X)
+  scale.y=scale(y)
+  scaled.X = as.data.frame(scale.X)
+  scaled.y = as.data.frame(scale.y)
+  
+  xvalid.scaled.X = scaled.X
+  xvalid.x = monitor[,options$xaxis]
+  xvalid.y = monitor[,options$yaxis]
+  
+  startweights = NULL
+  #Load model
+  if(!is.null(save) && file.exists(save)){
+    load(file = save)
+    startweights = model$startweights
+  }
+    
+  #Learning set
+  fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
+  fit.range = fit.range[order(fit.range)]
+  fit.X = scaled.X[fit.range, ]
+  fit.y = scaled.y[fit.range, ]
+    
+  #Cross validation set
+  xvalid.scaled.X <- scaled.X[-fit.range, ]
+  xvalid.x <- monitor[-fit.range, options$xaxis]
+  xvalid.y <- monitor[-fit.range, options$yaxis]
+    
+  #Update model
+  f = as.formula(sprintf("fit.y ~ %s",paste(names(fit.X), collapse="+")))
+  print("fitting with neural network. this may take a few minutes...")
+  model <<- neuralnet(f, data=fit.X, linear.output = TRUE, threshold=0.01, hidden=c(ncol(fit.X)*2,ncol(fit.X)), startweights = startweights)
+  if(!is.null(save)){save(model, file = save)}
+  
+  #Predict on cross validation set
+  model.pred = compute(model, xvalid.scaled.X)
+  scaled.pred.y = model.pred$net.result
+  pred.y = scaled.pred.y*attr(scale.y, "scaled:scale") + attr(scale.y, "scaled:center")
+  likelihood = rse(xvalid.y-pred.y)
+  list(xvalid.x, likelihood)
 }
 
 ##
@@ -219,7 +275,7 @@ monitor.frequency.fit <- function(monitor){
   acq.freq = 10^-6*(monitor[nrow(monitor),id.time] - monitor[1,id.time])/nrow(monitor)
   X.k = fft(fit.y)
   fit.pred = get.trajectory(X.k, monitor[-fit.range,id.time], acq.freq)
-  likelihood = rmse(fit.pred - monitor[-fit.range, options$yaxis])
+  likelihood = rse(fit.pred - monitor[-fit.range, options$yaxis])
   #acq.freq*fft(X.k, inverse = TRUE)/length(X.k)
   list(monitor[-fit.range, id.time], likelihood)
 }
@@ -235,8 +291,11 @@ monitor.plot.fit <-
            pch = 1,
            col = 1) {
     if (type == "linear") {
-      fit = monitor.linear.fit(monitor, save = sprintf("%s_%s.rda", monitor[1,1], monitor[1,2]))
+      fit = monitor.linear.fit(monitor, save = sprintf("%s_%s_linear.rda", monitor[1,1], monitor[1,2]))
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
+    } else if(type == "nnet"){
+      fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]))
+      if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col+1)}
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
@@ -244,18 +303,6 @@ monitor.plot.fit <-
       fit = monitor.gaussian.fit(monitor)
       points(fit[[1]], fit[[2]], pch = pch, col = col)
     }
-    #neural network fit
-    # library(neuralnet)
-    # scaleX=scale(X.fit)
-    # X.fit.scale=as.data.frame(scaleX)
-    # Y.fit.scale=scale(Y.fit)
-    # X.pred.scale=(X.pred - attr(scaleX, "scaled:center")) / attr(scaleX, "scaled:scale")
-    # n <- names(X.fit.scale)
-    # f <- as.formula(paste("Y.fit.scale ~", paste(n, collapse="+")))
-    # nn <- neuralnet(f, data=X.fit.scale, hidden=c(2, 1), linear.output=T)
-    # nn.pred=compute(nn, X.pred.scale)
-    # Y.pred.scale=nn.pred$net.result
-    # nn.pred=Y.pred.scale * attr(Y.fit.scale, "scaled:scale") + attr(Y.fit.scale, "scaled:center")
   }
 
 #########################################################################################################
@@ -479,7 +526,6 @@ monitor.plot.merge <- function(monitor) {
   )
 }
 
-
 ##
 # Split a monitor into parts and plot these parts in a split device
 ##
@@ -694,23 +740,25 @@ script.run <- function() {
   }
 }
 
-script.run()
+#script.run()
 
-# setwd(dir = "~/Documents/hmon/utils/")
-# options$input="./hpccg.out"
+setwd(dir = "~/Documents/hmon/utils/")
+options$input="../tests/hpccg/hpccg.out"
+#options$input="../tests/hpccg/lulesh.out"
 # options$output="./test.pdf"
 # options$filter="write"
+options$log = T
 # options$split=T
 # options$cluster=T
 # options$title="test_title"
 # options$xaxis=3
 # options$yaxis=7
-# options$model="linear"
+options$model="nnet"
 # options$window=1000
 # options$update=0.5
-# monitors = monitors.read()
+monitors = monitors.read()
 # monitor = monitors[[1]]
-# sapply(monitors, monitor.plot)
+sapply(monitors, monitor.plot)
 # monitor.create.x11(monitor)
 # monitors.plot.x11(monitors)
 # monitors.plot.pdf(monitors)
