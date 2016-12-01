@@ -192,6 +192,8 @@ monitor.nnet.fit <- function(monitor, save = NULL, train=FALSE){
 
   #Comment lines 65-66 from calculate.neuralnet to avoid error
   #fixInNamespace("calculate.neuralnet", pos="package:neuralnet")
+  #Or
+  #install.packages("neuralnet_1.33.tar.gz", repos=NULL, type="source")
   #Compute input/output, scaled input/output, cross validation set
   X = monitor[, setdiff(4:ncol(monitor), options$yaxis)]
   y = monitor[, options$yaxis]
