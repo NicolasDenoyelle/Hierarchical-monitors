@@ -78,7 +78,9 @@ fitOpt = make_option(
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y,
   and output absolute error of cross validation points prediction.
   Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
-  If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model.
+  If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model. If this monitor neural
+  network already exists then load the one existing and do not train the network.
+  If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column,
   and output absolute error of cross validation points prediction.
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*(1-P(y)) on cross validation set."
@@ -136,15 +138,11 @@ get_title <- function(str) {
 #                                             monitor modeling                                          #
 #########################################################################################################
 
-# Function that returns Root Mean Squared Error
+# Function that returns Absolute Error
 rse <- function(error) sapply(error, function(x) sqrt(x^2))
-
-monitor.predict <- function(monitor, model){
-  pred.lm = predict(model, newdata = monitor[, setdiff(4:ncol(monitor), options$yaxis)])
-  likelihood = rse(pred.lm - monitor[, options$yaxis])
-  list(monitor[, options$xaxis], likelihood)
-}
-
+# Function that returns Root Mean Squared Error
+rmse <- function(x) sqrt(mean(x^2))
+                               
 ##
 # Compute linear model of monitor output given monitor other events.
 # Output cross validation set Root Mean Squared Error
@@ -153,6 +151,12 @@ monitor.linear.fit <- function(monitor, save = NULL){
   if(ncol(monitor)<=4){
     print("linear plot cannot be applied on a monitor with a single event")
     return(NULL)
+  }
+  monitor.predict <- function(monitor, model){
+    pred.lm = predict(model, newdata = monitor[, setdiff(4:ncol(monitor), options$yaxis)])
+    likelihood = rse(pred.lm - monitor[, options$yaxis])
+    print(sprintf("fit root mean square error: %f", rmse(pred.lm - monitor[, options$yaxis])))
+    list(monitor[, options$xaxis], likelihood)
   }
   if(is.null(save) || !file.exists(save)){
     fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
@@ -178,7 +182,7 @@ monitor.linear.fit <- function(monitor, save = NULL){
 # Compute non-linear model of monitor based on an artificial neural network.
 # Output cross validation set absolute Error
 ##
-monitor.nnet.fit <- function(monitor, save = NULL){
+monitor.nnet.fit <- function(monitor, save = NULL, train=F){
   if(ncol(monitor)<=4){
     print("linear plot cannot be applied on a monitor with a single event")
     return(NULL)
@@ -207,29 +211,32 @@ monitor.nnet.fit <- function(monitor, save = NULL){
     load(file = save)
     startweights = model$startweights
   }
+
+  if(train || startweights==NULL){
+    #Learning set
+    fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
+    fit.range = fit.range[order(fit.range)]
+    fit.X = scaled.X[fit.range, ]
+    fit.y = scaled.y[fit.range, ]
     
-  #Learning set
-  fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
-  fit.range = fit.range[order(fit.range)]
-  fit.X = scaled.X[fit.range, ]
-  fit.y = scaled.y[fit.range, ]
+    #Cross validation set
+    xvalid.scaled.X <- scaled.X[-fit.range, ]
+    xvalid.x <- monitor[-fit.range, options$xaxis]
+    xvalid.y <- monitor[-fit.range, options$yaxis]
     
-  #Cross validation set
-  xvalid.scaled.X <- scaled.X[-fit.range, ]
-  xvalid.x <- monitor[-fit.range, options$xaxis]
-  xvalid.y <- monitor[-fit.range, options$yaxis]
-    
-  #Update model
-  f = as.formula(sprintf("fit.y ~ %s",paste(names(fit.X), collapse="+")))
-  print("fitting with neural network. this may take a few minutes...")
-  model <<- neuralnet(f, data=fit.X, linear.output = TRUE, threshold=0.01, hidden=c(ncol(fit.X)*2,ncol(fit.X)), startweights = startweights)
-  if(!is.null(save)){save(model, file = save)}
+    #Update model
+    f = as.formula(sprintf("fit.y ~ %s",paste(names(fit.X), collapse="+")))
+    print("fitting with neural network. this may take a few minutes...")
+    model = neuralnet(f, data=fit.X, linear.output = TRUE, threshold=0.01, hidden=c(ncol(fit.X)*2,ncol(fit.X)), startweights = startweights)
+    if(!is.null(save)){save(model, file = save)}
+  }
   
   #Predict on cross validation set
   model.pred = compute(model, xvalid.scaled.X)
   scaled.pred.y = model.pred$net.result
   pred.y = scaled.pred.y*attr(scale.y, "scaled:scale") + attr(scale.y, "scaled:center")
   likelihood = rse(xvalid.y-pred.y)
+  print(sprintf("fit root mean square error: %f", rmse(xvalid.y-pred.y)))
   list(xvalid.x, likelihood)
 }
 
@@ -293,8 +300,12 @@ monitor.plot.fit <-
     if (type == "linear") {
       fit = monitor.linear.fit(monitor, save = sprintf("%s_%s_linear.rda", monitor[1,1], monitor[1,2]))
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
-    } else if(type == "nnet"){
-      fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]))
+    } else if(grepl("nnet", substr(type, start=0, stop=nchar("nnet")))){
+      if(type == "nnet:train"){
+        fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]))
+      } else {
+        fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T)
+      }
       if(!is.null(fit)){points(fit[[1]], fit[[2]], pch = pch, col = col)}
     } else if(type == "periodic"){
       fit = monitor.frequency.fit(monitor)
