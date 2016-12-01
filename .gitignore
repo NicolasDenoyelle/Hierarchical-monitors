@@ -1,5 +1,6 @@
 utils/*
 !utils/hmon_plot.R
+!utils/neuralnet_1.33.tar.gz
 aclocal.m4
 ar-lib
 autom4te.cache
