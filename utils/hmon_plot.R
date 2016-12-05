@@ -81,7 +81,7 @@ fitOpt = make_option(
   If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model. 
   If this monitor neural network already exists then load the one existing and do not train the network.
   If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
-  If (--model = \"recursive:2\"), train and update a neural network using 2 timesteps for each sample of the training set.
+  If (--model = \"recurrent:2\"), train and update a neural network using 2 timesteps for each sample of the training set.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column.
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*P(y) on cross validation set."
 )
@@ -208,18 +208,26 @@ monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
     startweights = NULL
     if(!is.null(save) && file.exists(save)){
         load(file = save)
-        startweights = model$generalized.weights
-        ##append 0s to X if model was already trained with more features
-        if(ncol(model$data)>ncol(X)){
-            for(i in ncol(X):ncol(model$data)){
-                X = cbind(X, rep(0, nrow(X)))
+        n.features = ncol(model$data)
+        if(n.features%%ncol(X) != 0){
+            print("Previously trained model cannot be used because column number does not match monitor features")
+        } else {
+            startweights = model$generalized.weights
+            ##append timesteps to X if model was already trained with more features
+            if(n.features>ncol(X)){
+                passed = X
+                iter = n.features/ncol(X) - 1
+                for(i in 1:iter){
+                    passed = rbind(rep(0, ncol(passed)), passed)
+                    X = cbind(X, passed[1:nrow(X),])
+                }
             }
         }
     }
 
     ##Rename columns for model
     colnames(X) = sapply(1:ncol(X), function(i){sprintf("V%d",i)})
-
+    
     ##Normalize features
     scale.X=scale(X)
     scale.y=scale(y)
@@ -337,8 +345,8 @@ monitor.plot.fit <-
             } else if(type == "nnet:train"){
                 fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T)
             }
-        } else if(grepl("recursive", substr(type, start=0, stop=nchar("recursive")))){
-            recurse = as.integer(substr(type, start=nchar("recursive:")+1, stop = nchar(type)))
+        } else if(grepl("recurrent", substr(type, start=0, stop=nchar("recurrent")))){
+            recurse = as.integer(substr(type, start=nchar("recurrent:")+1, stop = nchar(type)))
             fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T, recurse = recurse)
         } else if(type == "periodic"){
             fit = monitor.frequency.fit(monitor)
@@ -787,7 +795,11 @@ script.run <- function() {
 script.run()
 
 test.run <- function(){
-options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
+    options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
+    options$model <<- "nnet"
+    monitors <<- monitors.read()
+    monitors.plot.x11(monitors)
+
 ### options$input <<- "../tests/hpccg/lulesh.out"
 ### options$output <<- "./test.pdf"
 ### options$filter <<- "write"
@@ -797,15 +809,12 @@ options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
 ### options$title <<- "test_title"
 ### options$xaxis <<- 3
 ### options$yaxis <<- 7
-options$model <<- "recursive:4"
 ### options$window <<- 1000
 ### options$update <<- 0.5
-monitors <<- monitors.read()
 ### monitors <<- monitors.stream()
 ### monitor <<- monitors[[1]]
 ### sapply(monitors, monitor.plot)
 ### monitor.create.x11(monitor)
-monitors.plot.x11(monitors)
 ### monitors.plot.pdf(monitors)
 ### monitor.plot.split(monitor)
 ### monitor.plot.merge(monitor)
