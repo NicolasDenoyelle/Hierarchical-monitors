@@ -75,6 +75,7 @@ fitOpt = make_option(
   type = "character",
   default = NULL,
   help = "fit y data according to model argument.
+
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y.
   Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
   If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model. 
@@ -82,7 +83,7 @@ fitOpt = make_option(
   If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
   If (--model = \"recursive:2\"), train and update a neural network using 2 timesteps for each sample of the training set.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column.
-  If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*(1-P(y)) on cross validation set."
+  If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*P(y) on cross validation set."
   )
 
 winOpt = make_option(
