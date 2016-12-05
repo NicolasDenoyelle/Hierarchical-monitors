@@ -784,7 +784,7 @@ script.run <- function() {
     }
 }
 
-### script.run()
+script.run()
 
 test.run <- function(){
 options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
@@ -797,7 +797,7 @@ options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
 ### options$title <<- "test_title"
 ### options$xaxis <<- 3
 ### options$yaxis <<- 7
-options$model <<- "recursive:2"
+options$model <<- "recursive:4"
 ### options$window <<- 1000
 ### options$update <<- 0.5
 monitors <<- monitors.read()
