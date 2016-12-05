@@ -199,11 +199,11 @@ monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
     if(recurse > 0){
         passed = X
         for(r in 1:recurse){
-            passed = rbind(passed, replicate(0, ncol(passed)))
+            passed = rbind(rep(0, ncol(passed)), passed)
             X = cbind(X, passed[1:nrow(X),])
         }
     }
-    
+
     ##Load an already model
     startweights = NULL
     if(!is.null(save) && file.exists(save)){
@@ -212,10 +212,13 @@ monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
         ##append 0s to X if model was already trained with more features
         if(ncol(model$data)>ncol(X)){
             for(i in ncol(X):ncol(model$data)){
-                X = cbind(X, replicate(0, nrow(X)))
+                X = cbind(X, rep(0, nrow(X)))
             }
         }
     }
+
+    ##Rename columns for model
+    colnames(X) = sapply(1:ncol(X), function(i){sprintf("V%d",i)})
 
     ##Normalize features
     scale.X=scale(X)
@@ -781,30 +784,30 @@ script.run <- function() {
     }
 }
 
-script.run()
+### script.run()
 
-### setwd(dir = "~/Documents/hmon/utils/")
-### options$input="../tests/hpccg/hpccg.out"
-### options$input="../tests/hpccg/lulesh.out"
-### options$output="./test.pdf"
-### options$filter="write"
-### options$log = T
-### options$split=T
-### options$cluster=T
-### options$title="test_title"
-### options$xaxis=3
-### options$yaxis=7
-### options$model="linear"
-### options$window=1000
-### options$update=0.5
-### monitors = monitors.read()
-### monitor = monitors[[1]]
+test.run <- function(){
+options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
+### options$input <<- "../tests/hpccg/lulesh.out"
+### options$output <<- "./test.pdf"
+### options$filter <<- "write"
+### options$log <<- T
+### options$split <<- T
+### options$cluster <<- T
+### options$title <<- "test_title"
+### options$xaxis <<- 3
+### options$yaxis <<- 7
+options$model <<- "recursive:2"
+### options$window <<- 1000
+### options$update <<- 0.5
+monitors <<- monitors.read()
+### monitors <<- monitors.stream()
+### monitor <<- monitors[[1]]
 ### sapply(monitors, monitor.plot)
 ### monitor.create.x11(monitor)
-### monitors.plot.x11(monitors)
+monitors.plot.x11(monitors)
 ### monitors.plot.pdf(monitors)
 ### monitor.plot.split(monitor)
 ### monitor.plot.merge(monitor)
-### monitors = monitors.stream()
-### monitors.plot.x11(monitors)
+}
 
