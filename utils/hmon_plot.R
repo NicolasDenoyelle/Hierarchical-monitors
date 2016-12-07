@@ -78,6 +78,7 @@ fitOpt = make_option(
 
   If (--model = \"linear\"), then use a linear model of events (except y) to fit y.
   Try to load model from file named after monitor id. If file doesn't exists, compute linear model and save to file.
+  If (--model = \"linear:2\"), then use a linear model with 2 timesteps for each sample of the training set.
   If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model. 
   If this monitor neural network already exists then load the one existing and do not train the network.
   If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
@@ -252,7 +253,8 @@ monitor.linear.fit <- function(monitor, save = NULL, recurse = 0){
     } else if(!is.null(save) && file.exists(save)){
         load(file = save)
         fit = monitor.fit.prepare(monitor, fit=fit)
-        return (list(fit$test.set, monitor.fit.denormalize(fit,predict(fit.lm, newdata = fit$X[fit$test.set,]))))
+        pred.y = predict(fit.lm, newdata = fit$X[fit$test.set,])
+        return (list(fit$test.set, monitor.fit.denormalize(fit, pred.y)))
     }
 }
 
@@ -393,7 +395,11 @@ monitor.frequency.fit <- function(monitor){
 ### Relative Root Mean Squared Error
 ### Compare Error to Standard Deviation
 #################################################
-rrmse <- function(y,fit) sqrt(mean((y-fit)^2))/sd(y)
+rrmse <- function(y,fit.y,mean) {
+    sum.sq.error = sum((y-fit.y)^2)
+    sum.std.error = sum((y-mean)^2)
+    sqrt(sum.sq.error/sum.std.error)
+}
 
 
 ####################
@@ -408,8 +414,13 @@ monitor.plot.fit <-
         
         fit = NULL
         
-        if (type == "linear") {
-            fit = monitor.linear.fit(monitor, save = sprintf("%s_%s_linear.rda", monitor[1,1], monitor[1,2]))    
+        if (grepl("linear", substr(type, start=0, stop=nchar("linear")))){
+            if(type == "linear"){
+                fit = monitor.linear.fit(monitor, save = sprintf("%s_%s_linear.rda", monitor[1,1], monitor[1,2]))
+            } else {
+                recurse = as.integer(substr(type, start=nchar("linear:")+1, stop = nchar(type)))
+                fit = monitor.linear.fit(monitor, save = sprintf("%s_%s_linear.rda", monitor[1,1], monitor[1,2]), recurse = recurse)
+            }
         } else if(grepl("nnet", substr(type, start=0, stop=nchar("nnet")))){
             if(type == "nnet"){
                 fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = F)
@@ -432,8 +443,11 @@ monitor.plot.fit <-
         }
 
         if(!is.null(fit)){
-            points(monitor[fit[[1]],options$xaxis], fit[[2]], pch = pch, col = col)
-            return(rrmse(monitor[fit[[1]],options$yaxis], fit[[2]]))
+            x = monitor[fit[[1]],options$xaxis]
+            y = monitor[fit[[1]],options$yaxis]
+            mean = mean(monitor[,options$yaxis])
+            points(x, fit[[2]], pch = pch, col = col)
+            return(rrmse(y, fit[[2]], mean))
         }
     }
 
