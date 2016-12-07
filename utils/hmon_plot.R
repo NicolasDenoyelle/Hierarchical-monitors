@@ -81,7 +81,9 @@ fitOpt = make_option(
   If (--model = \"nnet\"), same as linear but use a neural network instead of linear regression model. 
   If this monitor neural network already exists then load the one existing and do not train the network.
   If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
-  If (--model = \"recurrent:2\"), train and update a neural network using 2 timesteps for each sample of the training set.
+  If (--model = \"nnet:2\"), train a neural network using 2 timesteps for each sample of the training set.
+  If (--model = \"rsnns\"), fit with a recurrent neural network.
+  If (--model = \"rsnns:train\"), update the network with new input.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column.
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*P(y) on cross validation set."
 )
@@ -140,36 +142,117 @@ get_title <- function(str) {
 ###                                           monitor modeling                                          #
 #########################################################################################################
 
+
+
+##############################################################################
+### Prepare monitor features before applying learning algorithm
+###
+### @arg monitor: the monitor frame where to extract features
+### @arg test.ratio: the amount of row in [0,1[ to take from monitor for validation set.
+### @arg shuffle: If TRUE, shuffle monitor rows.
+### @arg past: an integer giving the amount of previous row to append on features columns,
+###            in order to take into account passed features.
+### @arg fit: an already obtained fit object to scale new features accordingly.
+###
+### @attr X: normalized inputs
+### @attr X.centers: X means for normalization
+### @attr X.scales: X scales for normalization
+### @attr y: normalized output
+### @attr y.center: y mean for (de)normalization
+### @attr y.scale: y scale for (de)normalization
+### @attr train.set: the setof indexes to use for training
+### @attr test.set: the set of indexes to use for test if test.ratio is not set to 0
+##############################################################################
+monitor.fit.prepare <- function(monitor, test.ratio = 0, shuffle=FALSE, past=0, fit=NULL){
+    ret = NULL
+    
+    ##Features and target
+    X = monitor[, setdiff(4:ncol(monitor), options$yaxis)]
+    y = monitor[, options$yaxis]
+
+    ##Append past timestep columns
+    if(!is.null(fit)){
+        if(ncol(fit$X)>ncol(X)){past = ncol(fit$X)/ncol(X)-1}
+    }
+    if(past>0){
+        passed = X
+        for(r in 1:past){
+            passed = rbind(rep(0, ncol(passed)), passed)
+            X = cbind(X, passed[1:nrow(X),])
+        }
+        ##Rename columns
+        colnames(X) = sapply(1:ncol(X), function(i){sprintf("V%d",i)})
+    }
+
+    ##Normalize features and target
+    if(is.null(fit)){
+        X.centers = sapply(1:ncol(X), function(i){mean(X[,i])})
+        y.center = mean(y)
+        X.scales = sapply(1:ncol(X), function(i){max(X[,i])-min(X[,i])})
+        y.scale = max(y, na.rm=T)-min(y, na.rm=T)
+    } else {
+        X.centers = fit$X.centers
+        y.center = fit$y.center
+        X.scales = fit$X.scales
+        y.scale = fit$y.scale
+    }
+    sapply(1:ncol(X), function(i){X[,i] = (X[,i]-X.centers[i])/X.scales[i]})
+    y = (y-y.center)/y.scale
+
+    #Shuffle rows
+    if(shuffle){
+        shuffle = sample(1:nrow(monitor));
+    } else{shuffle = 1:nrow(monitor)}
+    
+    ##Train and test sets
+    train.set = 1:nrow(monitor)
+    test.set = train.set
+    if(test.ratio > 0){
+        test.limit = round(nrow(monitor)*test.ratio)
+        test.set = shuffle[1:test.limit]
+        train.set = shuffle[(test.limit+1):nrow(monitor)]
+    }
+
+    ##Assign attributes
+    ret$X = X
+    ret$y = y
+    ret$X.centers = X.centers
+    ret$y.center = y.center
+    ret$X.scales = X.scales
+    ret$y.scale = y.scale
+    ret$train.set = train.set
+    ret$test.set = test.set
+    ret
+}
+
+monitor.fit.denormalize <- function(fit, y){y*fit$y.scale + fit$y.center}
+
 ######################################################################
 ### Compute linear model of monitor output given monitor other events.
 ### Output cross validation set and prediction
 ######################################################################
-monitor.linear.fit <- function(monitor, save = NULL){
+monitor.linear.fit <- function(monitor, save = NULL, recurse = 0){
     if(ncol(monitor)<=4){
         print("linear plot cannot be applied on a monitor with a single event")
         return(NULL)
     }
-    monitor.predict <- function(monitor, model){
-        predict(model, newdata = monitor[, setdiff(4:ncol(monitor), options$yaxis)])
-    }
+    
     if(is.null(save) || !file.exists(save)){
-        fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
-        fit.range = fit.range[order(fit.range)]
-        fit.x = monitor[fit.range, setdiff(4:ncol(monitor), options$yaxis)]
-        fit.y = monitor[fit.range, options$yaxis]
-        if(ncol(monitor)==5){
-            fit.lm = lm(fit.y ~ fit.x)  
+        fit = monitor.fit.prepare(monitor, shuffle=T, test.ratio=0.1, past=recurse)
+        if(ncol(fit$X)==1){
+            fit.lm = lm(fit$y[fit$train.set] ~ fit$X[fit$train.set])  
         } else {
-            fit.lm = lm(fit.y ~ .^5, data = fit.x)  
+            fit.lm = lm(fit$y[fit$train.set] ~ .^5, data = fit$X[fit$train.set,])  
         }
         if(!is.null(save) && !file.exists(save)){
-            save(fit.lm, file = save)
+            save(list=c("fit.lm","fit"), file = save)
         }
-        return (list(setdiff(1:nrow(monitor), fit.range),  monitor.predict(monitor[-fit.range,], fit.lm)))
+        return (list(fit$test.set, monitor.fit.denormalize(fit,predict(fit.lm, newdata = fit$X[fit$test.set,]))))
         
     } else if(!is.null(save) && file.exists(save)){
         load(file = save)
-        return (list(1:nrow(monitor), monitor.predict(monitor, fit.lm)))
+        fit = monitor.fit.prepare(monitor, fit=fit)
+        return (list(fit$test.set, monitor.fit.denormalize(fit,predict(fit.lm, newdata = fit$X[fit$test.set,]))))
     }
 }
 
@@ -178,7 +261,7 @@ monitor.linear.fit <- function(monitor, save = NULL){
 ### Output cross validation set and prediction
 ##############################################################################
 monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
-                                        #check there are features and target
+    ##check there are features and target
     if(ncol(monitor)<=4){
         print("linear plot cannot be applied on a monitor with a single event")
         return(NULL)
@@ -191,84 +274,75 @@ monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
     ##Compute input/output, scaled input/output, cross validation set
     library("neuralnet")
 
-    ##Features and target
-    X = monitor[, setdiff(4:ncol(monitor), options$yaxis)]
-    y = monitor[, options$yaxis]
+    fit = NULL
+    model = NULL
     
-    ##if its a recurrent neural network then we append delayed features
-    if(recurse > 0){
-        passed = X
-        for(r in 1:recurse){
-            passed = rbind(rep(0, ncol(passed)), passed)
-            X = cbind(X, passed[1:nrow(X),])
-        }
-    }
-
-    ##Load an already model
-    startweights = NULL
-    if(!is.null(save) && file.exists(save)){
-        load(file = save)
-        n.features = ncol(model$data)
-        if(n.features%%ncol(X) != 0){
-            print("Previously trained model cannot be used because column number does not match monitor features")
-        } else {
-            startweights = model$generalized.weights
-            ##append timesteps to X if model was already trained with more features
-            if(n.features>ncol(X)){
-                passed = X
-                iter = n.features/ncol(X) - 1
-                for(i in 1:iter){
-                    passed = rbind(rep(0, ncol(passed)), passed)
-                    X = cbind(X, passed[1:nrow(X),])
-                }
-            }
-        }
-    }
-
-    ##Rename columns for model
-    colnames(X) = sapply(1:ncol(X), function(i){sprintf("V%d",i)})
-    
-    ##Normalize features
-    scale.X=scale(X)
-    scale.y=scale(y)
-    scaled.X = as.data.frame(scale.X)
-    scaled.y = as.data.frame(scale.y)
-
-    ##Learning set
-    fit.range = vector(mode="integer")
-    
+    ##Load an already existing model
+    if(!is.null(save) && file.exists(save)){load(file = save)}
+ 
     ##Train the model
-    if(train || is.null(startweights)){
-        
-        ##Learning set
-        fit.range = sample(1:nrow(monitor), round(0.5 * nrow(monitor)))
-        fit.X = scaled.X[fit.range, ]
-        fit.y = scaled.y[fit.range, ]
-        
-        ##Update model
-        f = as.formula(sprintf("fit.y ~ %s",paste(names(fit.X), collapse="+")))
+    if(train || is.null(model)){
+        fit = monitor.fit.prepare(monitor, shuffle=T, test.ratio = 0.1, fit=fit, past=recurse)
+        f = as.formula(sprintf("fit$y[fit$train.set] ~ %s",paste(names(fit$X), collapse="+")))
         print("fitting with neural network. this may take a few minutes...")
         model = neuralnet(
             f,
-            data = fit.X,
+            data = fit$X[fit$train.set,],
             rep = 1,
             linear.output = TRUE,
             threshold = 0.01,
             stepmax = 1000,
-            hidden = c(ncol(fit.X) * 2, ncol(fit.X)),
-            startweights = startweights
+            hidden = c(ncol(fit$X) * 2, ncol(fit$X)),
+            startweights = model$weights
         )
-        if(!is.null(save)){save(model, file = save)}
+        if(!is.null(save)){save(list=c("model","fit"), file = save)}
+    } else {
+        fit = monitor.fit.prepare(monitor, shuffle=T, fit=fit, past=recurse)
     }
 
     ##Predict on cross validation set
-    pred.range = setdiff(1:nrow(X), fit.range)
-    model.pred = compute(model, scaled.X[pred.range,])
-    scaled.pred.y = model.pred$net.result
-    pred.y = scaled.pred.y*attr(scale.y, "scaled:scale") + attr(scale.y, "scaled:center")
+    model.pred = compute(model, fit$X[fit$test.set,])
 
     ##output error
-    list(pred.range, pred.y)
+    list(fit$test.set, monitor.fit.denormalize(fit, model.pred$net.result))
+}
+
+#################################################################
+### Compute non-linear model of monitor based on a recurrent ANN.
+### Output cross validation set and prediction
+#################################################################
+monitor.rsnns.fit <- function(monitor, save = NULL, train = FALSE){
+    library("RSNNS")
+
+    model = NULL
+    fit = NULL
+    
+    ##Load an already existing model
+    if(!is.null(save) && file.exists(save)){load(file = save)}
+    
+    ##Train the model
+    if(train || is.null(model)){
+        fit = monitor.fit.prepare(monitor, test.ratio = 0.1, fit=fit)
+        f = as.formula(sprintf("fit$y ~ %s",paste(names(fit$X), collapse="+")))
+        print("fitting with neural network. this may take a few minutes...")
+        model = jordan(x=fit$X[fit$train.set,],
+                       y=fit$y[fit$train.set],
+                       size=c(ncol(fit$X) * 2),
+                       maxit=100,
+                       shufflePatterns=FALSE,
+                       linOut=TRUE,
+                       inputsTest=fit$X[fit$test.set,],
+                       targetsTest=fit$y[fit$test.set])
+        pred.y = model$fittedTestValues
+        ##Save network
+        if(!is.null(save)){save(list=c("model", "fit"), file = save)}
+    } else {
+        fit = monitor.fit.prepare(monitor, fit=fit)
+        pred.y = predict(model, newdata = fit$X[fit$test.set,])
+    }
+
+    ##output error
+    list(fit$test.set, monitor.fit.denormalize(fit, pred.y))
 }
 
 ########################################################################
@@ -276,13 +350,10 @@ monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
 ### Output cross validation set and prediction
 ########################################################################
 monitor.gaussian.fit <- function(monitor){
-    range = 1:nrow(monitor)
-    fit.range = sample(range, round(0.5 * length(range)))
-    pred.range = fit.range[setdiff(range, fit.range)]
-    fit.x = monitor[pred.range,options$xaxis]
-    fit.y = monitor[pred.range,options$yaxis]    
-    pred.y = dnorm(fit.y, mean=mean(monitor[fit.range,options$yaxis]), sd = sd(monitor[fit.range,options$yaxis]))
-    list(pred.range, fit.y*pred.y)
+    fit = monitor.fit.prepare(monitor, shuffle=T, test.ratio = 0.1)
+    y = fit$y[fit$train.set]
+    P.y = dnorm(fit$y[fit$test.set], mean=mean(y), sd = sd(y))
+    list(fit$test.set, monitor.fit.denormalize(fit, fit$y[fit$test.set]*P.y))
 }
 
 #################################################################
@@ -313,16 +384,16 @@ monitor.frequency.fit <- function(monitor){
     fit.y = monitor[fit.range, options$yaxis]
     acq.freq = 10^-6*(monitor[nrow(monitor),id.time] - monitor[1,id.time])/nrow(monitor)
     X.k = fft(fit.y)
-    fit.pred = get.trajectory(X.k, monitor[pred.range,id.time], acq.freq)
-    
+    fit.pred = get.trajectory(X.k, monitor[pred.range,id.time], acq.freq)    
     list(pred.range, fit.pred)
 }
 
 
 #################################################
-### Function that returns Root Mean Squared Error
+### Relative Root Mean Squared Error
+### Compare Error to Standard Deviation
 #################################################
-rmse <- function(x) sqrt(mean(x^2))
+rrmse <- function(y,fit) sqrt(mean((y-fit)^2))/sd(y)
 
 
 ####################
@@ -344,10 +415,16 @@ monitor.plot.fit <-
                 fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = F)
             } else if(type == "nnet:train"){
                 fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T)
+            } else {
+                recurse = as.integer(substr(type, start=nchar("nnet:")+1, stop = nchar(type)))
+                fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T, recurse = recurse)
             }
-        } else if(grepl("recurrent", substr(type, start=0, stop=nchar("recurrent")))){
-            recurse = as.integer(substr(type, start=nchar("recurrent:")+1, stop = nchar(type)))
-            fit = monitor.nnet.fit(monitor, save = sprintf("%s_%s_nnet.rda", monitor[1,1], monitor[1,2]), train = T, recurse = recurse)
+        } else if(grepl("rsnns", substr(type, start=0, stop=nchar("rsnns")))){
+            if(type == "rsnns"){
+                fit = monitor.rsnns.fit(monitor, save = sprintf("%s_%s_rsnns.rda", monitor[1,1], monitor[1,2]), train = F)
+            } else if(type == "rsnns:train"){
+                fit = monitor.rsnns.fit(monitor, save = sprintf("%s_%s_rsnns.rda", monitor[1,1], monitor[1,2]), train = T)
+            }
         } else if(type == "periodic"){
             fit = monitor.frequency.fit(monitor)
         } else if(type == "gaussian"){
@@ -356,7 +433,7 @@ monitor.plot.fit <-
 
         if(!is.null(fit)){
             points(monitor[fit[[1]],options$xaxis], fit[[2]], pch = pch, col = col)
-            return(rmse(fit[[2]]-monitor[fit[[1]],options$yaxis]))
+            return(rrmse(monitor[fit[[1]],options$yaxis], fit[[2]]))
         }
     }
 
@@ -564,7 +641,7 @@ monitor.plot.merge <- function(monitor) {
     legend.col = sequence
     legend.pch = sequence
     if (!is.null(options$model)){
-        legend.text = c(legend.text, sapply(sequence, function(i) sprintf("%s prediction (rmse=%f)",
+        legend.text = c(legend.text, sapply(sequence, function(i) sprintf("%s prediction (rrmse=%f)",
                                                                           options$model, errors[[i]]), simplify = "array"))
         legend.col = c(legend.col, 2:(length(monitor.list)+1))
         legend.pch = c(legend.pch, 2:(length(monitor.list)+1))
@@ -625,7 +702,7 @@ monitor.plot.split <- function(monitor) {
         legend.pch = i
         if (!is.null(options$model)){
             error = monitor.plot.fit(m, options$model, pch=i+1, col=i+1) 
-            legend.text = c(legend.text, sprintf("%s prediction (rmse=%f)", options$model, error))
+            legend.text = c(legend.text, sprintf("%s prediction (rrmse=%f)", options$model, error))
             legend.col = c(legend.col, i+1)
             legend.pch = c(legend.pch, i+1)
         }
@@ -795,8 +872,8 @@ script.run <- function() {
 script.run()
 
 test.run <- function(){
-    options$input <<- "~/Documents/hmon/tests/hpccg/hpccg.out"
-    options$model <<- "nnet"
+    options$input <<- "~/Documents/hmon/tests/hpccg/blob.out"
+    options$model <<- "rsnns"
     monitors <<- monitors.read()
     monitors.plot.x11(monitors)
 
