@@ -83,7 +83,7 @@ fitOpt = make_option(
   If (--model = \"nnet:train\"), then fitting a monitor will update its existing neural network or create a new one to train.
   If (--model = \"nnet:2\"), train a neural network using 2 timesteps for each sample of the training set.
   If (--model = \"rsnns\"), fit with a recurrent neural network.
-  If (--model = \"rsnns:train\"), update the network with new input.
+  If (--model = \"rsnns:train\"), train (not update) a new network with new input.
   If (--model = \"periodic\"), then fit y column with a fourier serie of time column.
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*P(y) on cross validation set."
 )
@@ -322,13 +322,13 @@ monitor.rsnns.fit <- function(monitor, save = NULL, train = FALSE){
     
     ##Train the model
     if(train || is.null(model)){
-        fit = monitor.fit.prepare(monitor, test.ratio = 0.1, fit=fit)
+        fit = monitor.fit.prepare(monitor, shuffle=T, test.ratio = 0.1, fit=fit)
         f = as.formula(sprintf("fit$y ~ %s",paste(names(fit$X), collapse="+")))
         print("fitting with neural network. this may take a few minutes...")
-        model = jordan(x=fit$X[fit$train.set,],
+        model = elman(x=fit$X[fit$train.set,],
                        y=fit$y[fit$train.set],
                        size=c(ncol(fit$X) * 2),
-                       maxit=100,
+                       maxit=1000,
                        shufflePatterns=FALSE,
                        linOut=TRUE,
                        inputsTest=fit$X[fit$test.set,],
@@ -869,11 +869,11 @@ script.run <- function() {
     }
 }
 
-script.run()
+### script.run()
 
 test.run <- function(){
     options$input <<- "~/Documents/hmon/tests/hpccg/blob.out"
-    options$model <<- "rsnns"
+    options$model <<- "nnet:train"
     monitors <<- monitors.read()
     monitors.plot.x11(monitors)
 
