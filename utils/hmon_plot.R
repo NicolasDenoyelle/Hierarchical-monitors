@@ -869,7 +869,7 @@ script.run <- function() {
     }
 }
 
-### script.run()
+script.run()
 
 test.run <- function(){
     options$input <<- "~/Documents/hmon/tests/hpccg/blob.out"
