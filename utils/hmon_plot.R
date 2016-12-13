@@ -937,7 +937,7 @@ script.run <- function() {
     }
 }
 
-##script.run()
+script.run()
 
 test.run <- function(){
     options$input <<- "~/Documents/specCPU2006/filtered.0.out" #hmon/tests/hpccg/blob.out
