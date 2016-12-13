@@ -25,8 +25,8 @@ titleOpt = make_option(
     help = "Plot title"
 )
 
-filterOpt = make_option(
-    opt_str = c("-f", "--filter"),
+grepOpt = make_option(
+    opt_str = c("-g", "--grep"),
     type = "character",
     default = NULL,
     help = "Provide a regex to filter input monitor base on their id (first column)"
@@ -89,11 +89,37 @@ fitOpt = make_option(
   If (--model = \"gaussian\"), then fit y column as a normal distribution, and output y*P(y) on cross validation set."
 )
 
+dynOpt = make_option(
+    opt_str = c("-d", "--dynamic"),
+    type = "logical",
+    default = FALSE,
+    help = "Plot monitors by part dynamically. --window points are shown each step"
+)
+
 winOpt = make_option(
     opt_str = c("-w", "--window"),
     type = "integer",
-    default = 0,
-    help = "number of points to plot. If > 0, then plot by part dynamicaly"
+    default = 10000,
+    help = "number of points to plot. Used with -d option and -v option"
+)
+
+fastOpt = make_option(
+    opt_str = c("-f", "--fast"),
+    type = "logical",
+    default = FALSE,
+    action = "store_true",
+    help = "Option to enable fast reading of large trace.
+            If set: Do not filter NAs and inf values,
+                    Use faster library for reading trace,
+                    Plot a subset of each monitor containing --window random points."
+)
+
+logOpt = make_option(
+    opt_str = c("-l", "--log"),
+    type = "logical",
+    default = FALSE,
+    action = "store_true",
+    help = "Plot yaxis in logscale"
 )
 
 freqOpt = make_option(
@@ -108,7 +134,8 @@ optParse = OptionParser(option_list = c(
                             inOpt,
                             outOpt,
                             titleOpt,
-                            filterOpt,
+                            grepOpt,
+                            fastOpt,
                             xOpt,
                             yOpt,
                             logOpt,
@@ -116,6 +143,7 @@ optParse = OptionParser(option_list = c(
                             clusterOpt,
                             fitOpt,
                             winOpt,
+                            dynOpt,
                             freqOpt))
 
 options = parse_args(
@@ -577,13 +605,18 @@ monitors.set.colnames <-function(frame){
 ### Acquire monitors from input and return a list of monitors
 #############################################################
 monitors.read <- function(){
-    monitors.frame <<- read.table(options$input, stringsAsFactors=F, fill=T)
+    if(options$fast){
+        library("data.table", verbose=FALSE, quietly=TRUE)
+        library("bit64", verbose=FALSE, quietly=TRUE)
+        monitors.frame <<- as.data.frame(fread(options$input, header=FALSE, integer64="numeric", fill=TRUE, blank.lines.skip=TRUE, showProgress=TRUE, data.table=FALSE))
+    } else {
+        monitors.frame <<- read.table(options$input, header=FALSE, stringsAsFactors=FALSE, fill=TRUE)        
+    }
     monitors.frame <<- monitors.set.colnames(monitors.frame)
-    if (!is.null(options$filter))
-        monitors.frame <<- monitors.frame[grepl(options$filter, monitors.frame[, id.id], ignore.case = TRUE),]
+    if (!is.null(options$grep))
+        monitors.frame <<- monitors.frame[grepl(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
     monitors.list(monitors.frame)
 }
-
 
 ## Monitors limits and ticks
 monitors.xlim = new.env(hash = T)
@@ -597,14 +630,32 @@ monitors.yticks = new.env(hash = T)
 monitor.set.limits <- function(monitor){
     ## xlim = monitors.xlim[[monitor.id(monitor)]]
     ## ylim = monitors.xlim[[monitor.id(monitor)]]
-    xmax = max(monitor[,options$xaxis], na.rm = TRUE)
-    xmin = min(monitor[,options$xaxis], na.rm = TRUE)
-    ymax = max(monitor[,options$yaxis], na.rm = TRUE)
-    ymin = min(monitor[,options$yaxis], na.rm = TRUE)
-    monitors.xlim[[monitor.id(monitor)]] <<- c(xmin, xmax)
-    monitors.ylim[[monitor.id(monitor)]] <<- c(ymin, ymax)
-    monitors.xticks[[monitor.id(monitor)]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
-    monitors.yticks[[monitor.id(monitor)]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+    x = monitor[,options$xaxis]
+    y = monitor[,options$yaxis]
+    id = monitor.id(monitor)
+    xmin = min(x, na.rm=T)
+    xmax = max(x,na.rm=T)
+    mean = mean(y)
+    qtl = quantile(y, na.rm = T, probs = c(0.01, 0.99))
+    ymin = qtl[1]
+    ymax = qtl[2]
+    monitors.xlim[[id]] <<- c(xmin, xmax)
+    monitors.ylim[[id]] <<- c(ymin, ymax)
+    monitors.xticks[[id]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
+    monitors.yticks[[id]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+}
+
+#####################################################################
+## Restrict the monitor set to plot in case fast option is turned on.
+## Else return the monitor set.
+#####################################################################
+monitor.restrict.set <- function(monitor){
+    if(!options$fast){
+        return(1:nrow(monitor))
+    } else {
+        subset = sample(x=1:nrow(monitor), size = options$window)
+        return(subset[order(subset)])
+    }
 }
 
 #########################################################################################################
@@ -617,23 +668,25 @@ ylog = ""; if(options$log){ylog = "y"}
 #############################
 monitor.plot.merge <- function(monitor) {
     errors = c()
+    id = monitor.id(monitor)
     monitor.list = monitor.split(monitor)
     for (i in 1:length(monitor.list)) {
         m = monitor.list[[i]]
+        set = monitor.restrict.set(m)
         plot(
-            x = m[, options$xaxis],
-            y = m[, options$yaxis],
+            x = m[set, options$xaxis],
+            y = m[set, options$yaxis],
             log = ylog,      
             type = 'p',
             col = i,
-            xlim = monitors.xlim[[monitor.id(monitor)]],
-            ylim = monitors.ylim[[monitor.id(monitor)]],
+            xlim = monitors.xlim[[id]],
+            ylim = monitors.ylim[[id]],
             axes = FALSE,
             ann = FALSE,
             pch = i,
             panel.first = abline(
-                h = monitors.yticks[[monitor.id(monitor)]],
-                v = monitors.xticks[[monitor.id(monitor)]],
+                h = monitors.yticks[[id]],
+                v = monitors.xticks[[id]],
                 col = "darkgray",
                 lty = 3
             )
@@ -679,6 +732,7 @@ monitor.plot.split <- function(monitor) {
     
     for (i in 1:length(monitor.list)) {
         m = monitor.list[[i]]
+        set = monitor.restrict.set(m)
         xlab = colnames(m)[options$xaxis]
         if(i==1){
             par(mar = c(5, 4, 0, 0) + 0.1)
@@ -692,8 +746,8 @@ monitor.plot.split <- function(monitor) {
         }
         
         plot(
-            x = m[, options$xaxis],
-            y = m[, options$yaxis],
+            x = m[set, options$xaxis],
+            y = m[set, options$yaxis],
             type = 'p',
             col = i,
             pch = i,
@@ -730,7 +784,7 @@ monitor.plot.split <- function(monitor) {
 }
 
 monitor.plot <- function(monitor) {
-    monitor = monitor.check(monitor)
+    if(!options$fast){monitor = monitor.check(monitor)}
     if(options$yaxis > ncol(monitor)){
         print(sprintf("yaxis option set to %d but monitor %s has only %d columns",options$yaxis,monitor.id(monitor),ncol(monitor)))
         return()
@@ -842,7 +896,7 @@ monitors.stream = function(n = options$window) {
         } else {
             frame_line = read.table(textConnection(line), flush = T,col.names = colnames(monitors.frame))
         }
-        if (is.null(options$filter) || grepl(options$filter, frame_line[1, 1], ignore.case = TRUE)) {
+        if (is.null(options$grep) || grepl(options$grep, frame_line[1, 1], ignore.case = TRUE)) {
             if(is.null(monitors.frame)){
                 monitors.frame <<- frame_line
             } else{
@@ -866,7 +920,7 @@ script.run <- function() {
     if (is.null(options$input))
         stop("Input option is mandatory")
     
-    if (options$window > 0) {
+    if (options$dynamic) {
         repeat {
             monitors.plot.x11(monitors.stream())
             Sys.sleep(options$update)
@@ -883,17 +937,19 @@ script.run <- function() {
     }
 }
 
-script.run()
+##script.run()
 
 test.run <- function(){
-    options$input <<- "~/Documents/hmon/tests/hpccg/blob.out"
-    options$model <<- "nnet:train"
+    options$input <<- "~/Documents/specCPU2006/filtered.0.out" #hmon/tests/hpccg/blob.out
+    options$fast <<- TRUE
+### options$model <<- "nnet:train"
     monitors <<- monitors.read()
-    monitors.plot.x11(monitors)
+    sapply(monitors, monitor.plot)
+### monitors.plot.x11(monitors)
 
 ### options$input <<- "../tests/hpccg/lulesh.out"
 ### options$output <<- "./test.pdf"
-### options$filter <<- "write"
+### options$grep <<- "write"
 ### options$log <<- T
 ### options$split <<- T
 ### options$cluster <<- T
