@@ -22,9 +22,11 @@ real              \-?{integer}(\.{integer})?([eE][\+\-]{integer})?
 var               \${integer}
 hexa              "0x"[0-9A-Fa-f]+
 affectation       {name}={name}|{name}={integer}|{name}={hexa}
+ctr_attr          (":"{affectation})|(":"{name})
+net_prefix        "net:::"{name}
+net_ctr           {net_prefix}?{ctr_attr}*
 perf_prefix       "perf::"{name}
-perf_attr         (":"{affectation})|(":"{name})
-perf_ctr          {perf_prefix}?{name}{perf_attr}*
+perf_ctr          {perf_prefix}?{ctr_attr}*
 file              ([\.]?{name})+
 path              [~]?([/]{file})+
 
@@ -60,6 +62,7 @@ void count();
 "DISPLAY:="        { count(); /* fprintf(stderr,"SILENT_DISPLAY\n"); */        return(DISPLAY_FIELD);};
 {name}             { count(); /* fprintf(stderr,"NAME:%s\n", yytext); */       yylval.str = strdup(yytext); return(NAME);};
 {perf_ctr}         { count(); /* fprintf(stderr,"PERF_CTR:%s\n", yytext); */   yylval.str = strdup(yytext); return(PERF_CTR);};
+{net_ctr}          { count(); /* fprintf(stderr,"NET_CTR:%s\n", yytext); */    yylval.str = strdup(yytext); return(NET_CTR);};
 {var}              { count(); /* fprintf(stderr,"VAR:%s\n", yytext); */        yylval.str = var_to_reference(yytext); return(VAR); };
 {path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */       yylval.str = strdup(yytext); return(PATH);};
 {integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */    yylval.str = strdup(yytext); return(INTEGER);};

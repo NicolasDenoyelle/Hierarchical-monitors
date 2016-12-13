@@ -149,7 +149,7 @@
   %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR PERF_CTR
+%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR PERF_CTR NET_CTR
 
 %type <str> term associative_expr commutative_expr associative_op commutative_op event 
 
@@ -208,6 +208,7 @@ event_list
 event
 : NAME  {$$=$1;}
 | PERF_CTR {$$=$1;}
+| NET_CTR {$$=$1;}
 ;
 
 reduction
