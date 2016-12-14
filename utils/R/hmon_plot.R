@@ -271,7 +271,7 @@ monitor.linear.fit <- function(monitor, save = NULL, recurse = 0){
         if(ncol(fit$X)==1){
             fit.lm = lm(fit$y[fit$train.set] ~ fit$X[fit$train.set])  
         } else {
-            fit.lm = lm(fit$y[fit$train.set] ~ .^5, data = fit$X[fit$train.set,])  
+            fit.lm = lm(fit$y[fit$train.set] ~ .^2, data = fit$X[fit$train.set,])  
         }
         if(!is.null(save) && !file.exists(save)){
             save(list=c("fit.lm","fit"), file = save)
