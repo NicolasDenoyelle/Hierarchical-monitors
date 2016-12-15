@@ -9,7 +9,6 @@
 
 harray                     monitors;                 /* The array of monitors */
 hwloc_topology_t           hmon_topology;            /* The topology with monitor on hwloc_obj_t->userdata */
-static FILE *              output;                   /* The output where to write the trace */
 hwloc_cpuset_t             allowed_cpuset;           /* The domain monitored */
 
 /** Monitors threads **/
@@ -20,6 +19,12 @@ static pthread_t *         threads;                  /* Threads id */
 static int                 threads_stop = 0;
 static pthread_barrier_t   barrier;                 /* Common barrier between monitors' thread and main thread */
 static void *              hmonitor_thread(void * arg);
+
+/** Defined in output.c **/
+void hmon_output_init(const char * dir);
+void hmon_output_register_monitor(hmon m);
+void hmon_output_fini();
+void hmon_output_monitors();
 
 int hmon_import_hmonitors(const char * path){
   return hmon_import(path, allowed_cpuset);
@@ -35,8 +40,8 @@ int hmon_compare(void* hmonitor_a, void* hmonitor_b){
   if(a->location->logical_index>b->location->logical_index){return 1;}
   if(a->display && !b->display){return -1;}
   if(!a->display && b->display){return 1;}
-  if(a->silent && !b->silent){return -1;}
-  if(!a->silent && b->silent){return 1;}
+  if(a->output && !b->output){return -1;}
+  if(!a->output && b->output){return 1;}
   
   /* both monitors are at the same location and have same properties */
   return strcmp(a->id, b->id);
@@ -96,7 +101,7 @@ void hmon_restrict_pid_taskset(pid_t pid, int recurse){
   hwloc_bitmap_free(running_cpuset);
 }
 
-int hmon_lib_init(hwloc_topology_t topo, char * out){
+int hmon_lib_init(const hwloc_topology_t topo, const char * out){
   unsigned i;
   /* Check hwloc version */
   if(hwloc_check_version_mismatch() != 0){return -1;}
@@ -114,16 +119,16 @@ int hmon_lib_init(hwloc_topology_t topo, char * out){
     fprintf(stderr, "Failed to init topology\n");
     return -1;
   }
-  
-  if(out){
-    output = fopen(out, "w");
-    if(output == NULL){
-      perror("fopen");
-      output = stdout;
-    }
-  }
-  else{output = stdout;}
 
+  /* Prepare output */
+  size_t len = strlen(out);
+  char output[len+1]; memset(output,0,sizeof(output));
+  sprintf(output, "%s", out);
+  if(out[len-1] != '/')
+    output[len-1] = '/';
+  
+  hmon_output_init(output);
+  
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, (void (*)(void *))delete_hmonitor);
   allowed_cpuset = hwloc_bitmap_dup(hwloc_topology_get_complete_cpuset((hmon_topology)));
@@ -136,7 +141,7 @@ int hmon_lib_init(hwloc_topology_t topo, char * out){
     hwloc_obj_t core = hwloc_get_obj_by_type(hmon_topology, HWLOC_OBJ_CORE, i);
     pthread_create(&(threads[i]), NULL, hmonitor_thread, (void*)(core));
   }
-  
+
   return 0;
 }
 
@@ -144,8 +149,9 @@ int hmon_lib_init(hwloc_topology_t topo, char * out){
 int hmon_register_hmonitor(hmon m, int silent, int display){
   if(m==NULL){return -1;}
   if(!hwloc_bitmap_isincluded(m->location->cpuset, allowed_cpuset)){return -1;}
+  
   /* Make monitor printable (or not) */
-  m->silent = silent;
+  if(!silent){hmon_output_register_monitor(m);}
   m->display = display;
   
   /* Add monitor to existing monitors*/
@@ -180,7 +186,6 @@ void hmon_lib_finalize(){
   pthread_barrier_wait(&barrier);
   for(i=0;i<thread_count;i++){pthread_join(threads[i],NULL);}
   /* Cleanup */
-  fclose(output);
   free(threads);
   for(i=0; i<hwloc_topology_get_depth(hmon_topology); i++){
     for(j=0;j<hwloc_get_nbobjs_by_depth(hmon_topology,i);j++){
@@ -188,11 +193,11 @@ void hmon_lib_finalize(){
       if(obj->userdata){delete_harray(obj->userdata);}
     }
   }
+  hmon_output_fini();
   delete_harray(monitors);
   hwloc_bitmap_free(allowed_cpuset);
   hwloc_topology_destroy(hmon_topology);
 }
-
 
 
 static void hmon_stop_hmonitor(hmon m){
@@ -214,11 +219,6 @@ void hmon_stop(){
 
 int hmon_is_uptodate(){
   return __sync_fetch_and_and(&uptodate, 0);
-}
-
-static inline int hmon_output_hmonitor(hmon m){
-  hmonitor_output(m,output);
-  return 0;
 }
 
 /* Update monitors from a location from children to */
@@ -265,7 +265,7 @@ hmon_thread_loop:
   /* Analyze monitors */
   hmon_update_location(Core, 1, 1, hmonitor_reduce);
   /* output monitors */
-  hmon_update_location(Core, 1, 1, hmon_output_hmonitor);
+  hmon_update_location(Core, 1, 1, hmonitor_output);
   /* Signal we are uptodate */
   __sync_fetch_and_sub(&uptodate, 1);
   /* Restart event collection */

@@ -53,10 +53,10 @@ static struct perf_option input_opt =   {.name = "--input",
 					 .def_val = "NULL",
 					 .set = 0};
 
-static struct perf_option output_opt =  {.name = "--output",
+static struct perf_option output_opt =  {.name = "--output-dir",
 					 .short_name = "-o",
-					 .arg = "<output_file>",
-					 .desc = "File where to write trace output",
+					 .arg = "<output_directory>",
+					 .desc = "Directory where to write trace output",
 					 .type = OPT_TYPE_STRING,
 					 .value.str_value = NULL,
 					 .def_val = "/dev/stdout",

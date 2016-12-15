@@ -40,8 +40,9 @@ typedef struct hmon{
   int (* eventset_read)    (void *, double *);
   int (* eventset_destroy) (void *);
 
-  /** Do we output this one ? **/
-  int silent;
+  /** Output file. This is private, set and destroyed by synchronize.c **/
+  FILE * output;
+
   /** Do we display this one on topology **/
   unsigned display;
   /** If smaketopped do not stop twice **/
@@ -117,9 +118,9 @@ int hmonitor_reduce(hmon m);
 
 /**
  * Print monitor to file.
- * The monitor will only be print if
+ * The monitor will only be print if its field output was manually set.
  **/
-void hmonitor_output(hmon m, FILE* out);
+void hmonitor_output(hmon m);
 
 /**
  * Lock monitor to avoid concurrent updates.

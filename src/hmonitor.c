@@ -37,7 +37,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->location = location;
   monitor->window = window;
   monitor->userdata = NULL;
-  monitor->silent = 0;
+  monitor->output = NULL;
   monitor->display = 0;
   monitor->owner = pthread_self();
   /* Load perf plugin functions */
@@ -144,18 +144,18 @@ void hmonitor_reset(hmon m){
   m->ref_time = 1000000000 * tp.tv_sec + tp.tv_nsec;
 }
 
-void hmonitor_output(hmon m, FILE* out){
-  if(!m->silent && m->owner == pthread_self()){
+void hmonitor_output(hmon m){
+  if(m->output != NULL && m->owner == pthread_self()){
     unsigned j;
     char samples[m->n_samples*20]; memset(samples, 0, sizeof(samples));
     char *c = samples;
     for(j=0;j<m->n_samples;j++){c+=sprintf(c, "%-.6e ", m->samples[j]);}
-    fprintf(out,"%-16s %8s:%u %14ld %s\n",
-	    m->id,
+    fprintf(m->output,"%8s:%u %14ld %s\n",
 	    hwloc_type_name(m->location->type),
 	    m->location->logical_index,
 	    hmonitor_get_timestamp(m,m->last),
 	    samples);
+    fflush(m->output);
   }
 }
 
