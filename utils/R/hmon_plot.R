@@ -516,8 +516,13 @@ monitor.split <- function(monitor) {
 #########################################################################################################
 
 monitor.frame = NULL
+xlim = NULL
+xticks = NULL
+ylim = NULL
+yticks = NULL
 id.time = 2
 id.obj = 1
+ylog = ""; if(options$log){ylog = "y"}
 
 ###########################
 ### Get a monitor obj index
@@ -583,18 +588,12 @@ monitor.read <- function(){
     if(options$fast){
         library("data.table", verbose=FALSE, quietly=TRUE)
         library("bit64", verbose=FALSE, quietly=TRUE)
-        monitor = as.data.frame(fread(options$input, header=FALSE, integer64="numeric", fill=TRUE, blank.lines.skip=TRUE, showProgress=TRUE, data.table=FALSE))
+        monitor = fread(options$input, header=FALSE, integer64="numeric", blank.lines.skip=TRUE, showProgress=TRUE, data.table=TRUE)
     } else {
-        monitor = read.table(options$input, header=FALSE, stringsAsFactors=FALSE, fill=TRUE)        
+        monitor = read.table(options$input, header=FALSE, stringsAsFactors=FALSE)        
     }
     monitor.set.colnames(monitor)
 }
-
-## Monitors limits and ticks
-xlim = NULL
-xticks = NULL
-ylim = NULL
-yticks = NULL
 
 ##################################################
 ### Save in environment a monitor limits and ticks
@@ -630,7 +629,6 @@ monitor.restrict.set <- function(monitor){
 #########################################################################################################
 ###                                              monitor ploting                                        #
 #########################################################################################################
-ylog = ""; if(options$log){ylog = "y"}
 
 #############################
 ### Plot a unsplitted monitor
