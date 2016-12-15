@@ -1,6 +1,7 @@
 utils/*
-!utils/hmon_plot.R
-!utils/neuralnet_1.33.tar.gz
+!utils/R/hmon_plot.R
+!utils/R/neuralnet_1.33.tar.gz
+build_archive.sh
 aclocal.m4
 ar-lib
 autom4te.cache
@@ -17,11 +18,11 @@ Makefile
 missing
 configure
 libtool
+stamp-h1
 src/hmonitor
 src/parser.c
 src/parser.h
 src/scanner.c
-stamp-h1
 src/.deps
 src/.libs
 src/Makefile
@@ -70,4 +71,10 @@ src/plugins/fake/Makefile
 src/plugins/fake/*.lo
 src/plugins/fake/*.o
 src/plugins/fake/*.la
+src/plugins/system/.deps
+src/plugins/system/.libs
+src/plugins/system/Makefile
+src/plugins/system/*.lo
+src/plugins/system/*.o
+src/plugins/system/*.la
 
