@@ -16,7 +16,7 @@ extern hwloc_topology_t hmon_topology;
  * @param out, the file where to print the trace.
  * @return -1 on error, 0 on success;
  **/
-int hmon_lib_init(hwloc_topology_t topology, char * out);
+int hmon_lib_init(const hwloc_topology_t topology, const char * out);
 
 /**
  * Delete all library internal structures.
