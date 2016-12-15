@@ -25,18 +25,11 @@ titleOpt = make_option(
     help = "Plot title"
 )
 
-grepOpt = make_option(
-    opt_str = c("-g", "--grep"),
-    type = "character",
-    default = NULL,
-    help = "Provide a regex to filter input monitor base on their id (first column)"
-)
-
 yOpt = make_option(
     opt_str = c("-y", "--yaxis"),
     type = "integer",
-    default = 4,
-    help = "Use column yaxis instead of column 4 as Y values to plot"
+    default = 3,
+    help = "Use column yaxis instead of column 3 as Y values to plot"
 )
 
 logOpt = make_option(
@@ -50,7 +43,7 @@ logOpt = make_option(
 xOpt = make_option(
     opt_str = c("-x", "--xaxis"),
     type = "integer",
-    default = 3,
+    default = 2,
     help = "Use column xaxis instead of column 3 as x values to plot"
 )
 
@@ -93,7 +86,8 @@ dynOpt = make_option(
     opt_str = c("-d", "--dynamic"),
     type = "logical",
     default = FALSE,
-    help = "Plot monitors by part dynamically. --window points are shown each step"
+    action = "store_true",    
+    help = "Plot monitor by part dynamically. --window points are shown each step"
 )
 
 winOpt = make_option(
@@ -134,7 +128,6 @@ optParse = OptionParser(option_list = c(
                             inOpt,
                             outOpt,
                             titleOpt,
-                            grepOpt,
                             fastOpt,
                             xOpt,
                             yOpt,
@@ -162,7 +155,7 @@ get_title <- function(str) {
     } else if(!is.null(str)){
         str
     } else {
-        options$input
+        monitor.id()
     }
 }
 
@@ -196,7 +189,7 @@ monitor.fit.prepare <- function(monitor, test.ratio = 0, shuffle=FALSE, past=0, 
     ret = NULL
     
     ##Features and target
-    X = monitor[, setdiff(4:ncol(monitor), options$yaxis)]
+    X = monitor[, setdiff(3:ncol(monitor), options$yaxis)]
     y = monitor[, options$yaxis]
 
     ##Append past timestep columns
@@ -261,7 +254,7 @@ monitor.fit.denormalize <- function(fit, y){y*fit$y.scale + fit$y.center}
 ### Output cross validation set and prediction
 ######################################################################
 monitor.linear.fit <- function(monitor, save = NULL, recurse = 0){
-    if(ncol(monitor)<=4){
+    if(ncol(monitor)<=3){
         print("linear plot cannot be applied on a monitor with a single event")
         return(NULL)
     }
@@ -292,7 +285,7 @@ monitor.linear.fit <- function(monitor, save = NULL, recurse = 0){
 ##############################################################################
 monitor.nnet.fit <- function(monitor, save = NULL, recurse = 0, train=FALSE){
     ##check there are features and target
-    if(ncol(monitor)<=4){
+    if(ncol(monitor)<=3){
         print("linear plot cannot be applied on a monitor with a single event")
         return(NULL)
     }
@@ -480,28 +473,16 @@ monitor.plot.fit <-
     }
 
 #########################################################################################################
-###                                          monitors partitionning                                     #
+###                                          monitor partitionning                                     #
 #########################################################################################################
 
-####################################
-### list monitors in a monitor frame
-####################################
-monitors.list <- function(monitors){
-    ids = unique(monitors[, id.id])
-    ret = vector("list", length = length(ids))
-    for(i in 1:length(ids)){
-        ret[[i]] = subset(monitors, monitors[,id.id] == ids[[i]])
-    }
-    ret
-}
-
 ###############################################################
-### Split a monitor in several monitors using dbscan clustering
+### Split a monitor in several monitor using dbscan clustering
 ###############################################################
 monitor.cluster <- function(monitor){
     library("dbscan")
     if(nrow(monitor)<=10){return(list(monitor))}
-    p = monitor[, 4:ncol(monitor)]
+    p = monitor[, 3:ncol(monitor)]
     p = scale(p, center = TRUE, scale = TRUE)
     model = dbscan(x = p, eps=.2)
     n = max(model$cluster)
@@ -534,28 +515,22 @@ monitor.split <- function(monitor) {
 ###                                              monitor utils                                          #
 #########################################################################################################
 
-monitors.frame = NULL
-id.time = 3
-id.obj = 2
-id.id  = 1
-
-################################
-### Get a monitor mapping object
-################################
-monitor.obj <- function(monitor)
-    as.character(monitor[1, id.obj])
+monitor.frame = NULL
+id.time = 2
+id.obj = 1
 
 ###########################
 ### Get a monitor obj index
 ###########################
 monitor.obj.index <- function(monitor) 
-    as.integer(strsplit(monitor.obj(monitor), ":", fixed=T)[[1]][2])
+    as.integer(strsplit(monitor[1,id.obj], ":", fixed=T)[[1]][2])
 
 ####################
 ### Get a monitor id
 ####################
-monitor.id <- function(monitor) 
-    as.character(monitor[1, id.id])
+monitor.id <- function(){
+    tail(unlist(strsplit(options$input,"/", fixed=T)), n=1)
+}
 
 #####################################################################
 ### Filter NA cols then inf, NaN, NA lines, and return filtered frame
@@ -564,7 +539,7 @@ monitor.check <- function(frame){
     cols.del = c()
     rows.del = c()
     ##Remove columns with only NA
-    for (i in 4:ncol(frame)) {
+    for (i in 3:ncol(frame)) {
         if (length(which(!is.na(frame[, i]))) == 0)
             cols.del = c(cols.del, i)
     }
@@ -576,7 +551,7 @@ monitor.check <- function(frame){
         if(is.nan(frame[i,options$yaxis]) || (options$log && frame[i,options$yaxis]<=0)){
             rows.del = c(rows.del, i)
         } else {
-            for (j in 4:ncol(frame)) {
+            for (j in 3:ncol(frame)) {
                 if (is.infinite(frame[i, j]) ||
                     is.na(frame[i, j]) || is.nan(frame[i, j])) {
                     rows.del = c(rows.del, i)
@@ -592,57 +567,51 @@ monitor.check <- function(frame){
 ####################################################################
 ### set column names of a monitor frame and return the updated frame
 ####################################################################
-monitors.set.colnames <-function(frame){
+monitor.set.colnames <-function(frame){
     names = colnames(frame)
     names[1] = "id"
     names[2] = "hwloc_obj"
-    names[3] = "nanoseconds"
+    names[2] = "nanoseconds"
     colnames(frame) = names
     frame
 }
 
-#############################################################
-### Acquire monitors from input and return a list of monitors
-#############################################################
-monitors.read <- function(){
+##############################
+### Acquire monitor from input
+##############################
+monitor.read <- function(){
     if(options$fast){
         library("data.table", verbose=FALSE, quietly=TRUE)
         library("bit64", verbose=FALSE, quietly=TRUE)
-        monitors.frame <<- as.data.frame(fread(options$input, header=FALSE, integer64="numeric", fill=TRUE, blank.lines.skip=TRUE, showProgress=TRUE, data.table=FALSE))
+        monitor = as.data.frame(fread(options$input, header=FALSE, integer64="numeric", fill=TRUE, blank.lines.skip=TRUE, showProgress=TRUE, data.table=FALSE))
     } else {
-        monitors.frame <<- read.table(options$input, header=FALSE, stringsAsFactors=FALSE, fill=TRUE)        
+        monitor = read.table(options$input, header=FALSE, stringsAsFactors=FALSE, fill=TRUE)        
     }
-    monitors.frame <<- monitors.set.colnames(monitors.frame)
-    if (!is.null(options$grep))
-        monitors.frame <<- monitors.frame[grepl(options$grep, monitors.frame[, id.id], ignore.case = TRUE),]
-    monitors.list(monitors.frame)
+    monitor.set.colnames(monitor)
 }
 
 ## Monitors limits and ticks
-monitors.xlim = new.env(hash = T)
-monitors.xticks = new.env(hash = T)
-monitors.ylim = new.env(hash = T)
-monitors.yticks = new.env(hash = T)
+xlim = NULL
+xticks = NULL
+ylim = NULL
+yticks = NULL
 
 ##################################################
 ### Save in environment a monitor limits and ticks
 ##################################################
 monitor.set.limits <- function(monitor){
-    ## xlim = monitors.xlim[[monitor.id(monitor)]]
-    ## ylim = monitors.xlim[[monitor.id(monitor)]]
     x = monitor[,options$xaxis]
     y = monitor[,options$yaxis]
-    id = monitor.id(monitor)
     xmin = min(x, na.rm=T)
     xmax = max(x,na.rm=T)
     mean = mean(y)
     qtl = quantile(y, na.rm = T, probs = c(0.01, 0.99))
     ymin = qtl[1]
     ymax = qtl[2]
-    monitors.xlim[[id]] <<- c(xmin, xmax)
-    monitors.ylim[[id]] <<- c(ymin, ymax)
-    monitors.xticks[[id]] <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
-    monitors.yticks[[id]] <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+    xlim <<- c(xmin, xmax)
+    ylim <<- c(ymin, ymax)
+    xticks <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
+    yticks <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
 }
 
 #####################################################################
@@ -668,7 +637,7 @@ ylog = ""; if(options$log){ylog = "y"}
 #############################
 monitor.plot.merge <- function(monitor) {
     errors = c()
-    id = monitor.id(monitor)
+    id = monitor.id()
     monitor.list = monitor.split(monitor)
     for (i in 1:length(monitor.list)) {
         m = monitor.list[[i]]
@@ -679,16 +648,16 @@ monitor.plot.merge <- function(monitor) {
             log = ylog,      
             type = 'p',
             col = i,
-            xlim = monitors.xlim[[id]],
-            ylim = monitors.ylim[[id]],
+            xlim = xlim,
+            ylim = ylim,
             axes = FALSE,
             ann = FALSE,
             pch = i,
             panel.first = abline(
-                h = monitors.yticks[[id]],
-                v = monitors.xticks[[id]],
+                h = yticks,
+                v = xticks,
                 col = "darkgray",
-                lty = 3
+                lty = 2
             )
         )
         if (!is.null(options$model))
@@ -698,13 +667,13 @@ monitor.plot.merge <- function(monitor) {
     }
     title(
         main = get_title(NULL),
-        ylab = monitor.id(m),
+        ylab = colnames(monitor)[options$yaxis],
         xlab = colnames(monitor)[options$xaxis]
     )
-    axis(1, at = monitors.xticks[[monitor.id(monitor)]])
-    axis(2, at = monitors.yticks[[monitor.id(monitor)]])
+    axis(1, at = xticks)
+    axis(2, at = yticks)
     sequence = 1:length(monitor.list)
-    legend.text = sapply(sequence, function(i) monitor.obj(monitor.list[[i]]), simplify = "array")
+    legend.text = sapply(sequence, function(i) monitor.list[[i]][1,id.obj], simplify = "array")
     legend.col = sequence
     legend.pch = sequence
     if (!is.null(options$model)){
@@ -755,17 +724,17 @@ monitor.plot.split <- function(monitor) {
             ylab = ylab,
             yaxt = "n",
             xaxt = "n",
-            xlim = monitors.xlim[[monitor.id(monitor)]],
-            ylim = monitors.ylim[[monitor.id(monitor)]],
+            xlim = xlim,
+            ylim = ylim,
             log=ylog,
             abline(
-                h = monitors.yticks[[monitor.id(monitor)]],
-                v = monitors.xticks[[monitor.id(monitor)]],
+                h = yticks,
+                v = xticks,
                 col = "darkgray",
-                lty = 3
+                lty = 2
             )
         )
-        legend.text = monitor.obj(m)
+        legend.text = m[1,id.obj]
         legend.col = i
         legend.pch = i
         if (!is.null(options$model)){
@@ -775,10 +744,8 @@ monitor.plot.split <- function(monitor) {
             legend.pch = c(legend.pch, i+1)
         }
         legend("bottomright", legend = legend.text, bg="white", pch=legend.pch, col=legend.col)
-        axis(1, at = monitors.xticks[[monitor.id(monitor)]])
-        if(i==1){
-            axis(2, at = monitors.yticks[[monitor.id(monitor)]])
-        }
+        axis(1, at = xticks)
+        if(i==1){axis(2, at = yticks)}
     }
     title(main = get_title(NULL), outer=T)
 }
@@ -800,10 +767,10 @@ monitor.plot <- function(monitor) {
         monitor.plot.merge(monitor)
 }
 
-#################################
-### Plot all monitors in pdf file
-#################################
-monitors.plot.pdf <- function(monitors) {
+############################
+### Plot monitor in pdf file
+############################
+monitor.plot.pdf <- function(monitor){
     pdf(
         options$output,
         family = "Helvetica",
@@ -811,7 +778,7 @@ monitors.plot.pdf <- function(monitors) {
         height = 5,
         title = get_title(options$file)
     )
-    sapply(monitors, monitor.plot)
+    monitor.plot(monitor)
     graphics.off()
 }
 
@@ -820,21 +787,8 @@ monitors.plot.pdf <- function(monitors) {
 ###                                            X11 handlers                                             #
 #########################################################################################################
 
-monitors.connexion = NULL
-monitors.devs = new.env(hash = T)
-monitors.graphicEnv = NULL
-
-x11.devset <- function()
-    if (dev.cur() != monitors.graphicEnv$which) dev.set(monitors.graphicEnv$which)
-
-x11.keyboardHandler <- function(key) {
-    if (key == "q" || key == "\033") {
-        for(key in ls(monitors.devs)){
-            dev.off(which = monitors.devs[[key]]) 
-        }
-    }
-    NULL
-}
+monitor.connexion = NULL
+monitor.x11 = NULL
 
 ##############################################################
 ### get screen dimensions as a list c(width, height) in inches
@@ -854,63 +808,51 @@ screen.dim <- function(){
     c(sc.dim[1] / dpi[1], sc.dim[2] / dpi[2])
 }
 
-monitor.create.x11 <- function(monitor) {
-    dim = screen.dim()
-    dev = x11(type = "Xlib", width = dim[1], height=dim[2])
-    ##set event handlers for this device
-    setGraphicsEventHandlers(onKeybd = x11.keyboardHandler)
-    monitors.graphicEnv <<- getGraphicsEventEnv()
-    dev.cur()
-}
-
 monitor.plot.x11 <- function(monitor) {
-    id = as.character(monitor.id(monitor))
-    if (is.null(monitors.devs[[id]])) {
-        monitors.devs[[id]] = monitor.create.x11(monitor)
+    if(is.null(monitor.x11)){
+        dim = screen.dim()
+        x11(type = "Xlib", width = dim[1], height=dim[2])
+        monitor.x11 <<- dev.cur()
     } else {
-        dev.set(monitors.devs[[id]])
+        dev.set(monitor.x11)
     }
     monitor.plot(monitor)
 }
 
-monitors.plot.x11 <- function(monitors) sapply(monitors, monitor.plot.x11)
-
 #########################################################################################################
-###                                        Streaming monitors                                           #
+###                                        Streaming monitor                                            #
 #########################################################################################################
 
 ################################
 ### Stream monitor trace.
 ### Can be called several times.
 ################################
-monitors.stream = function(n = options$window) {
+monitor.stream = function(n = options$window) {
     ##Open a fifo if the trace is to be read by parts
-    if (is.null(monitors.connexion)) {
-        monitors.connexion <<- fifo(options$input, open = "r")
+    if (is.null(monitor.connexion)) {
+        monitor.connexion <<- fifo(options$input, open = "r")
     }
     ##read by part
-    lines = readLines(monitors.connexion, n = n)
+    lines = readLines(monitor.connexion, n = n)
     for (line in lines) {
-        if(is.null(monitors.frame)){
+        if(is.null(monitor.frame)){
             frame_line = read.table(textConnection(line), flush = T)  
         } else {
-            frame_line = read.table(textConnection(line), flush = T,col.names = colnames(monitors.frame))
+            frame_line = read.table(textConnection(line), flush = T,col.names = colnames(monitor.frame))
         }
-        if (is.null(options$grep) || grepl(options$grep, frame_line[1, 1], ignore.case = TRUE)) {
-            if(is.null(monitors.frame)){
-                monitors.frame <<- frame_line
-            } else{
-                monitors.frame <<- rbind(monitors.frame, frame_line)
-            }
+        if(is.null(monitor.frame)){
+            monitor.frame <<- frame_line
+        } else{
+            monitor.frame <<- rbind(monitor.frame, frame_line)
         }
     }
     ##check the frame is not too large after expension
-    if(nrow(monitors.frame)>n*10){
-        start = nrow(monitors.frame)-n*9
-        monitors.frame <<- monitors.frame[start:nrow(monitors.frame), ]
+    if(nrow(monitor.frame)>n*10){
+        start = nrow(monitor.frame)-n*9
+        monitor.frame <<- monitor.frame[start:nrow(monitor.frame), ]
     }
-    monitors.frame <<- monitors.set.colnames(monitors.frame)
-    monitors.list(monitors.frame)
+    monitor.frame <<- monitor.set.colnames(monitor.frame)
+    monitor.frame
 }
 
 #########################################################################################################
@@ -922,17 +864,17 @@ script.run <- function() {
     
     if (options$dynamic) {
         repeat {
-            monitors.plot.x11(monitors.stream())
+            monitor.plot.x11(monitor.stream())
             Sys.sleep(options$update)
         }
     } else {
-        monitors = monitors.read()
+        monitor = monitor.read()
         if (is.null(options$output)) {
-            monitors.plot.x11(monitors)
+            monitor.plot.x11(monitor)
             print("Press [enter] to close windows")
             readLines(con = "stdin", n = 1)
         } else {
-            monitors.plot.pdf(monitors)
+            monitor.plot.pdf(monitor)
         }
     }
 }
@@ -940,29 +882,23 @@ script.run <- function() {
 script.run()
 
 test.run <- function(){
-    options$input <<- "~/Documents/specCPU2006/filtered.0.out" #hmon/tests/hpccg/blob.out
-    options$fast <<- TRUE
+    options$input <<- "~/Documents/hmon/tests/output/cpu_load" #hmon/tests/hpccg/blob.out
+### options$fast <<- TRUE
 ### options$model <<- "nnet:train"
-    monitors <<- monitors.read()
-    sapply(monitors, monitor.plot)
-### monitors.plot.x11(monitors)
-
-### options$input <<- "../tests/hpccg/lulesh.out"
-### options$output <<- "./test.pdf"
-### options$grep <<- "write"
+### monitor <<- monitor.read()
 ### options$log <<- T
 ### options$split <<- T
 ### options$cluster <<- T
 ### options$title <<- "test_title"
-### options$xaxis <<- 3
+### options$xaxis <<- 2
 ### options$yaxis <<- 7
-### options$window <<- 1000
-### options$update <<- 0.5
-### monitors <<- monitors.stream()
-### monitor <<- monitors[[1]]
-### sapply(monitors, monitor.plot)
-### monitor.create.x11(monitor)
-### monitors.plot.pdf(monitors)
+  options$window <<- 100
+  options$update <<- 0.5
+  repeat {
+    monitor.plot.x11(monitor.stream())
+    Sys.sleep(options$update)
+  }
+### monitor.plot.pdf(monitor)
 ### monitor.plot.split(monitor)
 ### monitor.plot.merge(monitor)
 }
