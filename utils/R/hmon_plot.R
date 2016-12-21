@@ -514,7 +514,7 @@ monitor.split <- function(monitor) {
 #########################################################################################################
 ###                                              monitor utils                                          #
 #########################################################################################################
-
+ylog = ""; if(options$log){ylog = "y"}
 monitor.frame = NULL
 xlim = NULL
 xticks = NULL
@@ -522,7 +522,6 @@ ylim = NULL
 yticks = NULL
 id.time = 2
 id.obj = 1
-ylog = ""; if(options$log){ylog = "y"}
 
 ###########################
 ### Get a monitor obj index
@@ -569,18 +568,6 @@ monitor.check <- function(frame){
     frame
 }
 
-####################################################################
-### set column names of a monitor frame and return the updated frame
-####################################################################
-monitor.set.colnames <-function(frame){
-    names = colnames(frame)
-    names[1] = "id"
-    names[2] = "hwloc_obj"
-    names[2] = "nanoseconds"
-    colnames(frame) = names
-    frame
-}
-
 ##############################
 ### Acquire monitor from input
 ##############################
@@ -588,11 +575,10 @@ monitor.read <- function(){
     if(options$fast){
         library("data.table", verbose=FALSE, quietly=TRUE)
         library("bit64", verbose=FALSE, quietly=TRUE)
-        monitor = fread(options$input, header=FALSE, integer64="numeric", blank.lines.skip=TRUE, showProgress=TRUE, data.table=TRUE)
+        monitor = fread(options$input, header=TRUE, integer64="numeric", blank.lines.skip=TRUE, showProgress=TRUE, data.table=TRUE)
     } else {
-        monitor = read.table(options$input, header=FALSE, stringsAsFactors=FALSE)        
+        monitor = read.table(options$input, header=TRUE, stringsAsFactors=FALSE)        
     }
-    monitor.set.colnames(monitor)
 }
 
 ##################################################
@@ -849,7 +835,6 @@ monitor.stream = function(n = options$window) {
         start = nrow(monitor.frame)-n*9
         monitor.frame <<- monitor.frame[start:nrow(monitor.frame), ]
     }
-    monitor.frame <<- monitor.set.colnames(monitor.frame)
     monitor.frame
 }
 
