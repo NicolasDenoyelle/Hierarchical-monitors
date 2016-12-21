@@ -32,6 +32,14 @@ harray harray_dup(harray array)
   return copy;
 }
 
+char ** harray_to_char(harray h){
+  int i;
+  char ** ret;
+  malloc_chk(ret, sizeof(*ret) * h->length);
+  for(i=0;i<h->length; i++){ret[i] = (char*)harray_get(h,i);}
+  return ret;
+}
+
 void 
 delete_harray(harray array){
   unsigned i;

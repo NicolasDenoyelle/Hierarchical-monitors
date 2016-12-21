@@ -14,11 +14,14 @@ struct output_data{
 
 struct output_data * new_output_data(const char * id){
   struct output_data * d;
+  size_t len = strlen("/dev/stdout")+1;
+  if(output_dir != NULL) len = strlen(output_dir) + strlen(id) + 1;
+  char output_path[len];
+  if(output_dir == NULL){snprintf(output_path, len, "%s", "/dev/stdout");}
+  else{sprintf(output_path, "%s%s", output_dir, id);}
+  
   malloc_chk(d,sizeof(*d));
   d->id = strdup(id);
-  char output_path[strlen(id)+strlen(output_dir)+1];
-  if(output_dir == NULL){sprintf(output_path, "%s", "/dev/stdout");}
-  else{sprintf(output_path, "%s%s", output_dir, id);}
   d->output = fopen(output_path,"w");
   if(d->output == NULL){
     monitor_print_err("Cannot open %s for writing\n", output_path);

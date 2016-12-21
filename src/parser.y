@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include "./hmon.h"
 #include "./hmon/hmonitor.h"
+#include "./hmon/harray.h"
 #include "./internal.h"
 
   /**
@@ -31,35 +32,25 @@
   char *                     perf_plugin_name;
   char *                     reduction_plugin_name;
   char *                     reduction_code;
-  unsigned                   n_reductions;
   char *                     code;
   int                        silent;
   int                        display;
   unsigned                   window;
   unsigned                   location_depth;
-  char **                    event_names;
-  unsigned                   n_events;
-  unsigned                   allocated_events;
+  harray                     events;
+  harray                     reductions;
 
-  static void realloc_chk_events(){
-    if(n_events+1>allocated_events){
-      allocated_events*=2;
-      realloc_chk(event_names, allocated_events*sizeof(*event_names));
-    }
-  }
-    
   /* This function is called for each newly parsed monitor */
   static void reset_monitor_fields(){
     if(perf_plugin_name){free(perf_plugin_name);}
     if(reduction_code){free(reduction_code);}
     if(reduction_plugin_name){free(reduction_plugin_name);}
-    while(n_events--){free(event_names[n_events]);}
-    n_events               = 0;
+    empty_harray(events);
+    empty_harray(reductions);
     window                 = 1;        /* default store 1 sample */
-    silent                 = 0; 	   /* default not silent */
-    display                = 0; 	   /* default do not display */     
-    location_depth         = 0; 	   /* default on root */
-    n_reductions           = 0;
+    silent                 = 0;        /* default not silent */
+    display                = 0;        /* default do not display */     
+    location_depth         = 0;        /* default on root */
     perf_plugin_name       = NULL;
     reduction_plugin_name  = NULL;
     reduction_code         = NULL;
@@ -67,8 +58,8 @@
 
   /* This function is called once before parsing */
   static void import_init(){
-    event_names = malloc(32*sizeof(char*));
-    allocated_events = 32;
+    events = new_harray(sizeof(char*), 16, free);
+    reductions = new_harray(sizeof(char*), 16, free);
     reset_monitor_fields();
   }
 
@@ -77,8 +68,8 @@
     /* cleanup */
     if(reduction_code){free(reduction_code);}
     if(reduction_plugin_name){free(reduction_plugin_name);}
-    while(n_events--){free(event_names[n_events]);}
-    free(event_names);
+    delete_harray(reductions);
+    delete_harray(events);
   }
 
   static char * concat_expr(int n, ...){
@@ -127,11 +118,34 @@
     }
 	
     /* Build one monitor per location */
-    while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
-      hmon m = new_hmonitor(id, obj, (const char **)event_names, n_events, window, n_reductions, perf_plugin_name, model_plugin);
-      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}
-	  
+    if(harray_length(events) == 0){
+      monitor_print_err("Monitor %s has no event defined and will not be buit.\n", id);
+      goto end_create;
     }
+
+    /* Collect input and output names  */
+    char ** event_names = harray_to_char(events);
+    char ** reduction_names = NULL;
+    if(harray_length(reductions) > 0){reduction_names = harray_to_char(reductions);}
+      
+    while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
+      hmon m = new_hmonitor(id,
+			    obj,
+			    (const char **)event_names,
+			    harray_length(events),
+			    window,
+			    (const char **)reduction_names,
+			    harray_length(reductions),
+			    perf_plugin_name,
+			    model_plugin);
+      
+      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}	  
+    }
+
+    free(event_names);
+    if(reduction_names != NULL){free(reduction_names);}
+    
+  end_create:
     reset_monitor_fields();
   }
 
@@ -196,12 +210,10 @@ field
 
 event_list
 : event                {
-  realloc_chk_events();
-  event_names[n_events++] = $1;
+  harray_push(events, $1);
  }
 | event_list ',' event {
-  realloc_chk_events();
-  event_names[n_events++] = $3;
+  harray_push(events, $3);
   }
 ;
 
@@ -212,7 +224,19 @@ event
 ;
 
 reduction
-: INTEGER '#' NAME {reduction_plugin_name = $3; n_reductions = atoi($1); free($1);}
+: INTEGER '#' NAME {
+  int i;
+  reduction_plugin_name = $3;
+  /* Default names */
+  for(i=0; i<atoi($1); i++){
+    char * name = malloc(16);
+    memset(name, 0, 16);
+    snprintf(name, 16, "V%d", atoi($1));
+    harray_push(reductions, name);
+  }
+  free($1);
+  free($3);
+ }
 | assignement_list{
   reduction_code = concat_and_replace(1,2,"double * events  = hmonitor_get_events(m, m->last);\n", reduction_code);
   reduction_code = concat_and_replace(0,2, reduction_code, "}\n");
@@ -225,13 +249,13 @@ assignement_list
 ;
 
 assignement
-: commutative_expr {
+: NAME '=' commutative_expr {
   if(reduction_code==NULL){reduction_code=strdup("");}
   char out[128]; memset(out,0,sizeof(out));
-  snprintf(out, sizeof(out), "m->samples[%d]=", n_reductions);
-  reduction_code = concat_and_replace(0, 4, reduction_code, out, $1, ";\n");
-  free($1);
-  n_reductions++;
+  snprintf(out, sizeof(out), "m->samples[%d]=", harray_length(reductions));
+  reduction_code = concat_and_replace(0, 4, reduction_code, out, $3, ";\n");
+  free($3);
+  harray_push(reductions, $1);  
  }
 ;
 

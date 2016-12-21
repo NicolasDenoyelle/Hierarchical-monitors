@@ -59,7 +59,7 @@ static struct perf_option output_opt =  {.name = "--output-dir",
 					 .desc = "Directory where to write trace output",
 					 .type = OPT_TYPE_STRING,
 					 .value.str_value = NULL,
-					 .def_val = "/dev/stdout",
+					 .def_val = "stdout",
 					 .set = 0};
 
 static struct perf_option restrict_opt =  {.name = "--restrict",
@@ -211,7 +211,7 @@ main (int argc, char *argv[])
 
     /* Set monitors output */
     if(!output_opt.set){
-	set_option((&output_opt), output_opt.def_val);
+	set_option((&output_opt), output_opt.value.str_value);
 	output_opt.set = 0;
     }
 

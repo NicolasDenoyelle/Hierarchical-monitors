@@ -29,7 +29,6 @@ memload{
 % 	OBJ:=Node;
 % 	PERF_LIB:=system;
 % 	EVSET:=numa_local, numa_remote;
-% 	REDUCTION:=$0, $1;
 % 	SILENT:=0; %do not output to trace
 % 	DISPLAY:=1; %hmonitor -d (option required)
 % }
@@ -74,7 +73,7 @@ machine_load{
 %	OBJ:=Core;
 %	PERF_LIB:=hierarchical;
 %	EVSET:=fake; %(assumes 2 PU per Core)
-%	REDUCTION:= $0+$1, $0+$1/2; %syntax: output0=input1 OP inputk... , output1=...
+%	REDUCTION:= two=$0+$1, one=$0+$1/2; %syntax: output0=input1 OP inputk... , output1=...
 %}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

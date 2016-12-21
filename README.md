@@ -141,6 +141,8 @@ The plugin must implement the [performance plugin interface](./src/plugins/perfo
 Events reduction can be done by defining arithmetic expressions of events or using a statistic plugins.
 
 * Arithmetic expressions must follow the syntax `$j op $k op ...`
+* Each output of the reduction list can be named using the following syntax:
+  `name0 = arithmetic_expression0, name1 = arithmetic_expression1, ...`
 
 Where `$j` is the j_st element of events, and `$k` is the k_st element of events.
 `$j` and `$k` may also be integer or floating point values.

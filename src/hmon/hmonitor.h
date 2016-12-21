@@ -25,10 +25,12 @@ typedef struct hmon{
   void   * eventset;
   double * events;
   unsigned n_events;
+
   /* The number of stored event updates, the index of latest update, and the total number of updates */
   unsigned window, last, total;
-
+  
   /** monitor output: events reduction **/
+  char ** labels;
   double * samples, * max, * min;
   unsigned n_samples;
   void (* model)(struct hmon*);
@@ -62,13 +64,15 @@ typedef struct hmon{
  * @param event_names: Event names to add to monitor eventset.
  * @param n_events: The number of events to record.
  * @param window: The number of records to keep into the monitor.
+ * @param labels: labels of output samples. Same length as n_samples.
  * @param n_samples: The number of outputs of the monitor.
  * @param perf_plugin: The plugin's name used to collect input events.
  * @param model_plugin: The plugin's name used to reduce collected events into monitor output samples.
  * @return A new monitor.
  **/
 hmon new_hmonitor(const char * id, hwloc_obj_t location, const char ** event_names, const unsigned n_events,
-		  const unsigned window, unsigned n_samples, const char* perf_plugin, const char* model_plugin);
+		  const unsigned window, const char ** labels, unsigned n_samples,
+		  const char* perf_plugin, const char* model_plugin);
 
 /**
  * Delete a monitor
@@ -115,6 +119,12 @@ int hmonitor_read(hmon m);
  * @return 0 if the call does not come from the owner thread, 1 if reduction succeeded.
  **/
 int hmonitor_reduce(hmon m);
+
+/**
+ * Print monitor header to file.
+ * The header will only be print if monitor's field output was manually set.
+ **/
+void hmonitor_output_header(hmon m);
 
 /**
  * Print monitor to file.

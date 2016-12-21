@@ -27,6 +27,8 @@ unsigned       harray_insert_sorted(harray array, void * element, int (* compare
 void           harray_sort         (harray array, int (* compare)(void*, void*));
 int            harray_find         (harray array, void * key, int (* compare)(void*, void*));
 int            harray_find_unsorted(harray harray, void * key);
+char **        harray_to_char(harray);
+
 /***************************************************************************************************************/
 
 #endif

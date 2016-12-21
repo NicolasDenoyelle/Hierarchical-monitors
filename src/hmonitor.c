@@ -24,9 +24,33 @@ static void hmonitor_set_timestamp(hmon m, long timestamp){
   m->events[m->last*(m->n_events+1)+m->n_events] = timestamp;
 }
 
+static void hmonitor_set_labels(hmon m, const char ** labels, const unsigned n){
+  unsigned i;
+  m->labels = malloc(sizeof(*m->labels) * m->n_samples);
+  for(i=0; i<n && i<m->n_samples; i++)
+    m->labels[i] = strdup(labels[i]);
+  for(; i<m->n_samples; i++){
+    m->labels[i] = malloc(16); memset(m->labels[i], 0, 16);
+    snprintf(m->labels[i], 16, "V%u", i);
+  }
+}
+
+void hmonitor_output_header(hmon m){
+  unsigned i;
+  char str[32]; memset(str, 0, sizeof(str));
+  snprintf(str, sizeof(str), "%8s:%u", hwloc_type_name(m->location->type), m->location->logical_index);
+  fprintf(m->output,"%*s %14s ", (int)strlen(str), "Obj", "Nanoseconds");
+  memset(str, 0, sizeof(str));
+  snprintf(str, sizeof(str), "%-.6e", 0.0);
+  for(i=0; i<m->n_samples; i++) fprintf(m->output,"%*s ", (int)strlen(str), m->labels[i]);
+  fprintf(m->output,"\n");
+  fflush(m->output);
+}
+
 hmon
 new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_names, const unsigned n_events,
-	     const unsigned window, const unsigned n_samples, const char * perf_plugin, const char * model_plugin)
+	     const unsigned window, const char ** labels, const unsigned n_samples,
+	     const char * perf_plugin, const char * model_plugin)
 {
   if(window == 0 || id == NULL || location == NULL || perf_plugin == NULL){return NULL;}
 
@@ -40,6 +64,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->output = NULL;
   monitor->display = 0;
   monitor->owner = pthread_self();
+  
   /* Load perf plugin functions */
   struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
   if(plugin == NULL){
@@ -61,6 +86,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
     exit(EXIT_FAILURE);
   }
 
+  
   /* Initialize eventset */
   int err;
   unsigned i, added_events = 0;
@@ -89,23 +115,31 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   eventset_init_fini(monitor->eventset);
   monitor->events = malloc(window*(added_events+1)*sizeof(double));
   monitor->n_events = added_events;
-	
-  /* Events reduction */
+  
+  /* Initialize output */  
   if(model_plugin){
     monitor->samples = malloc(sizeof(double) * n_samples+1);
     monitor->max = malloc(sizeof(double) * n_samples+1);
     monitor->min = malloc(sizeof(double) * n_samples+1);	
     monitor->n_samples = n_samples;
     monitor->model = hmon_stat_plugins_lookup_function(model_plugin);
-  }
-  else{
+    hmonitor_set_labels(monitor, labels, labels == NULL ? 0 : n_samples);
+  } else {
     monitor->samples = malloc(sizeof(double) * added_events+1);
     monitor->max = malloc(sizeof(double) * added_events+1);
     monitor->min = malloc(sizeof(double) * added_events+1);
     monitor->n_samples = added_events;
     monitor->model = NULL;
+    if(labels == NULL && added_events > n_events){
+      hmonitor_set_labels(monitor, NULL, 0);
+    } else if(labels == NULL){
+      hmonitor_set_labels(monitor, event_names, n_events);
+    } else {
+      hmonitor_set_labels(monitor, labels, n_samples);
+    }
+    monitor->n_samples = added_events;
   }
-    
+  
   /* reset values */
   hmonitor_reset(monitor);
   pthread_mutex_init(&(monitor->mutex), NULL);
@@ -115,6 +149,7 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
 }
 
 void delete_hmonitor(hmon monitor){
+  int i;
   hmonitor_stop(monitor);
   free(monitor->events);
   free(monitor->samples);
@@ -122,6 +157,8 @@ void delete_hmonitor(hmon monitor){
   free(monitor->min);
   free(monitor->id);
   monitor->eventset_destroy(monitor->eventset);
+  for(i=0; i<monitor->n_samples; i++){free(monitor->labels[i]);}
+  free(monitor->labels);
   pthread_mutex_destroy(&(monitor->mutex));
   free(monitor);
 }

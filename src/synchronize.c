@@ -121,13 +121,14 @@ int hmon_lib_init(const hwloc_topology_t topo, const char * out){
   }
 
   /* Prepare output */
-  size_t len = strlen(out);
-  char output[len+1]; memset(output,0,sizeof(output));
-  sprintf(output, "%s", out);
-  if(out[len-1] != '/')
-    output[len-1] = '/';
-  
-  hmon_output_init(output);
+  if(out != NULL) {
+    size_t len = strlen(out);
+    char output[len+1]; memset(output,0,sizeof(output));
+    sprintf(output, "%s", out);
+    if(out[len-1] != '/')
+      output[len] = '/';
+    hmon_output_init(NULL);
+  } else hmon_output_init(NULL);
   
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, (void (*)(void *))delete_hmonitor);
@@ -236,7 +237,6 @@ static void hmon_update_location(hwloc_obj_t location, int recurse_down, int rec
   }
 }
 
-
 static void * hmonitor_thread(void * arg)
 {
   hwloc_obj_t Core = (hwloc_obj_t)(arg);
@@ -247,7 +247,9 @@ static void * hmonitor_thread(void * arg)
 						       hwloc_get_nbobjs_inside_cpuset_by_type(hmon_topology,
 											      Core->cpuset,
 											      HWLOC_OBJ_PU) -1);
-  location_cpubind(hmon_topology, PU); 
+  location_cpubind(hmon_topology, PU);
+  
+  hmon_update_location(Core, 1, 1, (int (*)(struct hmon *))hmonitor_output_header);
 
   /* Collect events */
 hmon_thread_loop:
@@ -265,7 +267,7 @@ hmon_thread_loop:
   /* Analyze monitors */
   hmon_update_location(Core, 1, 1, hmonitor_reduce);
   /* output monitors */
-  hmon_update_location(Core, 1, 1, hmonitor_output);
+  hmon_update_location(Core, 1, 1, (int (*)(struct hmon *))hmonitor_output);
   /* Signal we are uptodate */
   __sync_fetch_and_sub(&uptodate, 1);
   /* Restart event collection */
