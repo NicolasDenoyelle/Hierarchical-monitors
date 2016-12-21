@@ -248,8 +248,6 @@ static void * hmonitor_thread(void * arg)
 											      Core->cpuset,
 											      HWLOC_OBJ_PU) -1);
   location_cpubind(hmon_topology, PU);
-  
-  hmon_update_location(Core, 1, 1, (int (*)(struct hmon *))hmonitor_output_header);
 
   /* Collect events */
 hmon_thread_loop:

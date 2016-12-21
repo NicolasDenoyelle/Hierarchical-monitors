@@ -62,6 +62,7 @@ void hmon_output_register_monitor(hmon m){
   else{
     d = new_output_data(m->id);
     harray_insert_sorted(output_monitors, d, output_data_compare);
+    hmonitor_output_header(m);
   }
   harray_push(d->monitors, m);
   m->output = d->output;
