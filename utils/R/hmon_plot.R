@@ -620,7 +620,6 @@ monitor.plot.merge <- function(monitor) {
     for (i in 1:length(monitor.list)) {
         m = monitor.list[[i]]
         set = monitor.restrict.set(m)
-        print(limits)
         plot(
             x = m[set, options$xaxis],
             y = m[set, options$yaxis],
