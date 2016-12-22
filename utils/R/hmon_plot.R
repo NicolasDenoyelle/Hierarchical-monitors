@@ -516,10 +516,6 @@ monitor.split <- function(monitor) {
 #########################################################################################################
 ylog = ""; if(options$log){ylog = "y"}
 monitor.frame = NULL
-xlim = NULL
-xticks = NULL
-ylim = NULL
-yticks = NULL
 id.time = 2
 id.obj = 1
 
@@ -575,7 +571,7 @@ monitor.read <- function(){
     if(options$fast){
         library("data.table", verbose=FALSE, quietly=TRUE)
         library("bit64", verbose=FALSE, quietly=TRUE)
-        monitor = fread(options$input, header=TRUE, integer64="numeric", blank.lines.skip=TRUE, showProgress=TRUE, data.table=TRUE)
+        monitor = fread(options$input, header=TRUE, integer64="numeric", blank.lines.skip=TRUE, showProgress=TRUE, data.table=FALSE)
     } else {
         monitor = read.table(options$input, header=TRUE, stringsAsFactors=FALSE)        
     }
@@ -584,19 +580,16 @@ monitor.read <- function(){
 ##################################################
 ### Save in environment a monitor limits and ticks
 ##################################################
-monitor.set.limits <- function(monitor){
+monitor.get.limits <- function(monitor){
+    limits = NULL
     x = monitor[,options$xaxis]
     y = monitor[,options$yaxis]
-    xmin = min(x, na.rm=T)
-    xmax = max(x,na.rm=T)
-    mean = mean(y)
     qtl = quantile(y, na.rm = T, probs = c(0.01, 0.99))
-    ymin = qtl[1]
-    ymax = qtl[2]
-    xlim <<- c(xmin, xmax)
-    ylim <<- c(ymin, ymax)
-    xticks <<- seq(from = xmin, to = xmax, by = (xmax-xmin)/10)
-    yticks <<- seq(from = ymin, to = ymax, by = (ymax-ymin)/10)
+    limits$xlim = c(min(x, na.rm=T), max(x,na.rm=T))
+    limits$ylim = c(qtl[1], qtl[2])
+    limits$xticks = seq(from = limits$xlim[1], to = limits$xlim[2], by = (limits$xlim[2]-limits$xlim[1])/10)
+    limits$yticks = seq(from = limits$ylim[1], to = limits$ylim[2], by = (limits$ylim[2]-limits$ylim[1])/10)
+    return(limits)
 }
 
 #####################################################################
@@ -622,24 +615,26 @@ monitor.restrict.set <- function(monitor){
 monitor.plot.merge <- function(monitor) {
     errors = c()
     id = monitor.id()
+    limits = monitor.get.limits(monitor)
     monitor.list = monitor.split(monitor)
     for (i in 1:length(monitor.list)) {
         m = monitor.list[[i]]
         set = monitor.restrict.set(m)
+        print(limits)
         plot(
             x = m[set, options$xaxis],
             y = m[set, options$yaxis],
             log = ylog,      
             type = 'p',
             col = i,
-            xlim = xlim,
-            ylim = ylim,
+            xlim = limits$xlim,
+            ylim = limits$ylim,
             axes = FALSE,
             ann = FALSE,
             pch = i,
             panel.first = abline(
-                h = yticks,
-                v = xticks,
+                h = limits$yticks,
+                v = limits$xticks,
                 col = "darkgray",
                 lty = 2
             )
@@ -654,8 +649,8 @@ monitor.plot.merge <- function(monitor) {
         ylab = colnames(monitor)[options$yaxis],
         xlab = colnames(monitor)[options$xaxis]
     )
-    axis(1, at = xticks)
-    axis(2, at = yticks)
+    axis(1, at = limits$xticks)
+    axis(2, at = limits$yticks)
     sequence = 1:length(monitor.list)
     legend.text = sapply(sequence, function(i) monitor.list[[i]][1,id.obj], simplify = "array")
     legend.col = sequence
@@ -679,6 +674,7 @@ monitor.plot.merge <- function(monitor) {
 ### Split a monitor into parts and plot these parts in a split device
 #####################################################################
 monitor.plot.split <- function(monitor) {
+    limits = monitor.get.limits(monitor)
     monitor.list = monitor.split(monitor)
     monitor.list = monitor.list[order(sapply(monitor.list, monitor.obj.index))]
     par(mfrow = c(1,length(monitor.list)), oma = c(0,0,2.5,0))
@@ -708,12 +704,12 @@ monitor.plot.split <- function(monitor) {
             ylab = ylab,
             yaxt = "n",
             xaxt = "n",
-            xlim = xlim,
-            ylim = ylim,
+            xlim = limits$xlim,
+            ylim = limits$ylim,
             log=ylog,
             abline(
-                h = yticks,
-                v = xticks,
+                h = limits$yticks,
+                v = limits$xticks,
                 col = "darkgray",
                 lty = 2
             )
@@ -728,8 +724,8 @@ monitor.plot.split <- function(monitor) {
             legend.pch = c(legend.pch, i+1)
         }
         legend("bottomright", legend = legend.text, bg="white", pch=legend.pch, col=legend.col)
-        axis(1, at = xticks)
-        if(i==1){axis(2, at = yticks)}
+        axis(1, at = limits$xticks)
+        if(i==1){axis(2, at = limits$yticks)}
     }
     title(main = get_title(NULL), outer=T)
 }
@@ -744,7 +740,6 @@ monitor.plot <- function(monitor) {
         print(sprintf("yaxis option set to %d but monitor %s has only %d columns",options$xaxis,monitor.id(monitor),ncol(monitor)))
         return()
     }
-    monitor.set.limits(monitor)
     if (options$split)
         monitor.plot.split(monitor)
     if (!options$split)
