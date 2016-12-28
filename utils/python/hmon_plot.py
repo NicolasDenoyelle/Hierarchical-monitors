@@ -13,7 +13,7 @@ inOpt = make_option("-i", "--input", type = "string", default = None,
                     help = "Data set input file")
 
 outOpt = make_option("-o", "--output", type = "string", default = None,
-                     help = "Output pdf file (static)")
+                     help = "Output to file (static). Output format is set according to file extension")
 
 titleOpt = make_option("-t", "--title", type = "string", default = None,
                        help = "Plot title")
@@ -94,15 +94,22 @@ class Monitors:
         
         #Load column names
         self.colnames = np.genfromtxt(fname=fname, dtype='S32', max_rows = 1)
-        #Load data skipping first column containing topology objects
-        self.data = np.genfromtxt(fname=fname, skip_header=1, usecols=range(1,self.colnames.size), dtype=float)
-
-        #Shrink column names to exclude topology objects
         self.colnames = self.colnames[range(1,self.colnames.size)]
+        types= np.append(['S16'], np.repeat(float,self.colnames.size))
+        
+        #Load data skipping first column containing topology objects
+        data = np.genfromtxt(fname=fname, skip_header=1, dtype=types)
+        data = zip(*data)
 
-        #Load objects column
-        objs = np.genfromtxt(fname=fname, usecols=(0), skip_header=1, dtype='S16')
+        #extract objects column        
+        objs = np.asarray(data[0], dtype='S16')
+        self.data = np.asarray(data[1:data.__len__()-1], dtype=float)
         self.objs, self.objs_indices = np.unique(objs, return_inverse=True)
+
+        #format data 
+        self.data = self.data.T
+
+        #prepare color rainbow
         self.colors = cm.rainbow(np.linspace(0, 1, self.objs.size))
         
         #Set x and y stats
