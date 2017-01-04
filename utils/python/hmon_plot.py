@@ -191,7 +191,7 @@ class Monitor(Monitors):
 ###########################################################################################################
 
 args = ["-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out", "-f", "neg,inf,nan,outliers", "-t", "test", "-s"]
-options, args = parser.parse_args(args)
+options, args = parser.parse_args()
 filters = options.filter.split(",")
 
 
