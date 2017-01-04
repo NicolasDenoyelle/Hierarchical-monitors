@@ -2,8 +2,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from optparse import OptionParser
-from optparse import make_option
+import pandas as pd
+from   optparse import OptionParser
+from   optparse import make_option
 
 ###########################################################################################################
 #                                                Parse options                                            #
@@ -18,14 +19,14 @@ outOpt = make_option("-o", "--output", type = "string", default = None,
 titleOpt = make_option("-t", "--title", type = "string", default = None,
                        help = "Plot title")
 
-yOpt = make_option("-y", "--yaxis", type = "int", default = 2,
-                   help = "Use column yaxis instead of column 2 as Y values to plot")
+yOpt = make_option("-y", "--yaxis", type = "string", default = None,
+                   help = "Use column 'yaxis' instead of column 2 as Y values to plot")
 
 logOpt = make_option("-l", "--log", action = "store_true",
                      help = "Plot yaxis in logscale")
 
-xOpt = make_option("-x", "--xaxis", type = "int", default = 1,
-                   help = "Use column xaxis instead of column 1 as x values to plot")
+xOpt = make_option("-x", "--xaxis", type = "string", default = None,
+                   help = "Use column 'xaxis' instead of column 1 as x values to plot")
 
 splitOpt = make_option("-s", "--split", action = "store_true",
                        help = "Split each monitor into several plots, one per hwloc obj")
@@ -75,66 +76,51 @@ parser = OptionParser(option_list = [inOpt, outOpt, titleOpt, filterOpt, xOpt, y
         
 class Monitors:
     name = "Monitors"
-    objs = []         #List of unique hwloc obj in the trace
-    objs_indices = [] #Corresponding hwloc_obj indices in data and objs
-    data = [[]]       #Trace data columns excluding hwloc obj column
-    colnames = []     #Columns name excluding hwloc obj column
-    xcol = 0          #Index of x column
-    ycol = 1          #Index of y column
+    data = None       #Trace data columns excluding hwloc obj column
+    objs = []         #List of objs in trace
+    xcol = ""         #Index of x column
+    ycol = ""         #Index of y column
     xmax = 0          #maximum value of x inside trace
     xmin = 0          #minimum value of x inside trace
     ymax = 0          #maximum value of y inside trace
     ymin = 0          #minimum value of x inside trace
     colors = []       #monitors colors
     
-    def __init__(self, fname, name=None, xcol = 0, ycol=1):
+    def __init__(self, fname, name=None, xcol = None, ycol=None):
         #Store id for title
         if(name == None): self.name = os.path.basename(fname)
         else: self.name = name
         
-        #Load column names
-        self.colnames = np.genfromtxt(fname=fname, dtype='S32', max_rows = 1)
-        self.colnames = self.colnames[range(1,self.colnames.size)]
-        types= np.append(['S16'], np.repeat(float,self.colnames.size))
+        #Load data frame
+        self.data = pd.read_table(fname, delim_whitespace=True)
+        self.objs = np.unique(self.data[self.data.columns[0]])
+
         
-        #Load data skipping first column containing topology objects
-        data = np.genfromtxt(fname=fname, skip_header=1, dtype=types)
-        data = zip(*data)
-
-        #extract objects column        
-        objs = np.asarray(data[0], dtype='S16')
-        self.data = np.asarray(data[1:data.__len__()-1], dtype=float)
-        self.objs, self.objs_indices = np.unique(objs, return_inverse=True)
-
-        #format data 
-        self.data = self.data.T
-
-        #prepare color rainbow
+        #select xcol and ycol
+        if(xcol == None): self.xcol = self.data.columns[1]
+        else: self.xcol = xcol        
+        if(ycol == None): self.ycol = self.data.columns[2]
+        else: self.ycol = ycol
+        
+        #prepare color rainbow        
         self.colors = cm.rainbow(np.linspace(0, 1, self.objs.size))
         
         #Set x and y stats
-        self.xcol = xcol
-        self.ycol = ycol
-        self.xmax = np.max(self.data[:,xcol])
-        self.xmin = np.min(self.data[:,xcol])
-        self.ymax = np.max(self.data[:,ycol])
-        self.ymin = np.min(self.data[:,ycol])
+        self.xmax = np.max(self.data[self.xcol])
+        self.xmin = np.min(self.data[self.xcol])
+        self.ymax = np.max(self.data[self.ycol])
+        self.ymin = np.min(self.data[self.ycol])
 
     def filter(self, nan = True, inf = True, neg = False, outliers=False):
-        #Array of matched indices to remove
-        rm = np.repeat(False, self.data.shape[0])
-        if(nan): rm = np.logical_or(rm, np.apply_along_axis(np.any, arr=np.isnan(self.data), axis=1))
-        if(inf): rm = np.logical_or(rm, np.apply_along_axis(np.any, arr=np.isinf(self.data), axis=1))
-        if(neg): rm = np.logical_or(rm, np.apply_along_axis(np.any, arr=self.data<0, axis=1))
+        if(inf): self.data.replace([np.inf, -np.inf], np.nan)
+        if(neg): self.data[self.data<0] = np.nan        
         if(outliers):
-            percentiles = np.percentile(self.data, q = [1, 99], interpolation = "nearest")
-            rm = np.logical_or(rm, np.apply_along_axis(np.any, arr=self.data>percentiles[1], axis=1))
-            rm = np.logical_or(rm, np.apply_along_axis(np.any, arr=self.data<percentiles[0], axis=1))
-            
-        #Remove matched indices
-        self.data = self.data[~rm]
-        self.objs_indices = self.objs_indices[~rm]
-        
+            xp = np.nanpercentile(self.data[self.xcol], q = [1, 99], interpolation = "nearest")
+            self.xmin , self.xmax = xp[0], xp[1]
+            yp = np.nanpercentile(self.data[self.ycol], q = [1, 99], interpolation = "nearest")            
+            self.ymin, self.ymax = yp[0], yp[1]
+        if(nan): self.data.dropna(how='any', inplace=True)
+                    
     def count(self):
         return self.objs.size
 
@@ -144,8 +130,8 @@ class Monitors:
 
         plt.xticks(np.linspace(self.xmin,self.xmax, 9, endpoint=True))
         plt.yticks(np.linspace(self.ymin,self.ymax, 9, endpoint=True))
-        fig.text(0.5, 0.04, self.colnames[self.xcol], ha='center', va='center')
-        fig.text(0.04, 0.5, self.colnames[self.ycol], ha='center', va='center', rotation='vertical')
+        fig.text(0.5, 0.04, self.xcol, ha='center', va='center')
+        fig.text(0.04, 0.5, self.ycol, ha='center', va='center', rotation='vertical')
         plt.suptitle(self.name)
         
         for i in range(0,self.count()):
@@ -173,19 +159,17 @@ class Monitors:
 
 class Monitor(Monitors):
     axes = None
-    
-    def __init__(self, monitors, i, subplot = False, shared_axes = None):
+
+    def __init__(self, monitors, i = 0, subplot = False, shared_axes = None):
         self.axes = plt.gca()
         self.xmax = monitors.xmax
         self.xmin = monitors.xmin
         self.ymax = monitors.ymax
         self.ymin = monitors.ymin
         self.objs = [monitors.objs[i]]
-        self.objs_indices = [monitors.objs_indices[i]]
-        self.colnames = monitors.colnames
         self.xcol = monitors.xcol
         self.ycol = monitors.ycol
-        self.data = monitors.data[np.in1d(monitors.objs_indices,i)]
+        self.data = monitors.data[ monitors.data[monitors.data.columns[0]] == self.objs[0] ]
         if(subplot):
             self.axes = plt.subplot(1, monitors.count(), i+1, sharex=shared_axes, sharey=shared_axes)
             if(i<>0):
@@ -199,18 +183,19 @@ class Monitor(Monitors):
             
     def plot(self, output = "plot.pdf", ylog=False, color=[0.0,0.0,0.0,0.0]):
         if(ylog): self.axes.set_yscale('log')
-        self.axes.scatter(self.data[:,self.xcol], self.data[:,self.ycol], 1, label=self.objs[0], color=color)
+        self.axes.scatter(self.data[self.xcol], self.data[self.ycol], 1, label=self.objs[0], color=color)
         self.axes.legend(loc='best', frameon=True, fancybox=True, shadow=True)
 
 ###########################################################################################################
 #                                                   Program                                               #
 ###########################################################################################################
 
-args = ["-i", "../../tests/hpccg/multi_hpccg.out", "-f", "neg,inf,nan,outliers", "-t", "test", "-l", "-s", "-o", "test.pdf"]
-options, args = parser.parse_args()
+args = ["-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out", "-f", "neg,inf,nan,outliers", "-t", "test", "-s"]
+options, args = parser.parse_args(args)
 filters = options.filter.split(",")
 
-monitors = Monitors(fname=options.input, xcol=options.xaxis-1, ycol=options.yaxis-1, name=options.title)
+
+monitors = Monitors(fname=options.input, xcol=options.xaxis, ycol=options.yaxis, name=options.title)
 
 monitors.filter(nan=filters.__contains__("nan"),
                 inf=filters.__contains__("inf"),
