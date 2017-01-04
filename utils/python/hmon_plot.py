@@ -20,13 +20,13 @@ titleOpt = make_option("-t", "--title", type = "string", default = None,
                        help = "Plot title")
 
 yOpt = make_option("-y", "--yaxis", type = "string", default = None,
-                   help = "Use column 'yaxis' instead of column 2 as Y values to plot")
+                   help = "Use column named 'yaxis' instead of column 2 as Y values to plot")
 
 logOpt = make_option("-l", "--log", action = "store_true",
                      help = "Plot yaxis in logscale")
 
 xOpt = make_option("-x", "--xaxis", type = "string", default = None,
-                   help = "Use column 'xaxis' instead of column 1 as x values to plot")
+                   help = "Use column named 'xaxis' instead of column 1 as x values to plot")
 
 splitOpt = make_option("-s", "--split", action = "store_true",
                        help = "Split each monitor into several plots, one per hwloc obj")
@@ -139,10 +139,8 @@ class Monitors:
             if(i==0): axes = monitor.axes
             monitor.plot(color=self.colors[i],ylog=ylog)
 
-        if(subplot):
-            plt.subplots_adjust(wspace=0, hspace=0)            
-        else:
-            plt.legend(loc='best', frameon=True, fancybox=True, shadow=True)
+        if(subplot): plt.subplots_adjust(wspace=0, hspace=0)            
+        else: plt.legend(loc='best', frameon=True, fancybox=True, shadow=True)
 
         plt.ylim(self.ymin, self.ymax)
         plt.xlim(self.xmin, self.xmax)
