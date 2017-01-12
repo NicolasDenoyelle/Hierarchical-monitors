@@ -455,7 +455,7 @@ if(options.cluster != None):
 
 if(options.model):
     print("Building " + options.model + " model...")
-    monitors.model(options.model, load="test")
+    monitors.model(options.model)
     
 print("Plotting monitors...")
 monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
