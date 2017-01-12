@@ -7,6 +7,7 @@ import matplotlib.pyplot       as plt
 import matplotlib.cm           as cm
 import pandas                  as pd
 from   sklearn                 import cluster, preprocessing, linear_model, metrics
+from   sklearn.externals       import joblib
 from   optparse                import OptionParser, make_option
 
 ###########################################################################################################
@@ -147,10 +148,10 @@ class Monitors:
             else:     data.append(monitor.data, ignore_index=False)
         self.data = data
 
-    def model(self, model_name):
+    def model(self, model_name, save=None, load=None):
         for i in range(self.count()):
             monitor = Monitor(self, i)
-            monitor.model(model_name)
+            monitor.model(model_name, load=load, save=save)
         
     def append(self, monitors):
         self.objs = np.append(self.objs, monitors.objs)
@@ -359,23 +360,31 @@ class Monitor(Monitors):
         dbscan = model.fit(self.n_data)
         self.__assign_clusters__(dbscan.labels_)
 
-    def model(self, model_name):
+    def model(self, model_name, save = None, load = None):
         model = None
-        if(model_name.upper() == "RANSAC"):
-            model = linear_model.RANSACRegressor(linear_model.LinearRegression())
-        if(model_name.upper() == "BAYESIAN"):
-            model = linear_model.BayesianRidge()
+        
+        if(load):
+            model = joblib.load(load)
+        else:
+            if(model_name.upper() == "RANSAC"):   model = linear_model.RANSACRegressor(linear_model.LinearRegression())
+            if(model_name.upper() == "BAYESIAN"): model = linear_model.BayesianRidge()
             
-        if(model == None):
-            print("Wrong model name provided: " + model_name)
-            return
+            if(model == None):
+                print("Wrong model name provided: " + model_name)
+                return
 
-        if(self.n_data is None): self.normalize()        
+            
+        if(self.n_data == None): self.normalize()            
         train, test = self.train_test_split()
-        X_train, y_train = self.get_Xy(train)
-        model.fit(X_train, y_train)
+
+        if(load == None):
+            X_train, y_train = self.get_Xy(train)
+            model.fit(X_train, y_train)
+            if(save): joblib.dump(model, save)
+        
         X_test, y_test = self.get_Xy(test)
         y_pred = model.predict(X_test)
+            
         return X_test, y_test, y_pred, self.__model_score__(y_test, y_pred)
 
     def __model_score__(self, y_test, y_pred):
@@ -400,7 +409,7 @@ class Monitor(Monitors):
 #                                                   Program                                               #
 ###########################################################################################################
 
-args = ["-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out", #"/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out",
+args = ["-i", "/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out", #"/home/ndenoyel/Documents/specCPU2006/filtered.out",
         "-f", "neg,inf,nan,outliers",
         "-t", "test",
 #        "-r", "100000",
@@ -411,7 +420,7 @@ args = ["-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out", #"/home/ndeno
         "-m", "RANSAC",
         "-s"]
 
-options, args = parser.parse_args()
+options, args = parser.parse_args(args)
 
 filters = options.filter.split(",")
 
@@ -446,7 +455,7 @@ if(options.cluster != None):
 
 if(options.model):
     print("Building " + options.model + " model...")
-    monitors.model(options.model)
+    monitors.model(options.model, load="test")
     
 print("Plotting monitors...")
 monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
