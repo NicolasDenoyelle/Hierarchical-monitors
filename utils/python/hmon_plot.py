@@ -420,7 +420,7 @@ args = ["-i", "/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out", #"/home/nde
         "-m", "RANSAC",
         "-s"]
 
-options, args = parser.parse_args(args)
+options, args = parser.parse_args()
 
 filters = options.filter.split(",")
 
