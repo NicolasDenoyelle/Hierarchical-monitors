@@ -6,8 +6,11 @@ import numpy.random            as rand
 import matplotlib.pyplot       as plt
 import matplotlib.cm           as cm
 import pandas                  as pd
-from   sklearn                 import cluster, preprocessing, linear_model, metrics
+from   sklearn                 import cluster, preprocessing, linear_model, metrics, svm
 from   sklearn.externals       import joblib
+from   sklearn.neural_network  import MLPRegressor
+from   sklearn.ensemble        import RandomForestRegressor
+from   sklearn.metrics.pairwise import polynomial_kernel
 from   optparse                import OptionParser, make_option
 
 ###########################################################################################################
@@ -68,25 +71,57 @@ kernelOpt = make_option("-k", "--kernel", type = "string", default = None,
                        10  7.3            NaN  NaN
                        20  4.2             10  7.3
                        30  1.6             20  4.2
-                       NaN  NaN             30  1.6
+                      NaN  NaN             30  1.6
             If pipeline options is greater than 0, then NaN values are created at the tip of the dataframe and data frame 
             is filtered consequently to remove NaN. Thus the frame tips of pipeline rows are also removed
 
             sample:<n_samples>
             Remove random samples from the trace to lower its size and processing time.
             proportion must be in ]0,1[.
+
+            polynomial:<degree>
+            Append pairwise polynomial function of <degree> on monitors features. 
+            For example, if an input sample is two dimensional and of the form [a, b], 
+            the degree-2 polynomial features are [a, b, a^2, ab, b^2].
+
+            normalize
+            Normalize the monitor dataframe. 
+            This preprocessing should be used prior to any other preprocessing, including clustering and model fitting.
             """)
 
 fitOpt = make_option("-m", "--model", type = "string", default = None,
          help = """
-         fit y data according to model argument.
-         If (--model = \"RANSAC\"), then use a RANSAC linear model of events (except y) to fit y.
+         fit y columns with help of others columns using the model provided as argument.
+         If (--model = \"RANSAC\"), then use a RANdom SAmple Consensu model robust to noise.
          See: http://scikit-learn.org/stable/modules/linear_model.html#ransac-random-sample-consensus
-         If (--model = \"Bayesian\"), then use a Bayesian linear model of events (except y) to fit y.
+         If (--model = \"Ridge\"), then use a Regularized linear regression with cross validation on several penalties.
+         See: http://scikit-learn.org/stable/modules/linear_model.html#ridge-regression
+         If (--model = \"Bayesian\"), then use a Bayesian model similar to ridge regression with automatic penalty tuning.
          See: http://scikit-learn.org/stable/modules/linear_model.html#bayesian-ridge-regression
+         If (--model = \"SVR\"), then use a Support Vector Regression (SVR) model.
+         See: http://scikit-learn.org/stable/modules/svm.html#regression
+         If (--model = \"MLP\"), then use a Multi Layer Perceptron regressor.
+         See: http://scikit-learn.org/stable/modules/neural_networks_supervised.html#regression
+         If (--model = \"RandomForest\"), then use a decision tree model to fit the data.
+         See: http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html#sklearn-ensemble-randomforestregressor
          """)
 
-parser = OptionParser(option_list = [inOpt, outOpt, titOpt, filterOpt, xOpt, yOpt, logOpt, splitOpt, clusterOpt, kernelOpt, fitOpt])
+foptionOpt = make_option("--model-option", type = "string", default = None,
+         help = """
+         Use options for model fitting. Option argument is a list of comma separated pairs attribute:value.
+         option0:value0, option1:value1, ...
+         
+         save:<file>
+         Make the fitted model persistent
+
+         load:<file>
+         load a pré-existing model whether to update it or to make prediction on a new dataset.
+
+         no-train
+         Do not train the model. Must be used with load option.
+         """)
+
+parser = OptionParser(option_list = [inOpt, outOpt, titOpt, filterOpt, xOpt, yOpt, logOpt, splitOpt, clusterOpt, kernelOpt, fitOpt, foptionOpt])
 
 ###########################################################################################################
 #                                      Read Trace and Extract Monitors                                    #
@@ -146,12 +181,101 @@ class Monitors:
             monitor.sample(n_sample)
             if(i==0): data = monitor.data
             else:     data.append(monitor.data, ignore_index=False)
+        data.reset_index(drop=True, inplace=True)    
         self.data = data
 
-    def model(self, model_name, save=None, load=None):
-        for i in range(self.count()):
-            monitor = Monitor(self, i)
-            monitor.model(model_name, load=load, save=save)
+    def normalize(self, data = None):
+        if(data is None): data = self.data
+        if(not "NORMALIZED" in self.name.upper()): self.name = "Normalized " + self.name
+        cols = data.columns
+        X = data.ix[:, (cols != self.ycol) & (cols != 'Obj') & (cols != 'Nanoseconds')]
+        cst = self.data[['Obj', 'Nanoseconds', self.ycol]]
+        X = pd.DataFrame(preprocessing.normalize(X.values), columns=X.columns)
+        cst.index = X.index
+        data = pd.DataFrame(pd.concat([cst, X], axis=1, join='inner'), columns=cols)
+        
+    def get_Xy(self, data=None):
+        if(data is None): data = self.data            
+        y = data[self.ycol]
+        X = data.ix[:, (data.columns != self.ycol) & (data.columns != 'Obj') & (data.columns != 'Nanoseconds')]
+        return X.values, y.values
+
+    def train_test_split(self, data=None, test_size=None, train_size=None, random=False):
+        if(train_size != None):
+            if(train_size < 0 or train_size > 1):
+                print("Warning: train_size must be in ]0,1[")
+                train_size = None
+        if(train_size == None and test_size != None):
+            if(test_size < 0 or test_size > 1):
+                print("Warning: test_size must be in ]0,1[")
+                test_size = None
+            else: train_size = 1-test_size
+        if(test_size == None and train_size == None):
+            test_size = 0.25
+            train_size = 0.75
+        if(data is None): data = self.data
+
+        train_range = range(int((float(data.shape[0])*train_size)))
+        train_index = data.index[train_range]
+        test_range = range(len(train_range), data.shape[0]-1)
+        test_index = data.index[test_range]
+        return data.ix[train_index,:], data.ix[test_index,:]
+
+    
+    def polynomial(self, degree=3):
+        X,y = self.get_Xy() #Extract features of the frame
+        #apply kernel
+        poly_frame = pd.DataFrame(preprocessing.PolynomialFeatures(degree).fit_transform(X))
+        #Remove redundant columns
+        poly_frame = poly_frame.ix[:,X.shape[1]+1:]
+        #join to monitor dataframe
+        self.data = pd.concat([self.data, poly_frame], axis=1, join='inner')
+    
+        
+    def model(self, model_name, save = None, load = None, do_train=True):
+        model = None
+        repeat = 1
+        
+        if(load): model = joblib.load(load)
+        else:
+            if(model_name.upper() == "RANSAC"):   model = linear_model.RANSACRegressor(linear_model.LinearRegression())
+            if(model_name.upper() == "BAYESIAN"): model = linear_model.BayesianRidge()
+            if(model_name.upper() == "RIDGE"):    model = linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0])
+            if(model_name.upper() == "SVR"):      model = svm.SVR(cache_size=4000)
+            if(model_name.upper() == "RANDOMFOREST"):
+                model = RandomForestRegressor(n_estimators=10, n_jobs=1, min_impurity_split=1e-3, verbose=0, warm_start=True)
+            if(model_name.upper() == "MLP"):
+                model = MLPRegressor(hidden_layer_sizes=[100, 100, 100], shuffle=False, warm_start=True)
+            if(model == None):
+                print("Wrong model name provided: " + model_name)
+                return
+
+        if(do_train and model_name.upper() == "MLP"): repeat = 5
+
+        train, test = self.train_test_split()
+        X_train, y_train = self.get_Xy(train)
+        X_test, y_test = self.get_Xy(test)
+
+        for i in range(repeat):
+            if(repeat>1): print("step " + str(i+1) + "/" + str(repeat) + "...")
+            if(do_train):
+                print("Fitting " + model_name + "model...")        
+                model.fit(X_train, y_train)
+
+            print("Predicting using " + model_name + " model") 
+            y_pred = model.predict(X_test)
+            score = metrics.explained_variance_score(y_test, y_pred)
+            print("Output explained variance score = " + str(score))                
+                
+        print("Value less than 0: the model scores worth than the mean prediction.")                
+        print("Value close to 0: the model scores as well as the mean prediction.")
+        print("Value close to 1: the model predicts almost perfectly.")
+
+        if(save):
+            joblib.dump(model, save)
+            print("model saved to " + save)
+        
+        return X_test, y_test, y_pred, score
         
     def append(self, monitors):
         self.objs = np.append(self.objs, monitors.objs)
@@ -169,14 +293,21 @@ class Monitors:
         if(neg):
             cols = self.data.columns[range(1, self.data.shape[1])]
             self.data[self.data[cols]<0] = np.nan
-        if(outliers):
-            xp = np.nanpercentile(self.data[self.xcol], q = [1, 99], interpolation = "nearest")
-            self.xmin , self.xmax = xp[0], xp[1]
-            yp = np.nanpercentile(self.data[self.ycol], q = [1, 99], interpolation = "nearest")            
-            self.ymin, self.ymax = yp[0], yp[1]
         if(nan):
             self.data.dropna(how='any', inplace=True)
             self.nan = True
+        if(outliers):
+            index = np.repeat(True, self.data.shape[0])
+            #filter column by column
+            for i in range(2,self.data.shape[1]):
+                col = self.data.ix[:,i].values
+                xp = np.nanpercentile(col, q = [1, 99], interpolation = "nearest")
+                index = np.logical_or(index, col<xp[1])
+                index = np.logical_or(index, col>xp[0])
+                if(self.data.columns[i] == self.xcol): self.xmin, self.xmax = xp[0], xp[1]
+                if(self.data.columns[i] == self.ycol): self.ymin, self.ymax = xp[0], xp[1]                
+            self.data = self.data[index]
+            
         
     def count(self):
         return self.objs.size
@@ -245,9 +376,7 @@ class Monitors:
 #                                          Monitor Analysis and Plot                                      #
 ###########################################################################################################
 
-class Monitor(Monitors):
-    n_data = None #Normalized data_set
-    
+class Monitor(Monitors):  
     def __init__(self, monitors, i=0):
         self.xmax = monitors.xmax
         self.xmin = monitors.xmin
@@ -260,24 +389,28 @@ class Monitor(Monitors):
         subset = monitors.data['Obj'] == self.objs[0]
         self.name = monitors.name + "_" + self.objs[0]
         self.data = monitors.data[subset]
-        self.n_data = None
         
     def pipeline(self, n_stage = 0):
         if(n_stage <= 0): return
-        df_cpy = self.data.copy()
-        nrow = self.data.shape[0]        
+        cols = self.data.columns
+        tmp = self.data.ix[:, (cols != 'Obj') & (cols != 'Nanoseconds') & (cols != self.ycol)].copy()
+        
         for i in range(n_stage):
-            cols = df_cpy.columns.tolist()                              #Create a column list for columns selection
-            cols.pop(0)                                                 #Remove 'Obj' column
-            sub = df_cpy[cols]                                          #Create new data frame without 'Obj' column
-            index = sub.index.tolist()
-            for j in range(len(cols)): cols[j] = cols[j] + "_" + str(i) #Append the cluster id to the columns name
-            sub.columns = cols                                          #Assign column to the dataframe to append
+            #Create new data frame without 'Obj' and y columns            
+            sub = tmp.copy()
+            
+            #Append the cluster id to the columns name
+            columns = sub.columns.copy().tolist()
+            for j in range(len(columns)): columns[j] = columns[j] + "_" + str(i)
+            sub.columns = columns
+
+            #stride index
+            index = sub.index.copy().tolist()
             for j in range(i):                                          
                 index.pop(0)                                        #Remove first lines
                 index.append(i+1+sub.index[len(sub.index)-1])       #Append new lines
-
             sub.index = index
+            
             #Left join with monitor dataframe based on frames index.
             self.data = pd.merge(self.data, sub, how="left", left_index=True, right_index=True, sort=False)
             
@@ -285,42 +418,7 @@ class Monitor(Monitors):
             begin = self.data.index[n_stage]
             end = self.data.index[self.data.shape[0]-n_stage-1]
             self.data = self.data[begin:end]
-
-    def normalize(self):
-        if(self.n_data != None): return
-        columns = self.data.columns[range(1,self.data.columns.size)]
-        self.n_data = pd.DataFrame(preprocessing.normalize(self.data[columns].values), columns=columns)
-        self.n_data.insert(0, 'Obj', self.data['Obj'])
-
-    def get_Xy(self, data=None):
-        if(data is None):
-            if(self.n_data != None): data = self.n_data
-            else: data = self.data
-            
-        y = data[self.ycol]
-        X = data.ix[:, (data.columns != self.ycol) & (data.columns != 'Obj') & (data.columns != 'Nanoseconds')]
-        return X.values, y.values
-        
-    def train_test_split(self, test_size=None, train_size=None, random=False):
-        if(train_size != None):
-            if(train_size < 0 or train_size > 1):
-                print("Warning: train_size must be in ]0,1[")
-                train_size = None
-        if(train_size == None and test_size != None):
-            if(test_size < 0 or test_size > 1):
-                print("Warning: test_size must be in ]0,1[")
-                test_size = None
-            else: train_size = 1-test_size
-        if(test_size == None and train_size == None):
-            test_size = 0.25
-            train_size = 0.75
-
-        train_range = range(int((float(self.data.shape[0])*train_size)))
-        train_index = self.data.index[train_range]
-        test_range = range(len(train_range), self.data.shape[0]-1)
-        test_index = self.data.index[test_range]
-        return self.data.ix[train_index,:], self.data.ix[test_index,:]
-            
+                    
         
     def __assign_clusters__(self, labels):
         obj = self.objs[0]
@@ -346,53 +444,17 @@ class Monitor(Monitors):
         
     def cluster_kmeans(self, n_clusters=8):
         if(self.objs.size>1): print("Cannot cluster several monitors."); return
-        if(self.n_data == None): self.normalize()
         n_proc = multiprocessing.cpu_count()
         model = cluster.KMeans(n_clusters=n_clusters, max_iter=300, tol=1e-6, n_init=n_proc, verbose=0, n_jobs=n_proc)
-        kmeans = model.fit(self.n_data)
+        kmeans = model.fit()
         self.__assign_clusters__(kmeans.labels_)
 
     def cluster_dbscan(self, eps=5e-1):
         if(self.objs.size>1): print("Cannot cluster several monitors."); return
-        if(self.n_data == None): self.normalize()
         n_proc = multiprocessing.cpu_count()
         model = cluster.DBSCAN(eps)
-        dbscan = model.fit(self.n_data)
+        dbscan = model.fit()
         self.__assign_clusters__(dbscan.labels_)
-
-    def model(self, model_name, save = None, load = None):
-        model = None
-        
-        if(load):
-            model = joblib.load(load)
-        else:
-            if(model_name.upper() == "RANSAC"):   model = linear_model.RANSACRegressor(linear_model.LinearRegression())
-            if(model_name.upper() == "BAYESIAN"): model = linear_model.BayesianRidge()
-            
-            if(model == None):
-                print("Wrong model name provided: " + model_name)
-                return
-
-            
-        if(self.n_data == None): self.normalize()            
-        train, test = self.train_test_split()
-
-        if(load == None):
-            X_train, y_train = self.get_Xy(train)
-            model.fit(X_train, y_train)
-            if(save): joblib.dump(model, save)
-        
-        X_test, y_test = self.get_Xy(test)
-        y_pred = model.predict(X_test)
-            
-        return X_test, y_test, y_pred, self.__model_score__(y_test, y_pred)
-
-    def __model_score__(self, y_test, y_pred):
-        score = metrics.explained_variance_score(y_test, y_pred)
-        print("Output explained variance score = " + str(score))
-        print("Value close to 0: the model scores as well as the mean prediction.")
-        print("Value close to 1: the model predicts well.")
-        return(score)
         
     def sample(self, n_sample):
         if(n_sample <= 0): return
@@ -409,54 +471,89 @@ class Monitor(Monitors):
 #                                                   Program                                               #
 ###########################################################################################################
 
-args = ["-i", "/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out", #"/home/ndenoyel/Documents/specCPU2006/filtered.out",
-        "-f", "neg,inf,nan,outliers",
-        "-t", "test",
-#        "-r", "100000",
-#        "-c", "dbscan:0.3",
-#        "-c", "kmeans:4",
-#         "-k", "sample:1000",
-        "-k", "pipeline:1",        
-        "-m", "RANSAC",
-        "-s"]
+args = [
+    "-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out",
+#    "-i", "/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out",
+    "-f", "neg,inf,nan,outliers",
+    "-t", "test",
+#    "-c", "dbscan:0.3",
+#    "-c", "kmeans:4",
+    "-k", "sample:500000",        
+    "-m", "MLP",
+    "--model-option", "load:model.pkl,save:model.pkl",
+#    "--model-option", "load:model.pkl,no-train",    
+    "-s"]
 
-options, args = parser.parse_args()
+#Parsing options
+options, args = parser.parse_args(args)
 
-filters = options.filter.split(",")
+#Parsing model options
+load = None
+save = None
+train = True
+if(options.model_option):
+    model_options = options.model_option.split(",")
+    for option in model_options:
+        opt = option.split(":")[0].upper()
+        if(opt == "LOAD"):
+            load = option.split(":")[1]
+        if(opt == "SAVE"):
+            save = option.split(":")[1]
+        if(opt == "NO-TRAIN"):
+            train=False
+            
+if( not train and load is None):
+    print("no-train option must be combined with load option.")
+    exit()
 
+#Reading input
 print("Reading: " + options.input + "...")
 monitors = Monitors.fromfilename(fname=options.input,
                                  xcol=options.xaxis,
                                  ycol=options.yaxis,
                                  name=options.title)
 
-
+#Filtering Frame
+filters = options.filter.split(",")
 print("filtering: " + str(filters) + "...")
 monitors.filter(nan=filters.__contains__("nan"),
                 inf=filters.__contains__("inf"),
                 neg=filters.__contains__("neg"),
                 outliers=filters.__contains__("outliers"))
 
+#Applying kernels
 if(options.kernel):
-    kernels = np.array(re.compile("[,:]").split(options.kernel))
-    if(kernels.__contains__("pipeline")):
-        print("applying kernel: pipeline...")
-        found = np.where(kernels == "pipeline")
-        monitors.pipeline(int(*kernels[found[0]+1]))
-    if(kernels.__contains__("sample")):
-        print("applying kernel: sample...")
-        found = np.where(kernels == "sample")
-        monitors.sample(int(*kernels[found[0]+1]))
-                     
+    kernels = options.kernel.split(",")
+    #to upper case for stirng comparison
+    kernels[:] = [k.upper() for k in kernels] 
+
+    for k in kernels:
+        split = k.split(":")
+        kernel = split[0]
+        if(kernel == "NORMALIZE"):
+            print("preprocessing: normalize...")
+            monitors.normalize()
+        if(kernel == "PIPELINE"):
+            print("preprocessing: pipeline...")
+            monitors.pipeline(int(split[1]))
+        if(kernel == "SAMPLE"):
+            print("preprocessing: sample...")
+            monitors.sample(int(split[1]))
+        if(kernel == "POLYNOMIAL"):
+            print("preprocessing: polynomial...")
+            monitors.polynomial(int(split[1]))
+
+#Clustering monitors
 if(options.cluster != None):
     cluster_args = options.cluster.split(":")
     print("Clustering monitors with method: " + cluster_args[0] + "...")
     monitors.cluster(cluster_args[0], cluster_args[1])
-
+            
+#Modeling monitors
 if(options.model):
-    print("Building " + options.model + " model...")
-    monitors.model(options.model)
-    
+    monitors.model(options.model, load=load, save=save, do_train=train)
+
+#Plotting monitors
 print("Plotting monitors...")
 monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
 
