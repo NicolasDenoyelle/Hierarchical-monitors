@@ -117,6 +117,9 @@ foptionOpt = make_option("--model-option", type = "string", default = None,
          load:<file>
          load a pré-existing model whether to update it or to make prediction on a new dataset.
 
+         repeat:n_times
+         When training MLP regression one can achieve a better fit by training the network several times on the same dataset 
+
          no-train
          Do not train the model. Must be used with load option.
          """)
@@ -232,9 +235,8 @@ class Monitors:
         self.data = pd.concat([self.data, poly_frame], axis=1, join='inner')
     
         
-    def model(self, model_name, save = None, load = None, do_train=True):
+    def model(self, model_name, save = None, load = None, do_train=True, repeat=1):
         model = None
-        repeat = 1
         
         if(load): model = joblib.load(load)
         else:
@@ -249,8 +251,6 @@ class Monitors:
             if(model == None):
                 print("Wrong model name provided: " + model_name)
                 return
-
-        if(do_train and model_name.upper() == "MLP"): repeat = 5
 
         train, test = self.train_test_split()
         X_train, y_train = self.get_Xy(train)
@@ -480,17 +480,18 @@ args = [
 #    "-c", "kmeans:4",
     "-k", "sample:500000",        
     "-m", "MLP",
-    "--model-option", "load:model.pkl,save:model.pkl",
+    "--model-option", "load:model.pkl,save:model.pkl,repeat:10",
 #    "--model-option", "load:model.pkl,no-train",    
     "-s"]
 
 #Parsing options
-options, args = parser.parse_args(args)
+options, args = parser.parse_args()
 
 #Parsing model options
 load = None
 save = None
 train = True
+repeat = 1
 if(options.model_option):
     model_options = options.model_option.split(",")
     for option in model_options:
@@ -501,6 +502,8 @@ if(options.model_option):
             save = option.split(":")[1]
         if(opt == "NO-TRAIN"):
             train=False
+        if(opt == "REPEAT"):
+            repeat=int(option.split(":")[1])
             
 if( not train and load is None):
     print("no-train option must be combined with load option.")
@@ -551,7 +554,7 @@ if(options.cluster != None):
             
 #Modeling monitors
 if(options.model):
-    monitors.model(options.model, load=load, save=save, do_train=train)
+    monitors.model(options.model, load=load, save=save, do_train=train, repeat=repeat)
 
 #Plotting monitors
 print("Plotting monitors...")
