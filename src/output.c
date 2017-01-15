@@ -58,14 +58,15 @@ void hmon_output_register_monitor(hmon m){
   int i = harray_find(output_monitors, (void*)(&key), output_data_compare);
   if(i>=0){
     d = harray_get(output_monitors, i);
+    m->output = d->output;    
   }
   else{
     d = new_output_data(m->id);
     harray_insert_sorted(output_monitors, d, output_data_compare);
+    m->output = d->output;    
     hmonitor_output_header(m);
   }
   harray_push(d->monitors, m);
-  m->output = d->output;
 }
 
 void hmon_output_monitors(){
