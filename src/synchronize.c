@@ -123,11 +123,11 @@ int hmon_lib_init(const hwloc_topology_t topo, const char * out){
   /* Prepare output */
   if(out != NULL) {
     size_t len = strlen(out);
-    char output[len+1]; memset(output,0,sizeof(output));
-    sprintf(output, "%s", out);
+    char output[len+2]; memset(output,0,sizeof(output));
+    snprintf(output, sizeof(output), "%s", out);
     if(out[len-1] != '/')
       output[len] = '/';
-    hmon_output_init(NULL);
+    hmon_output_init(output);
   } else hmon_output_init(NULL);
   
   /* create or monitor list */ 
