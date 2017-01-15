@@ -1,17 +1,17 @@
 import os
 import re
 import multiprocessing
-import numpy                   as np
-import numpy.random            as rand
-import matplotlib.pyplot       as plt
-import matplotlib.cm           as cm
-import pandas                  as pd
-from   sklearn                 import cluster, preprocessing, linear_model, metrics, svm
-from   sklearn.externals       import joblib
-from   sklearn.neural_network  import MLPRegressor
-from   sklearn.ensemble        import RandomForestRegressor
+import numpy                    as np
+import numpy.random             as rand
+import matplotlib.pyplot        as plt
+import matplotlib.cm            as cm
+import pandas                   as pd
+from   sklearn                  import cluster, preprocessing, linear_model, metrics, svm
+from   sklearn.externals        import joblib
+from   sklearn.neural_network   import MLPRegressor
+from   sklearn.ensemble         import RandomForestRegressor
 from   sklearn.metrics.pairwise import polynomial_kernel
-from   optparse                import OptionParser, make_option
+from   optparse                 import OptionParser, make_option
 
 ###########################################################################################################
 #                                                Parse options                                            #
@@ -247,15 +247,18 @@ class Monitors:
             if(model_name.upper() == "RANDOMFOREST"):
                 model = RandomForestRegressor(n_estimators=10, n_jobs=1, min_impurity_split=1e-3, verbose=0, warm_start=True)
             if(model_name.upper() == "MLP"):
-                model = MLPRegressor(hidden_layer_sizes=[100, 100, 100], shuffle=False, warm_start=True)
+                model = MLPRegressor(hidden_layer_sizes=[100, 100, 100], shuffle=True, warm_start=True)
             if(model == None):
                 print("Wrong model name provided: " + model_name)
                 return
 
-        train, test = self.train_test_split()
-        X_train, y_train = self.get_Xy(train)
-        X_test, y_test = self.get_Xy(test)
-
+        if(do_train):
+            train, test = self.train_test_split()
+            X_train, y_train = self.get_Xy(train)
+            X_test, y_test = self.get_Xy(test)
+        else:
+            X_test, y_test = self.get_Xy()
+            
         for i in range(repeat):
             if(repeat>1): print("step " + str(i+1) + "/" + str(repeat) + "...")
             if(do_train):
@@ -275,7 +278,7 @@ class Monitors:
             joblib.dump(model, save)
             print("model saved to " + save)
         
-        return X_test, y_test, y_pred, score
+        return score
         
     def append(self, monitors):
         self.objs = np.append(self.objs, monitors.objs)
@@ -472,20 +475,21 @@ class Monitor(Monitors):
 ###########################################################################################################
 
 args = [
-    "-i", "/home/ndenoyel/Documents/specCPU2006/filtered.out",
-#    "-i", "/home/ndenoyel/Documents/hmon/tests/hpccg/blob2.out",
+#    "-i", "/home/ndenoyel/Documents/hmon/tests/traces/filtered.out",
+    "-i", "/home/ndenoyel/Documents/hmon/tests//traces/hpccg.out",
     "-f", "neg,inf,nan,outliers",
     "-t", "test",
 #    "-c", "dbscan:0.3",
 #    "-c", "kmeans:4",
-    "-k", "sample:500000",        
+#    "-k", "sample:500000",        
+#    "-m", "RandomForest",
     "-m", "MLP",
-    "--model-option", "load:model.pkl,save:model.pkl,repeat:10",
-#    "--model-option", "load:model.pkl,no-train",    
+#    "--model-option", "save:model.pkl,repeat:10",
+    "--model-option", "load:model.pkl,no-train",    
     "-s"]
 
 #Parsing options
-options, args = parser.parse_args()
+options, args = parser.parse_args(args)
 
 #Parsing model options
 load = None
@@ -555,8 +559,8 @@ if(options.cluster != None):
 #Modeling monitors
 if(options.model):
     monitors.model(options.model, load=load, save=save, do_train=train, repeat=repeat)
-
-#Plotting monitors
-print("Plotting monitors...")
-monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
+else:
+    #Plotting monitors
+    print("Plotting monitors...")
+    monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
 
