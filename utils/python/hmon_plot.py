@@ -11,7 +11,7 @@ from   sklearn.externals        import joblib
 from   sklearn.neural_network   import MLPRegressor
 from   sklearn.ensemble         import RandomForestRegressor
 from   sklearn.metrics.pairwise import polynomial_kernel
-from   optparse                 import OptionParser, make_option
+from   optparse                 import OptionParser, make_option, Values
 
 ###########################################################################################################
 #                                                Parse options                                            #
@@ -247,7 +247,7 @@ class Monitors:
             if(model_name.upper() == "RANDOMFOREST"):
                 model = RandomForestRegressor(n_estimators=10, n_jobs=1, min_impurity_split=1e-3, verbose=0, warm_start=True)
             if(model_name.upper() == "MLP"):
-                model = MLPRegressor(hidden_layer_sizes=[100, 100, 100], shuffle=True, warm_start=True)
+                model = MLPRegressor(hidden_layer_sizes=[100, 100, 100], shuffle=False, warm_start=True)
             if(model == None):
                 print("Wrong model name provided: " + model_name)
                 return
@@ -469,33 +469,42 @@ class Monitor(Monitors):
         axes.set_xlim([self.xmin, self.xmax])
         axes.set_ylim([self.ymin, self.ymax])
         axes.legend(loc='best', frameon=True, fancybox=True, shadow=True)
+
+###########################################################################################################
+#                                                   Tests                                                 #
+###########################################################################################################
+
+cmd_args = []
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/spec.out", "-m", "MLP", "--model-option", "save:model_MLP.pkl,repeat:100"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/hpccg.out", "-m", "MLP", "--model-option", "load:model_MLP.pkl,no-train"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/spec.out", "-m", "Ridge", "--model-option", "save:model_Ridge.pkl"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/hpccg.out", "-m", "Ridge", "--model-option", "load:model_Ridge.pkl,no-train"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/spec.out", "-m", "RANSAC", "--model-option", "save:model_RANSAC.pkl"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/hpccg.out", "-m", "RANSAC", "--model-option", "load:model_RANSAC.pkl,no-train"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/spec.out", "-m", "RandomForest", "--model-option", "save:model_RandomForest.pkl"]
+
+#cmd_args = ["-f", "neg,inf,nan,outliers", "-k", "pipeline:1", "-i", "/home/ndenoyel/Documents/hmon/tests/traces/hpccg.out", "-m", "RandomForest", "--model-option", "load:model_RandomForest.pkl,no-train"]
         
 ###########################################################################################################
 #                                                   Program                                               #
 ###########################################################################################################
 
-args = [
-#    "-i", "/home/ndenoyel/Documents/hmon/tests/traces/filtered.out",
-    "-i", "/home/ndenoyel/Documents/hmon/tests//traces/hpccg.out",
-    "-f", "neg,inf,nan,outliers",
-    "-t", "test",
-#    "-c", "dbscan:0.3",
-#    "-c", "kmeans:4",
-#    "-k", "sample:500000",        
-#    "-m", "RandomForest",
-    "-m", "MLP",
-#    "--model-option", "save:model.pkl,repeat:10",
-    "--model-option", "load:model.pkl,no-train",    
-    "-s"]
-
-#Parsing options
-options, args = parser.parse_args(args)
-
-#Parsing model options
 load = None
 save = None
 train = True
 repeat = 1
+
+#Parsing model options
+if(len(cmd_args) == 0): options, unused = parser.parse_args()
+else: options, unused = parser.parse_args(cmd_args)
+
 if(options.model_option):
     model_options = options.model_option.split(",")
     for option in model_options:
@@ -508,18 +517,19 @@ if(options.model_option):
             train=False
         if(opt == "REPEAT"):
             repeat=int(option.split(":")[1])
-            
-if( not train and load is None):
-    print("no-train option must be combined with load option.")
-    exit()
+    
+    if( not train and load is None):
+        print("no-train option must be combined with load option.")
+        exit()            
 
+        
 #Reading input
 print("Reading: " + options.input + "...")
 monitors = Monitors.fromfilename(fname=options.input,
                                  xcol=options.xaxis,
                                  ycol=options.yaxis,
                                  name=options.title)
-
+    
 #Filtering Frame
 filters = options.filter.split(",")
 print("filtering: " + str(filters) + "...")
@@ -533,7 +543,7 @@ if(options.kernel):
     kernels = options.kernel.split(",")
     #to upper case for stirng comparison
     kernels[:] = [k.upper() for k in kernels] 
-
+    
     for k in kernels:
         split = k.split(":")
         kernel = split[0]
@@ -557,10 +567,10 @@ if(options.cluster != None):
     monitors.cluster(cluster_args[0], cluster_args[1])
             
 #Modeling monitors
-if(options.model):
-    monitors.model(options.model, load=load, save=save, do_train=train, repeat=repeat)
+if(options.model): monitors.model(options.model, load=load, save=save, do_train=train, repeat=repeat)
 else:
     #Plotting monitors
     print("Plotting monitors...")
     monitors.plot(subplot=options.split, ylog=options.log, output=options.output)
+        
 
