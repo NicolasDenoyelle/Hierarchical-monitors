@@ -59,41 +59,39 @@ int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * even
 {
   struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
   harray child_events = NULL;
-  hwloc_obj_t child_obj;
-  unsigned i, n_events = 0, nbobjs;
+  hwloc_obj_t obj;
+  unsigned depth,index,i, n_events = 0;
   hmon m;
+  
   if(event==NULL || monitor_eventset == NULL)
     return -1;
 
-  /* Decend fist children to look if event exists */
-  child_obj = set->location;
-  while(child_obj != NULL){
-    child_events = child_obj->userdata;
-    if(child_events != NULL){
-      for(i = 0; i<harray_length(child_events); i++){
-	m  = harray_get(child_events,i);
-	if(!strcmp(m->id, event)){goto add_events;}
+  /* Decend depth by depth to look if event exists */
+  int topo_depth = hwloc_topology_get_depth(hmon_topology);
+  for(depth=set->location->depth; depth<topo_depth; depth++){
+    /* Traverse depth to find matching event */
+    for(index=0; index<hwloc_get_nbobjs_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, depth); index++){
+      obj = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, depth, index);
+      child_events = obj->userdata;
+      if(child_events != NULL){
+	/* Walk monitor list at this location to find matching event */
+	for(i=0; i<harray_length(child_events); i++){
+	  m  = harray_get(child_events,i);
+	  if(!strcmp(m->id, event)){
+	    harray_push(set->child_events, m);
+	    n_events+=m->n_samples;
+	  }
+	}
       }
     }
-    child_obj = child_obj->first_child;
+  }
+  
+  if(n_events  == 0){
+    /* Exit failure */
+    fprintf(stderr, "Unrecognized event name %s, expected defined monitor name, deeper than %s.\n", event, hwloc_type_name(set->location->type));
+    return -1;
   }
 
-  /* Exit failure */
-  fprintf(stderr, "Unrecognized event name %s, expected defined monitor name, deeper than %s.\n", event, hwloc_type_name(set->location->type));
-  return -1;
-
-  /* Add events to eventset */
-  unsigned j;
-add_events:;
-  nbobjs = hwloc_get_nbobjs_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, child_obj->depth);
-  for(j = 0; j<nbobjs; j++){
-    child_events = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, set->location->cpuset, child_obj->depth, j)->userdata;
-    m = harray_get(child_events, i);
-    if(m!= NULL) {
-      harray_push(set->child_events, m);
-      n_events+=m->n_samples;
-    }
-  }
   return n_events;
 }
 
