@@ -37,6 +37,7 @@
   int                        display;
   unsigned                   window;
   unsigned                   location_depth;
+  int                        location_index;
   harray                     events;
   harray                     reductions;
 
@@ -51,6 +52,7 @@
     silent                 = 0;        /* default not silent */
     display                = 0;        /* default do not display */     
     location_depth         = 0;        /* default on root */
+    location_index         = -1;       /* default to no special index */    
     perf_plugin_name       = NULL;
     reduction_plugin_name  = NULL;
     reduction_code         = NULL;
@@ -127,8 +129,10 @@
     char ** event_names = harray_to_char(events);
     char ** reduction_names = NULL;
     if(harray_length(reductions) > 0){reduction_names = harray_to_char(reductions);}
-      
-    while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
+
+    /* Insert monitor at desired location(s) */
+    if(location_index >= 0){
+      obj = hwloc_get_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, location_index);      
       hmon m = new_hmonitor(id,
 			    obj,
 			    (const char **)event_names,
@@ -138,10 +142,21 @@
 			    harray_length(reductions),
 			    perf_plugin_name,
 			    model_plugin);
-      
-      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}	  
+      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}
+    } else{
+      while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
+	hmon m = new_hmonitor(id,
+			      obj,
+			      (const char **)event_names,
+			      harray_length(events),
+			      window,
+			      (const char **)reduction_names,
+			      harray_length(reductions),
+			      perf_plugin_name,
+			      model_plugin);
+	if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}	  
+      }
     }
-
     free(event_names);
     if(reduction_names != NULL){free(reduction_names);}
     
@@ -198,6 +213,14 @@ field
   hwloc_obj_t obj = location_parse(hmon_topology, $2);
   if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
   location_depth = obj->depth;
+  free($2);
+ }
+| OBJ_FIELD NAME ':' INTEGER ';'{
+  hwloc_obj_t obj = location_parse(hmon_topology, $2);
+  if(obj == NULL) perror_EXIT("Wrong monitor obj.\n");
+  location_depth = obj->depth;
+  location_index = atoi($4);
+  free($4);
   free($2);
  }
 | REDUCTION_FIELD  reduction ';'

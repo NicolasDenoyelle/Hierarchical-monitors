@@ -40,19 +40,6 @@ void count();
 
 %%
 
-"-"                { count(); /* fprintf(stderr,"-\n"); */                     return('-'); };
-"+"                { count(); /* fprintf(stderr,"+\n"); */                     return('+'); };
-"*"                { count(); /* fprintf(stderr,"*\n"); */                     return('*'); };
-"/"                { count(); /* fprintf(stderr,"/\n"); */                     return('/'); };
-"}"                { count(); /* fprintf(stderr,"}\n"); */                     return('}'); };
-"{"                { count(); /* fprintf(stderr,"{\n"); */                     return('{'); };
-")"                { count(); /* fprintf(stderr,")\n"); */                     return(')'); };
-"("                { count(); /* fprintf(stderr,"(\n"); */                     return('('); };
-";"                { count(); /* fprintf(stderr,";\n"); */                     return(';'); };
-","                { count(); /* fprintf(stderr,",\n"); */                     return(',');};
-"."                { count(); /* fprintf(stderr,".\n"); */                     return('.');};
-"#"                { count(); /* fprintf(stderr,":\n"); */                     return('#');};
-"="                { count(); /* fprintf(stderr,"=\n"); */                     return('=');};
 "OBJ:="            { count(); /* fprintf(stderr,"OBJ_FIELD\n"); */             return(OBJ_FIELD);};
 "EVSET:="          { count(); /* fprintf(stderr,"EVSET_FIELD\n"); */           return(EVSET_FIELD);};
 "PERF_LIB:="       { count(); /* fprintf(stderr,"PERF_FIELD\n"); */            return(PERF_LIB_FIELD);};
@@ -67,6 +54,20 @@ void count();
 {path}             { count(); /* fprintf(stderr,"PATH:%s\n", yytext); */       yylval.str = strdup(yytext); return(PATH);};
 {integer}          { count(); /* fprintf(stderr,"INTEGER:%s\n", yytext); */    yylval.str = strdup(yytext); return(INTEGER);};
 {real}             { count(); /* fprintf(stderr,"REAL:%s\n", yytext); */       yylval.str = strdup(yytext); return(REAL);};
+"-"                { count(); /* fprintf(stderr,"-\n"); */                     return('-'); };
+"+"                { count(); /* fprintf(stderr,"+\n"); */                     return('+'); };
+"*"                { count(); /* fprintf(stderr,"*\n"); */                     return('*'); };
+"/"                { count(); /* fprintf(stderr,"/\n"); */                     return('/'); };
+"}"                { count(); /* fprintf(stderr,"}\n"); */                     return('}'); };
+"{"                { count(); /* fprintf(stderr,"{\n"); */                     return('{'); };
+")"                { count(); /* fprintf(stderr,")\n"); */                     return(')'); };
+"("                { count(); /* fprintf(stderr,"(\n"); */                     return('('); };
+";"                { count(); /* fprintf(stderr,";\n"); */                     return(';'); };
+":"                { count(); /* fprintf(stderr,":\n"); */                     return(':'); };
+","                { count(); /* fprintf(stderr,",\n"); */                     return(',');};
+"."                { count(); /* fprintf(stderr,".\n"); */                     return('.');};
+"#"                { count(); /* fprintf(stderr,":\n"); */                     return('#');};
+"="                { count(); /* fprintf(stderr,"=\n"); */                     return('=');};
 \n                 { count();}
 %.*                { count();}
 x.                 { count();}
