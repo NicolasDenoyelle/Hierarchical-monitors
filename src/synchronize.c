@@ -160,6 +160,8 @@ int hmon_register_hmonitor(hmon m, int silent, int display){
   
   /* Store monitor on topology */
   if(m->location->userdata == NULL){m->location->userdata = new_harray(sizeof(m), 4, NULL);}
+  if(m->location->type == HWLOC_OBJ_CORE){ m->owner = threads[m->location->logical_index]; }
+  if(m->location->type == HWLOC_OBJ_PU){ m->owner = threads[m->location->parent->logical_index]; }  
   harray_insert_sorted(m->location->userdata, m, hmon_compare);
   return 0;
 }
@@ -227,7 +229,6 @@ static void hmon_update_location(hwloc_obj_t location, int recurse_down, int rec
   if(location == NULL){return;}
   harray _monitors = location->userdata;
   if(_monitors != NULL){hmonitors_do(_monitors, update);}
-  
   if(recurse_down){
     unsigned i;
     for(i=0; i<location->arity; i++){hmon_update_location(location->children[i], 1, 0, update);}
