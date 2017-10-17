@@ -147,7 +147,8 @@ AS_IF([test "x$build_maqao" = xyes],
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
 
-AC_CONFIG_FILES([src/plugins/system/Makefile])
+#AC_CONFIG_FILES([src/plugins/system/Makefile])
+AC_CONFIG_FILES([src/plugins/proc/Makefile])
 AM_CONDITIONAL([BUILD_PAPI],     [test "x$build_papi" = xyes])
 AM_COND_IF([BUILD_PAPI], [AC_CONFIG_FILES([src/plugins/papi/Makefile])])
 AM_CONDITIONAL([BUILD_MAQAO],    [test "x$build_maqao" = xyes])

@@ -137,229 +137,229 @@ exit_error:
 }
 
 
-/***************************************************************************************************************/
-/*                                             Looking at cpu usage                                            */
-/***************************************************************************************************************/
+/* /\***************************************************************************************************************\/ */
+/* /\*                                             Looking at cpu usage                                            *\/ */
+/* /\***************************************************************************************************************\/ */
 
-struct proc_cpu{
-  hwloc_obj_t location;
-  unsigned long user[2];   /* normal processes executing in user mode */
-  unsigned long nice[2];   /* niced processes executing in user mode */
-  unsigned long system[2]; /* processes executing in kernel mode */
-  unsigned long idle[2];   /* twiddling thumbs */
-  unsigned long iowait[2]; /* waiting for I/O to complete */
-  unsigned long irq[2];    /* servicing interrupts */
-  unsigned long softirq[2];/* servicing softirqs */
-};
+/* struct proc_cpu{ */
+/*   hwloc_obj_t location; */
+/*   unsigned long user[2];   /\* normal processes executing in user mode *\/ */
+/*   unsigned long nice[2];   /\* niced processes executing in user mode *\/ */
+/*   unsigned long system[2]; /\* processes executing in kernel mode *\/ */
+/*   unsigned long idle[2];   /\* twiddling thumbs *\/ */
+/*   unsigned long iowait[2]; /\* waiting for I/O to complete *\/ */
+/*   unsigned long irq[2];    /\* servicing interrupts *\/ */
+/*   unsigned long softirq[2];/\* servicing softirqs *\/ */
+/* }; */
 
 
-struct proc_cpu * new_proc_cpu(hwloc_obj_t location){
-  if(location->type != HWLOC_OBJ_PU && location->type != HWLOC_OBJ_MACHINE){
-    monitor_print_err("Location of object collecting cpu info must be either HWLOC_OBJ_PU or HWLOC_OBJ_MACHINE (currently on %s)\n",
-		      hwloc_type_name(location->type));
-    return NULL;
-  }
+/* struct proc_cpu * new_proc_cpu(hwloc_obj_t location){ */
+/*   if(location->type != HWLOC_OBJ_PU && location->type != HWLOC_OBJ_MACHINE){ */
+/*     monitor_print_err("Location of object collecting cpu info must be either HWLOC_OBJ_PU or HWLOC_OBJ_MACHINE (currently on %s)\n", */
+/* 		      hwloc_type_name(location->type)); */
+/*     return NULL; */
+/*   } */
   
-  struct proc_cpu * p;
-  malloc_chk(p, sizeof(*p));
-  p->location   = location;  
-  p->user[0]    = p->user[1] = 0;
-  p->nice[0]    = p->nice[1] = 0;
-  p->system[0]  = p->system[1] = 0;
-  p->idle[0]    = p->idle[1] = 0;
-  p->iowait[0]  = p->iowait[1] = 0;
-  p->irq[0]     = p->irq[1] = 0;
-  p->softirq[0] = p->softirq[1] = 0;
-  return p;
-}
+/*   struct proc_cpu * p; */
+/*   malloc_chk(p, sizeof(*p)); */
+/*   p->location   = location;   */
+/*   p->user[0]    = p->user[1] = 0; */
+/*   p->nice[0]    = p->nice[1] = 0; */
+/*   p->system[0]  = p->system[1] = 0; */
+/*   p->idle[0]    = p->idle[1] = 0; */
+/*   p->iowait[0]  = p->iowait[1] = 0; */
+/*   p->irq[0]     = p->irq[1] = 0; */
+/*   p->softirq[0] = p->softirq[1] = 0; */
+/*   return p; */
+/* } */
 
-void delete_proc_cpu(struct proc_cpu * p){free(p);}
+/* void delete_proc_cpu(struct proc_cpu * p){free(p);} */
 
-int proc_cpu_read(struct proc_cpu * p){
-  FILE * proc_file = proc_open_file("/proc/stat");
-  if(proc_file == NULL){return -1;}
+/* int proc_cpu_read(struct proc_cpu * p){ */
+/*   FILE * proc_file = proc_open_file("/proc/stat"); */
+/*   if(proc_file == NULL){return -1;} */
 
-  /* Save old values */
-  p->user[0]    = p->user[1];
-  p->nice[0]    = p->nice[1];
-  p->system[0]  = p->system[1];
-  p->idle[0]    = p->idle[1];
-  p->iowait[0]  = p->iowait[1];
-  p->irq[0]     = p->irq[1];
-  p->softirq[0] = p->softirq[1];
+/*   /\* Save old values *\/ */
+/*   p->user[0]    = p->user[1]; */
+/*   p->nice[0]    = p->nice[1]; */
+/*   p->system[0]  = p->system[1]; */
+/*   p->idle[0]    = p->idle[1]; */
+/*   p->iowait[0]  = p->iowait[1]; */
+/*   p->irq[0]     = p->irq[1]; */
+/*   p->softirq[0] = p->softirq[1]; */
 
-  /* Read new values */
-  char * line = NULL;
-  size_t len = 0;
+/*   /\* Read new values *\/ */
+/*   char * line = NULL; */
+/*   size_t len = 0; */
 
-  if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;}
-  if((sscanf(line,"cpu %lu %lu %lu %lu %lu %lu %lu\n",
-		       &(p->user[1]),
-		       &(p->nice[1]),
-		       &(p->system[1]),
-		       &(p->idle[1]),
-		       &(p->iowait[1]),
-		       &(p->irq[1]),
-	     &(p->softirq[1]))) == EOF){goto sscanf_error;}
+/*   if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;} */
+/*   if((sscanf(line,"cpu %lu %lu %lu %lu %lu %lu %lu\n", */
+/* 		       &(p->user[1]), */
+/* 		       &(p->nice[1]), */
+/* 		       &(p->system[1]), */
+/* 		       &(p->idle[1]), */
+/* 		       &(p->iowait[1]), */
+/* 		       &(p->irq[1]), */
+/* 	     &(p->softirq[1]))) == EOF){goto sscanf_error;} */
   
-  if(p->location->type == HWLOC_OBJ_PU){
-    unsigned long cpu_num = 0;
-    do{
-      len = 0; free(line); line = NULL;
-      if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;}
-      if((sscanf(line,"cpu%lu %lu %lu %lu %lu %lu %lu %lu\n",
-		 &cpu_num,
-		 &(p->user[1]),
-		 &(p->nice[1]),
-		 &(p->system[1]),
-		 &(p->idle[1]),
-		 &(p->iowait[1]),
-		 &(p->irq[1]),
-		 &(p->softirq[1]))) == EOF){goto sscanf_error;}
-    } while(cpu_num != p->location->os_index);
-  }
+/*   if(p->location->type == HWLOC_OBJ_PU){ */
+/*     unsigned long cpu_num = 0; */
+/*     do{ */
+/*       len = 0; free(line); line = NULL; */
+/*       if((len = getline(&line, &len, proc_file)) == -1){goto getline_error;} */
+/*       if((sscanf(line,"cpu%lu %lu %lu %lu %lu %lu %lu %lu\n", */
+/* 		 &cpu_num, */
+/* 		 &(p->user[1]), */
+/* 		 &(p->nice[1]), */
+/* 		 &(p->system[1]), */
+/* 		 &(p->idle[1]), */
+/* 		 &(p->iowait[1]), */
+/* 		 &(p->irq[1]), */
+/* 		 &(p->softirq[1]))) == EOF){goto sscanf_error;} */
+/*     } while(cpu_num != p->location->os_index); */
+/*   } */
 
-  free(line);
-  fclose(proc_file);
-  return 0;
-getline_error:
-  fclose(proc_file);
-  {perror("getline"); return -1;}
-  return -1;
-sscanf_error:
-  free(line);
-  fclose(proc_file);
-  {perror("sscanf"); return -1;}
-  return -1;
-}
+/*   free(line); */
+/*   fclose(proc_file); */
+/*   return 0; */
+/* getline_error: */
+/*   fclose(proc_file); */
+/*   {perror("getline"); return -1;} */
+/*   return -1; */
+/* sscanf_error: */
+/*   free(line); */
+/*   fclose(proc_file); */
+/*   {perror("sscanf"); return -1;} */
+/*   return -1; */
+/* } */
 
-double proc_cpu_load(struct proc_cpu * p){
-  double usage = (p->user[1]-p->user[0]) + (p->nice[1]-p->nice[0]) + (p->system[1]-p->system[0]);
-  return usage == 0 ? 0 : 100*usage / (usage + (p->idle[1]-p->idle[0]));
-}
+/* double proc_cpu_load(struct proc_cpu * p){ */
+/*   double usage = (p->user[1]-p->user[0]) + (p->nice[1]-p->nice[0]) + (p->system[1]-p->system[0]); */
+/*   return usage == 0 ? 0 : 100*usage / (usage + (p->idle[1]-p->idle[0])); */
+/* } */
 
-/***************************************************************************************************************/
-/*                                             Looking at mem usage                                            */
-/***************************************************************************************************************/
+/* /\***************************************************************************************************************\/ */
+/* /\*                                             Looking at mem usage                                            *\/ */
+/* /\***************************************************************************************************************\/ */
 
-struct proc_mem{
-  hwloc_obj_t location;
-  unsigned long total;  /* Total memory */
-  unsigned long free;   /* Free memory */
-  unsigned long used;   /* Used memory */
-};
+/* struct proc_mem{ */
+/*   hwloc_obj_t location; */
+/*   unsigned long total;  /\* Total memory *\/ */
+/*   unsigned long free;   /\* Free memory *\/ */
+/*   unsigned long used;   /\* Used memory *\/ */
+/* }; */
 
-struct proc_mem * new_proc_mem(hwloc_obj_t location){
-  if(location->type != HWLOC_OBJ_NUMANODE && location->type != HWLOC_OBJ_MACHINE){
-    monitor_print_err("Location of object collecting mem info must be either HWLOC_OBJ_NUMANODE or HWLOC_OBJ_MACHINE (currently on %s)\n",
-		      hwloc_type_name(location->type));
-    return NULL;
-  }
+/* struct proc_mem * new_proc_mem(hwloc_obj_t location){ */
+/*   if(location->type != HWLOC_OBJ_NUMANODE && location->type != HWLOC_OBJ_MACHINE){ */
+/*     monitor_print_err("Location of object collecting mem info must be either HWLOC_OBJ_NUMANODE or HWLOC_OBJ_MACHINE (currently on %s)\n", */
+/* 		      hwloc_type_name(location->type)); */
+/*     return NULL; */
+/*   } */
   
-  struct proc_mem * p;
-  malloc_chk(p, sizeof(*p));
-  p->location   = location;  
-  p->free = 0;
-  p->used = 0;
-  return p;
-}
+/*   struct proc_mem * p; */
+/*   malloc_chk(p, sizeof(*p)); */
+/*   p->location   = location;   */
+/*   p->free = 0; */
+/*   p->used = 0; */
+/*   return p; */
+/* } */
 
-void delete_proc_mem(struct proc_mem * p){free(p);}
+/* void delete_proc_mem(struct proc_mem * p){free(p);} */
 
-int proc_mem_read(struct proc_mem * p){
-  char path[1024]; memset(path,0,sizeof(path));
+/* int proc_mem_read(struct proc_mem * p){ */
+/*   char path[1024]; memset(path,0,sizeof(path)); */
 
-  if(p->location->type == HWLOC_OBJ_NUMANODE){
-    int nid = p->location->os_index;
-    snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/meminfo", nid);
-  }
-  else
-    snprintf(path, sizeof(path), "/proc/meminfo");
+/*   if(p->location->type == HWLOC_OBJ_NUMANODE){ */
+/*     int nid = p->location->os_index; */
+/*     snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/meminfo", nid); */
+/*   } */
+/*   else */
+/*     snprintf(path, sizeof(path), "/proc/meminfo"); */
 
-  FILE * proc_file = proc_open_file(path);
-  if(proc_file == NULL){return -1;}
+/*   FILE * proc_file = proc_open_file(path); */
+/*   if(proc_file == NULL){return -1;} */
 
-  if(p->location->type == HWLOC_OBJ_NUMANODE){
-    /* Read new values */
-    if(fscanf(proc_file,"Node %*d MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error;
-    if(fscanf(proc_file,"Node %*d MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error;
-    if(fscanf(proc_file,"Node %*d MemUsed: %lu kB\n", &(p->used) ) == EOF) goto read_error;
-  } else {
-    if(fscanf(proc_file,"MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error;
-    if(fscanf(proc_file,"MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error;
-    p->used = p->total - p->free;
-  }
+/*   if(p->location->type == HWLOC_OBJ_NUMANODE){ */
+/*     /\* Read new values *\/ */
+/*     if(fscanf(proc_file,"Node %*d MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error; */
+/*     if(fscanf(proc_file,"Node %*d MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error; */
+/*     if(fscanf(proc_file,"Node %*d MemUsed: %lu kB\n", &(p->used) ) == EOF) goto read_error; */
+/*   } else { */
+/*     if(fscanf(proc_file,"MemTotal: %lu kB\n", &(p->total)) == EOF) goto read_error; */
+/*     if(fscanf(proc_file,"MemFree: %lu kB\n",  &(p->free) ) == EOF) goto read_error; */
+/*     p->used = p->total - p->free; */
+/*   } */
 
-  fclose(proc_file);
-  return 0;
-read_error:
-  fclose(proc_file);
-  {perror("fscanf"); return -1;}
-  return -1;
-}
+/*   fclose(proc_file); */
+/*   return 0; */
+/* read_error: */
+/*   fclose(proc_file); */
+/*   {perror("fscanf"); return -1;} */
+/*   return -1; */
+/* } */
 
-double proc_mem_load(struct proc_mem * p){
-  return p->used == 0 ? 0 : 100*p->used / p->total;
-}
+/* double proc_mem_load(struct proc_mem * p){ */
+/*   return p->used == 0 ? 0 : 100*p->used / p->total; */
+/* } */
 
-double proc_mem_used(struct proc_mem * p){
-  return p->used*1024;
-}
+/* double proc_mem_used(struct proc_mem * p){ */
+/*   return p->used*1024; */
+/* } */
 
-/***************************************************************************************************************/
-/*                                           Looking at memory balance                                         */
-/***************************************************************************************************************/
-struct proc_numa{
-  hwloc_obj_t location;
-  unsigned long local;  /* Number of hit on local pages */
-  unsigned long remote; /* Number of miss on local pages */
-};
+/* /\***************************************************************************************************************\/ */
+/* /\*                                           Looking at memory balance                                         *\/ */
+/* /\***************************************************************************************************************\/ */
+/* struct proc_numa{ */
+/*   hwloc_obj_t location; */
+/*   unsigned long local;  /\* Number of hit on local pages *\/ */
+/*   unsigned long remote; /\* Number of miss on local pages *\/ */
+/* }; */
 
-struct proc_numa * new_proc_numa(hwloc_obj_t location){
-  if(location->type != HWLOC_OBJ_NUMANODE){
-    monitor_print_err("Location of object collecting mem info must be HWLOC_OBJ_NUMANODE (currently on %s)\n",
-		      hwloc_type_name(location->type));
-    return NULL;
-  }
+/* struct proc_numa * new_proc_numa(hwloc_obj_t location){ */
+/*   if(location->type != HWLOC_OBJ_NUMANODE){ */
+/*     monitor_print_err("Location of object collecting mem info must be HWLOC_OBJ_NUMANODE (currently on %s)\n", */
+/* 		      hwloc_type_name(location->type)); */
+/*     return NULL; */
+/*   } */
   
-  struct proc_numa * p;
-  malloc_chk(p, sizeof(*p));
-  p->location   = location;  
-  p->local = 0;
-  p->remote = 0;
-  return p;
-}
+/*   struct proc_numa * p; */
+/*   malloc_chk(p, sizeof(*p)); */
+/*   p->location   = location;   */
+/*   p->local = 0; */
+/*   p->remote = 0; */
+/*   return p; */
+/* } */
 
-void delete_proc_numa(struct proc_numa * p){free(p);}
+/* void delete_proc_numa(struct proc_numa * p){free(p);} */
 
-int proc_numa_read(struct proc_numa * p){
+/* int proc_numa_read(struct proc_numa * p){ */
 
-  char path[1024]; memset(path,0,sizeof(path));
-  int nid = p->location->os_index;
-  snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/numastat", nid);
+/*   char path[1024]; memset(path,0,sizeof(path)); */
+/*   int nid = p->location->os_index; */
+/*   snprintf(path, sizeof(path), "/sys/devices/system/node/node%d/numastat", nid); */
 
-  FILE * proc_file = proc_open_file(path);
-  if(proc_file == NULL){return -1;}
+/*   FILE * proc_file = proc_open_file(path); */
+/*   if(proc_file == NULL){return -1;} */
   
-  /* Read new values */
-  if(fscanf(proc_file,"%*s %lu\n", &(p->local)) == EOF) goto read_error;
-  if(fscanf(proc_file,"%*s %lu\n", &(p->remote)) == EOF) goto read_error;
+/*   /\* Read new values *\/ */
+/*   if(fscanf(proc_file,"%*s %lu\n", &(p->local)) == EOF) goto read_error; */
+/*   if(fscanf(proc_file,"%*s %lu\n", &(p->remote)) == EOF) goto read_error; */
   
-  fclose(proc_file);
-  return 0;
-read_error:
-  fclose(proc_file);
-  {perror("fscanf"); return -1;}
-  return -1;
-}
+/*   fclose(proc_file); */
+/*   return 0; */
+/* read_error: */
+/*   fclose(proc_file); */
+/*   {perror("fscanf"); return -1;} */
+/*   return -1; */
+/* } */
 
-double proc_numa_local(struct proc_numa * p){
-  return p->local;
-}
+/* double proc_numa_local(struct proc_numa * p){ */
+/*   return p->local; */
+/* } */
 
-double proc_numa_remote(struct proc_numa * p){
-  return p->remote;
-}
+/* double proc_numa_remote(struct proc_numa * p){ */
+/*   return p->remote; */
+/* } */
 
 /***************************************************************************************************************/
 /*                                             Starting runnable                                               */

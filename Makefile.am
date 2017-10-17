@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS=-I m4
 AUTOMAKE_OPTIONS=foreign
-SUBDIRS=src src/plugins/stat_default src/plugins/fake src/plugins/accumulate src/plugins/hierarchical src/plugins/system
+SUBDIRS=src src/plugins/stat_default src/plugins/fake src/plugins/accumulate src/plugins/hierarchical src/plugins/proc
 
 if BUILD_PAPI
 SUBDIRS+=src/plugins/papi

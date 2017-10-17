@@ -5,6 +5,26 @@
 enum event_type {error, cpuload, memload, memused, numa_local, numa_remote};
 const enum event_type allowed_events[] = {cpuload, memload, memused, numa_local, numa_remote};
 
+struct proc_cpu;
+struct proc_cpu * new_proc_cpu   (hwloc_obj_t location);
+void              delete_proc_cpu(struct proc_cpu * p);
+int               proc_cpu_read  (struct proc_cpu * p);
+double            proc_cpu_load  (struct proc_cpu * p);
+
+struct proc_mem;
+struct proc_mem * new_proc_mem   (hwloc_obj_t location);
+void              delete_proc_mem(struct proc_mem * p);
+int               proc_mem_read  (struct proc_mem * p);
+double            proc_mem_load  (struct proc_mem * p);
+double            proc_mem_used  (struct proc_mem * p);
+
+struct proc_numa;
+struct proc_numa * new_proc_numa   (hwloc_obj_t location);
+void               delete_proc_numa(struct proc_numa * p);
+int                proc_numa_read  (struct proc_numa * p);
+double             proc_numa_local (struct proc_numa * p);
+double             proc_numa_remote(struct proc_numa * p);
+
 struct event{
   enum event_type type;
   void * proc_info;

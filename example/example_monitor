@@ -8,8 +8,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Display for each processing unit the current load as htop does.
 cpu_load{
-	OBJ:=PU;
-	PERF_LIB:=system;
+	OBJ:= PU;
+	PERF_LIB:=proc;
 	EVSET:=cpuload;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
@@ -18,8 +18,8 @@ cpu_load{
 %% Display memory footprint on each memory
 memload{
 	OBJ:=Node;
-	PERF_LIB:=system;
-	EVSET:=memload;
+	PERF_LIB:=proc;
+	EVSET:=memused;
 	SILENT:=1; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
 }
@@ -28,19 +28,19 @@ memload{
 % numa_balance{
 % 	OBJ:=Node;
 % 	PERF_LIB:=system;
-% 	EVSET:=numa_local, numa_remote;
+% 	EVSET:=local_hit, remote_hit;
 % 	SILENT:=0; %do not output to trace
 % 	DISPLAY:=1; %hmonitor -d (option required)
 % }
 
 %% Display the machine total load
-machine_load{
-	OBJ:=Machine;
-	PERF_LIB:=system;
-	EVSET:=cpuload;
-	SILENT:=1; %do not output to trace
-	DISPLAY:=1; %hmonitor -d (option required)
-}
+% machine_load{
+% 	OBJ:=Machine;
+%	PERF_LIB:=system;
+%	EVSET:=cpuload;
+%	SILENT:=1; %do not output to trace
+%	DISPLAY:=1; %hmonitor -d (option required)
+% }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
