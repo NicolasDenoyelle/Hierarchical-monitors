@@ -39,7 +39,7 @@ char ** hmonitor_events_list(int * n_events){
 
 int hmonitor_eventset_add_named_event(void * monitor_eventset, const char * event)
 {
-  struct hierarchical_eventset * set = (struct hierarchical_eventset *) monitor_eventset;
+  struct accumulate_eventset * set = (struct accumulate_eventset *) monitor_eventset;
   harray child_events = NULL;
   hwloc_obj_t obj;
   unsigned depth,index,i, n_events = 0;
