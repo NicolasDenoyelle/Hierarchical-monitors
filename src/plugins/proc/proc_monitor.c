@@ -2,7 +2,7 @@
 #include "../../internal.h"
 #include <unistd.h>
 #include <sys/types.h>
-#include <proc.h>
+#include "./proc.h"
 
 char * machine_events[9] = {"cpuload","minor_faults","major_faults","vsize","rss","blkio_ticks"};
 char * node_events[5]    = {"memtotal","memfree","memused","local_hit","remote_hit"};
