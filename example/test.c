@@ -9,7 +9,7 @@ int main(int argc, char ** argv){
   if(argc!=2){usage(argv[0]); return -1;}
   
   hmon_lib_init(NULL, "/dev/stdout");
-  hmon_import(argv[1]);
+  hmon_import_hmonitors(argv[1]);
   hmon_start();
   hmon_update();
   sleep(1);
