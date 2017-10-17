@@ -16,7 +16,7 @@ struct output_data * new_output_data(const char * id){
   struct output_data * d;
   size_t len = strlen("/dev/stdout")+1;
   if(output_dir != NULL) len = strlen(output_dir) + strlen(id) + 1;
-  char output_path[len];
+  char output_path[len]; memset(output_path, 0, len);
   if(output_dir == NULL){snprintf(output_path, len, "%s", "/dev/stdout");}
   else{sprintf(output_path, "%s%s", output_dir, id);}
   
