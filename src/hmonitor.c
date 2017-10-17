@@ -253,7 +253,7 @@ int hmonitor_release(hmon m){
 }
 
 int hmonitor_read(hmon m){
-  /* Only if caller took the lock, or we don't care about concurrent calls or we can acquire the lock and become owner */
+  /* Only if caller took the lock, or we don't care about concurrent calls or we can acquire the lock and become owner */  
   if(m->owner == pthread_self()){
     m->last = (m->last+1)%(m->window);
     m->total = m->total+1;
