@@ -72,10 +72,10 @@ src/plugins/fake/Makefile
 src/plugins/fake/*.lo
 src/plugins/fake/*.o
 src/plugins/fake/*.la
-src/plugins/system/.deps
-src/plugins/system/.libs
-src/plugins/system/Makefile
-src/plugins/system/*.lo
-src/plugins/system/*.o
-src/plugins/system/*.la
+src/plugins/proc/.deps
+src/plugins/proc/.libs
+src/plugins/proc/Makefile
+src/plugins/proc/*.lo
+src/plugins/proc/*.o
+src/plugins/proc/*.la
 
