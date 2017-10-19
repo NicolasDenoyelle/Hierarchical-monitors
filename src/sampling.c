@@ -22,7 +22,7 @@ static void handler(int sig, siginfo_t *si, void *uc){
   timer_t * timer = si->si_value.sival_ptr;
   if(sig == SIGRTMIN){
     if(*timer == update_timer){
-	hmon_update();
+	hmon_update(1);
     }
     if(*timer == display_timer){display_function(display_arg);}
   }

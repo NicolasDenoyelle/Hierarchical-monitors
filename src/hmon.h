@@ -71,8 +71,9 @@ void hmon_stop();
  * Update and print every created monitor.
  * Print format:
  * Id Obj timestamp events...
+ * @param output, should update print monitors last sample 
  **/
-void hmon_update();
+void hmon_update(const int output);
 
 /**
  * Check update completion.

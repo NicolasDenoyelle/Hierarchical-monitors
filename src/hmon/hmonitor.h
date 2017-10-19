@@ -1,6 +1,7 @@
 #ifndef HMONITOR_H
 #define HMONITOR_H
 
+#include <stdio.h>
 #include <pthread.h>
 #include <hwloc.h>
 
@@ -128,9 +129,11 @@ void hmonitor_output_header(hmon m);
 
 /**
  * Print monitor to file.
- * The monitor will only be print if its field output was manually set.
+ * The monitor will only be print if its field output was manually set, and the call is made form the thread creating the monitor, or the flag force is set to 1.
+ * @param m: the monitor to print.
+ * @param force: if true print anyway.
  **/
-void hmonitor_output(hmon m);
+void hmonitor_output(hmon m, const int force);
 
 /**
  * Lock monitor to avoid concurrent updates.
@@ -174,4 +177,11 @@ double   hmonitor_get_event(hmon m, unsigned row, unsigned event);
  **/
 long hmonitor_get_timestamp(hmon m, unsigned i);
 
+
+/**
+ * Print monitor main attributes to file.
+ * @param m: the monitor to print.
+ * @param f: the file where to print.
+ **/
+void hmonitor_fprint(hmon m, FILE* f);
 #endif

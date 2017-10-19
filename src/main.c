@@ -273,7 +273,7 @@ main (int argc, char *argv[])
 
       /* monitor topology */ 
       while(!hmonitor_utility_stop){
-	hmon_update();
+	hmon_update(1);
 	if(display_opt.set){
 	  if(hmon_display_refresh(0) == -1) break;
 	}
@@ -285,9 +285,9 @@ main (int argc, char *argv[])
       int err;
       int status;
       if(!refresh_opt.set){
-	hmon_update();
+	hmon_update(1);
 	waitpid(pid, &status, 0);
-	hmon_update();
+	hmon_update(1);
 	if(display_opt.set){hmon_display_refresh(1);}
       }
       else{

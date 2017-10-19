@@ -75,7 +75,7 @@ void hmon_output_monitors(){
   for(i=0;i<harray_length(output_monitors); i++){
     d = harray_get(output_monitors,i);
     for(j=0;j<harray_length(d->monitors); j++){
-      hmonitor_output(harray_get(d->monitors,j));
+      hmonitor_output(harray_get(d->monitors,j), 1);
     }
   }
 }

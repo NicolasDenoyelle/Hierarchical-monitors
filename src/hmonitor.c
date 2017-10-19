@@ -47,6 +47,18 @@ void hmonitor_output_header(hmon m){
   fflush(m->output);
 }
 
+void hmonitor_fprint(hmon m, FILE* f){
+  unsigned i;
+  char events[1024]; memset(events, 0, sizeof(events));
+  ssize_t nc = 0;
+  for(i =0 ; i<m->n_events; i++){ nc += snprintf(events, sizeof(events)-nc, "%10s ", m->labels[i]); }
+  fprintf(f, "%20s (%10s): output:%s, events: %s\n",
+	  m->id,
+	  location_name(m->location),
+	  m->output?"yes":" no",	  
+	  events);
+}
+
 hmon
 new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_names, const unsigned n_events,
 	     const unsigned window, const char ** labels, const unsigned n_samples,
@@ -181,8 +193,8 @@ void hmonitor_reset(hmon m){
   m->ref_time = 1000000000 * tp.tv_sec + tp.tv_nsec;
 }
 
-void hmonitor_output(hmon m){
-  if(m->output != NULL && m->owner == pthread_self()){
+void hmonitor_output(hmon m, const int force){
+  if(m->output != NULL && (m->owner == pthread_self() || force)){
     unsigned j;
     char samples[m->n_samples*20]; memset(samples, 0, sizeof(samples));
     char *c = samples;

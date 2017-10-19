@@ -166,12 +166,13 @@ int hmon_register_hmonitor(hmon m, int silent, int display){
   return 0;
 }
 
-void hmon_update(){
+void hmon_update(const int output){
   /* Check that all monitors or uptodate */
   if(__sync_bool_compare_and_swap(&uptodate, 0, ncores)){
     /* Trigger monitors */
     pthread_barrier_wait(&barrier);
     pthread_barrier_wait(&barrier);
+    if(output) hmonitors_do(monitors, hmonitor_output, 1);
   }
 }
 
@@ -266,7 +267,7 @@ hmon_thread_loop:
   /* Analyze monitors */
   hmon_update_location(Core, 1, 1, hmonitor_reduce);
   /* output monitors */
-  hmon_update_location(Core, 1, 1, (int (*)(struct hmon *))hmonitor_output);
+  /* hmon_update_location(Core, 1, 1, (int (*)(struct hmon *))hmonitor_output); */
   /* Signal we are uptodate */
   __sync_fetch_and_sub(&uptodate, 1);
   /* Restart event collection */

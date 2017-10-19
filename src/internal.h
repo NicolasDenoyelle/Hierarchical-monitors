@@ -8,7 +8,7 @@
 int          hwloc_check_version_mismatch();
 int          location_cpubind(hwloc_topology_t, hwloc_obj_t);
 int          location_membind(hwloc_topology_t, hwloc_obj_t);
-char *       location_name   (hwloc_topology_t, hwloc_obj_t);
+char *       location_name   (hwloc_obj_t);
 hwloc_obj_t  location_parse  (hwloc_topology_t, const char *);
 char **      location_avail  (hwloc_topology_t, unsigned *);
 int          location_compare(void *, void *); /* void * must be: hwloc_obj_t */
