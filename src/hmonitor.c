@@ -62,7 +62,7 @@ void hmonitor_fprint(hmon m, FILE* f){
 hmon
 new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_names, const unsigned n_events,
 	     const unsigned window, const char ** labels, const unsigned n_samples,
-	     const char * perf_plugin, const char * model_plugin)
+	     const char * perf_plugin, const char * model_plugin, FILE* output)
 {
   if(window == 0 || id == NULL || location == NULL || perf_plugin == NULL){return NULL;}
 
@@ -73,10 +73,9 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->location = location;
   monitor->window = window;
   monitor->userdata = NULL;
-  monitor->output = NULL;
   monitor->display = 0;
   monitor->owner = pthread_self();
-  
+  monitor->output = output;
   /* Load perf plugin functions */
   struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
   if(plugin == NULL){

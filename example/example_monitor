@@ -11,8 +11,14 @@ cpu_load{
 	OBJ:= PU;
 	PERF_LIB:=proc;
 	EVSET:=cpuload;
-	SILENT:=1; %do not output to trace
+	OUTPUT:=0; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
+}
+
+LST_INS{
+	OBJ:= PU:0;
+	PERF_LIB:=papi;
+	EVSET:=PAPI_LST_INS;
 }
 
 %% Display memory footprint on each memory
@@ -20,27 +26,10 @@ memload{
 	OBJ:=Node;
 	PERF_LIB:=proc;
 	EVSET:=memused;
-	SILENT:=1; %do not output to trace
+	OUTPUT:=0; %do not output to trace
 	DISPLAY:=1; %hmonitor -d (option required)
 }
 
-% Display the locality ratio: (numa hit / numa miss)
-% numa_balance{
-% 	OBJ:=Node;
-% 	PERF_LIB:=system;
-% 	EVSET:=local_hit, remote_hit;
-% 	SILENT:=0; %do not output to trace
-% 	DISPLAY:=1; %hmonitor -d (option required)
-% }
-
-%% Display the machine total load
-% machine_load{
-% 	OBJ:=Machine;
-%	PERF_LIB:=system;
-%	EVSET:=cpuload;
-%	SILENT:=1; %do not output to trace
-%	DISPLAY:=1; %hmonitor -d (option required)
-% }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -86,7 +75,6 @@ memload{
 % 	OBJ:=PU;
 % 	PERF_LIB:=papi;	
 % 	EVSET:=PAPI_L2_DCM;
-% 	SILENT:=0;
 % 	DISPLAY:=1;
 % }
 
@@ -95,7 +83,7 @@ memload{
 % 	OBJ:=L2;
 % 	EVSET:=L2_MISS_PU;
 % 	PERF_LIB:=accumulate;
-% 	SILENT:=1;
+% 	OUTPUT:=0;
 % 	DISPLAY:=1;
 % }
 
@@ -120,7 +108,7 @@ memload{
 % 	OBJ:=PU;
 % 	PERF_LIB:=papi;
 % 	EVSET:=PAPI_TOT_INS, PAPI_L1_DCM, PAPI_L2_DCM, PAPI_L3_TCM;
-% 	SILENT:=1;
+% 	OUTPUT:=0;
 % }
 
 %% Accumulate events in a single monitor, and reduce obtained events into a new set of events.
@@ -162,7 +150,7 @@ memload{
 %      EVSET: List of events from PERF_LIB to gather.
 %      REDUCTION: Compute output samples out of input events.
 %      WINDOW: Keep track of events WINDOW(default=1) times before overwritting.
-%      SILENT: 0 don't print monitor, 1(default) print monitor.
+%      OUTPUT: <=0 don't print monitor, 1(default) print monitor to stdout, 2 print monitor to stderr, else path to a file.
 %      DISPLAY: 0(default) do not display monitor on topology when using hmonitor utility, n display monitor n-th event.
 
 %default REDUCTION functions (some may not be available):

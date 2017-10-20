@@ -69,11 +69,12 @@ typedef struct hmon{
  * @param n_samples: The number of outputs of the monitor.
  * @param perf_plugin: The plugin's name used to collect input events.
  * @param model_plugin: The plugin's name used to reduce collected events into monitor output samples.
+ * @param output: An opened file where to output monitor. If NULL, nothing is output.
  * @return A new monitor.
  **/
 hmon new_hmonitor(const char * id, hwloc_obj_t location, const char ** event_names, const unsigned n_events,
 		  const unsigned window, const char ** labels, unsigned n_samples,
-		  const char* perf_plugin, const char* model_plugin);
+		  const char* perf_plugin, const char* model_plugin, FILE* output);
 
 /**
  * Delete a monitor

@@ -8,6 +8,7 @@
   do{unsigned i; for(i = 0; i< harray_length(hmons); i++){call(harray_get(hmons,i), ##__VA_ARGS__);}}while(0)
 
 harray                     monitors;                 /* The array of monitors */
+harray                     outputs;                  /* Opened FILE* */
 hwloc_topology_t           hmon_topology;            /* The topology with monitor on hwloc_obj_t->userdata */
 hwloc_cpuset_t             allowed_cpuset;           /* The domain monitored */
 
@@ -19,12 +20,6 @@ static pthread_t *         threads;                  /* Threads id */
 static int                 threads_stop = 0;
 static pthread_barrier_t   barrier;                 /* Common barrier between monitors' thread and main thread */
 static void *              hmonitor_thread(void * arg);
-
-/** Defined in output.c **/
-void hmon_output_init(const char * dir);
-void hmon_output_register_monitor(hmon m);
-void hmon_output_fini();
-void hmon_output_monitors();
 
 int hmon_import_hmonitors(const char * path){
   return hmon_import(path, allowed_cpuset);
@@ -101,7 +96,7 @@ void hmon_restrict_pid_taskset(pid_t pid, int recurse){
   hwloc_bitmap_free(running_cpuset);
 }
 
-int hmon_lib_init(const hwloc_topology_t topo, const char * out){
+int hmon_lib_init(const hwloc_topology_t topo){
   unsigned i;
   /* Check hwloc version */
   if(hwloc_check_version_mismatch() != 0){return -1;}
@@ -120,15 +115,8 @@ int hmon_lib_init(const hwloc_topology_t topo, const char * out){
     return -1;
   }
 
-  /* Prepare output */
-  if(out != NULL) {
-    size_t len = strlen(out);
-    char output[len+2]; memset(output,0,sizeof(output));
-    snprintf(output, sizeof(output), "%s", out);
-    if(out[len-1] != '/')
-      output[len] = '/';
-    hmon_output_init(output);
-  } else hmon_output_init(NULL);
+  /* Initialize output array */
+  outputs = new_harray(sizeof(FILE*), 32, (void(*)(void*))fclose);
   
   /* create or monitor list */ 
   monitors = new_harray(sizeof(hmon), 32, (void (*)(void *))delete_hmonitor);
@@ -147,12 +135,11 @@ int hmon_lib_init(const hwloc_topology_t topo, const char * out){
 }
 
 
-int hmon_register_hmonitor(hmon m, int silent, int display){
+int hmon_register_hmonitor(hmon m, int display){
   if(m==NULL){return -1;}
   if(!hwloc_bitmap_isincluded(m->location->cpuset, allowed_cpuset)){return -1;}
   
   /* Make monitor printable (or not) */
-  if(!silent){hmon_output_register_monitor(m);}
   m->display = display;
   
   /* Add monitor to existing monitors*/
@@ -197,7 +184,9 @@ void hmon_lib_finalize(){
       if(obj->userdata){delete_harray(obj->userdata);}
     }
   }
-  hmon_output_fini();
+  
+  /* Close opened files */
+  delete_harray(outputs);
   delete_harray(monitors);
   hwloc_bitmap_free(allowed_cpuset);
   hwloc_topology_destroy(hmon_topology);

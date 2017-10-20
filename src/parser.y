@@ -23,6 +23,7 @@
    * }
    **/
 
+  extern harray outputs;
   static hwloc_obj_t root;
 
   /* Default fields */
@@ -33,14 +34,14 @@
   char *                     reduction_plugin_name;
   char *                     reduction_code;
   char *                     code;
-  int                        silent;
   int                        display;
   unsigned                   window;
   unsigned                   location_depth;
   int                        location_index;
   harray                     events;
   harray                     reductions;
-
+  FILE*                      output;
+  
   /* This function is called for each newly parsed monitor */
   static void reset_monitor_fields(){
     if(perf_plugin_name){free(perf_plugin_name);}
@@ -49,13 +50,13 @@
     empty_harray(events);
     empty_harray(reductions);
     window                 = 1;        /* default store 1 sample */
-    silent                 = 0;        /* default not silent */
     display                = 0;        /* default do not display */     
     location_depth         = 0;        /* default on root */
     location_index         = -1;       /* default to no special index */    
     perf_plugin_name       = NULL;
     reduction_plugin_name  = NULL;
     reduction_code         = NULL;
+    output                 = stdout;
   }
 
   /* This function is called once before parsing */
@@ -141,8 +142,9 @@
 			    (const char **)reduction_names,
 			    harray_length(reductions),
 			    perf_plugin_name,
-			    model_plugin);
-      if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}
+			    model_plugin,
+			    output);
+      if(m!=NULL){if(hmon_register_hmonitor(m, display) == -1){delete_hmonitor(m);}}
     } else{
       while((obj = hwloc_get_next_obj_inside_cpuset_by_depth(hmon_topology, root->cpuset, location_depth, obj)) != NULL){
 	hmon m = new_hmonitor(id,
@@ -153,10 +155,12 @@
 			      (const char **)reduction_names,
 			      harray_length(reductions),
 			      perf_plugin_name,
-			      model_plugin);
-	if(m!=NULL){if(hmon_register_hmonitor(m, silent, display) == -1){delete_hmonitor(m);}}	  
+			      model_plugin,
+			      output);
+	if(m!=NULL){if(hmon_register_hmonitor(m, display) == -1){delete_hmonitor(m);}}
+	m->output = output;
       }
-    }
+    }    
     free(event_names);
     if(reduction_names != NULL){free(reduction_names);}
     
@@ -178,7 +182,7 @@
   %}
 
 %error-verbose
-%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD SILENT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR PERF_CTR NET_CTR
+%token <str> OBJ_FIELD EVSET_FIELD PERF_LIB_FIELD REDUCTION_FIELD WINDOW_FIELD OUTPUT_FIELD DISPLAY_FIELD INTEGER REAL NAME PATH VAR PERF_CTR NET_CTR
 
 %type <str> term associative_expr commutative_expr associative_op commutative_op event 
 
@@ -225,8 +229,23 @@ field
  }
 | REDUCTION_FIELD  reduction ';'
 | PERF_LIB_FIELD   NAME      ';' {perf_plugin_name = $2;}
-| SILENT_FIELD     INTEGER   ';' {silent = atoi($2); free($2);}
 | DISPLAY_FIELD    INTEGER   ';' {display = atoi($2); free($2);}
+| OUTPUT_FIELD     INTEGER   ';' {
+  int out = atoi($2);
+  if(out<=0) output = NULL;
+  if(out>0)  output = stdout;
+  if(out==2) output = stderr;  
+  free($2);
+ }
+| OUTPUT_FIELD     PATH      ';' {
+  output = fopen($2,"w");
+  if(output == NULL){
+    perror("fopen");
+  } else {
+    harray_push(outputs, output);
+  }
+  free($2);  
+ }
 | WINDOW_FIELD     INTEGER   ';' {window = atoi($2); free($2);}
 | EVSET_FIELD event_list     ';' {}
 ;

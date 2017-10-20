@@ -53,15 +53,6 @@ static struct perf_option input_opt =   {.name = "--input",
 					 .def_val = "NULL",
 					 .set = 0};
 
-static struct perf_option output_opt =  {.name = "--output-dir",
-					 .short_name = "-o",
-					 .arg = "<output_directory>",
-					 .desc = "Directory where to write trace output",
-					 .type = OPT_TYPE_STRING,
-					 .value.str_value = NULL,
-					 .def_val = "stdout",
-					 .set = 0};
-
 static struct perf_option restrict_opt =  {.name = "--restrict",
 					   .short_name = "-r",
 					   .arg = "<hwloc_obj:index>",
@@ -155,15 +146,14 @@ static void finalize_handler(int sig){
 int
 main (int argc, char *argv[])
 {
-    const unsigned n_opt = 7;
+    const unsigned n_opt = 6;
     struct perf_option * options[n_opt];
     options[0] = &input_opt;
-    options[1] = &output_opt;
-    options[2] = &refresh_opt;
-    options[3] = &help_opt;
-    options[4] = &pid_opt;
-    options[5] = &display_opt;
-    options[6] = &restrict_opt;
+    options[1] = &refresh_opt;
+    options[2] = &help_opt;
+    options[3] = &pid_opt;
+    options[4] = &display_opt;
+    options[5] = &restrict_opt;
     char * runnable = NULL;
     char ** run_args = NULL;
 
@@ -209,14 +199,8 @@ main (int argc, char *argv[])
 	pid = (pid_t) pid_opt.value.int_value;
     }
 
-    /* Set monitors output */
-    if(!output_opt.set){
-	set_option((&output_opt), output_opt.value.str_value);
-	output_opt.set = 0;
-    }
-
     /* Monitors initialization */
-    hmon_lib_init(NULL, output_opt.value.str_value);
+    hmon_lib_init(NULL);
 
     /* Restrict monitors */
     if(restrict_opt.set){
@@ -306,7 +290,6 @@ main (int argc, char *argv[])
     
     /* cleanup */
 out_with_lib:
-    free(output_opt.value.str_value);
     free(restrict_opt.value.str_value);
     hwloc_bitmap_free(restrict_domain);
     if(display_opt.set) hmon_display_finalize();

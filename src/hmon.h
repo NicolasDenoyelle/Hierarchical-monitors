@@ -13,10 +13,9 @@ extern hwloc_topology_t hmon_topology;
  * Initialize the library.
  * @param topology, an optional topology to map monitor on. If topo is NULL the current machine topology is used.
  * @param restrict_obj, a topology object where the library is allowed to spawn threads.
- * @param out, the file where to print the trace.
  * @return -1 on error, 0 on success;
  **/
-int hmon_lib_init(const hwloc_topology_t topology, const char * out);
+int hmon_lib_init(const hwloc_topology_t topology);
 
 /**
  * Delete all library internal structures.
@@ -43,11 +42,10 @@ void hmon_restrict_pid_taskset(pid_t pid, int recurse);
 /**
  * Add a monitor to update with others monitor.
  * @param m, the monitor to register.
- * @param silent, a boolean telling whether m should be updated.
  * @param display, an int telling whether m display_th sample should be displayed on topology.
  * @return -1 if the monitor could not be registered (cause: monitor is out of library cpuset), else 0.
  **/
-int hmon_register_hmonitor(hmon m, int silent, int display);
+int hmon_register_hmonitor(hmon m, int display);
 
 /**
  * Retrieve monitor on monitors topology.
