@@ -111,7 +111,6 @@
   static void monitor_create(char * id){
     hwloc_obj_t obj = NULL;
     char * model_plugin = reduction_plugin_name;
-
     /* Build reduction on events */
     if(reduction_code != NULL){
       reduction_code = concat_and_replace(3,4, "\nvoid ", id, "(hmon m){\n", reduction_code);
@@ -126,7 +125,8 @@
       goto end_create;
     }
 
-    /* Collect input and output names  */
+    /* Collect input and output names  */    
+   
     char ** event_names = harray_to_char(events);
     char ** reduction_names = NULL;
     if(harray_length(reductions) > 0){reduction_names = harray_to_char(reductions);}
@@ -201,9 +201,10 @@ monitor_list
 monitor
 : NAME '{' field_list '}' {
   if(reduction_plugin_name == NULL && reduction_code != NULL){
-    reduction_plugin_name = $1;
+    reduction_plugin_name = strdup($1);
   }
   monitor_create($1);
+  free($1);
  }
 ;
 
@@ -268,7 +269,7 @@ event
 reduction
 : INTEGER '#' NAME {
   int i;
-  reduction_plugin_name = $3;
+  reduction_plugin_name = strdup($3);
   /* Default names */
   for(i=0; i<atoi($1); i++){
     char * name = malloc(16);
