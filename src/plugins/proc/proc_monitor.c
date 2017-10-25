@@ -4,9 +4,13 @@
 #include <sys/types.h>
 #include "./proc.h"
 
-char * machine_events[9] = {"cpuload","minor_faults","major_faults","vsize","rss","blkio_ticks"};
-char * node_events[5]    = {"memtotal","memfree","memused","local_hit","remote_hit"};
-char * pu_events[4]      = {"cpuload","iowait","irq","softirq"};
+#define n_machine_events 6
+#define n_node_events    5
+#define n_pu_events      4
+
+char * machine_events[n_machine_events] = {"cpuload","minor_faults","major_faults","vsize","rss","blkio_ticks"};
+char * node_events[n_node_events]       = {"memtotal","memfree","memused","local_hit","remote_hit"};
+char * pu_events[n_pu_events]           = {"cpuload","iowait","irq","softirq"};
 
 #define MAX_EVENTS 16
 
@@ -26,15 +30,15 @@ struct proc_eventset{
 
 char ** hmonitor_events_list(int * n_counters){
   int i0,i1,i2;
-  *n_counters = sizeof(machine_events)/sizeof(char*) + sizeof(node_events)/sizeof(char*) + sizeof(pu_events)/sizeof(char*);
+  *n_counters = n_machine_events + n_node_events + n_pu_events;
   char ** events; malloc_chk(events, sizeof(*events)*(*n_counters));
-  for(i0=0;i0<sizeof(machine_events)/sizeof(char*);i0++){
+  for(i0=0;i0<n_machine_events;i0++){
     events[i0] = strdup(machine_events[i0]);
   }
-  for(i1=0;i1<sizeof(node_events)/sizeof(char*);i1++){
+  for(i1=0;i1<n_node_events;i1++){
     events[i0+i1] = strdup(node_events[i1]);
   }
-  for(i2=0;i2<sizeof(pu_events)/sizeof(char*);i2++){
+  for(i2=0;i2<n_pu_events;i2++){
     events[i0+i1+i2] = strdup(pu_events[i2]);
   }
   return events;

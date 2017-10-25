@@ -1,4 +1,4 @@
-AM_CFLAGS=-DCC=$(CC) -DSTATS_PLUGINS=@stat_plugins@ -I$(abs_top_builddir)/hmon -I$(abs_top_builddir)
+AM_CFLAGS=-DCC=$(CC) -I$(abs_top_builddir)/hmon -I$(abs_top_builddir)
 
 lib_LTLIBRARIES=libhmon.la
 libhmon_la_SOURCES=hmonitor.c harray.c synchronize.c hwloc_utils.c proc.c parser.c scanner.c plugin.c sampling.c

@@ -123,6 +123,8 @@ AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [], [build_learning=no])
 AS_IF([test "x$build_learning" = xyes], [stat_plugins="$stat_plugins learning"])
 
 # Check for performance plugins
+perf_plugins="proc accumulate hierarchical"
+
 AC_CONFIG_FILES([src/plugins/stat_default/Makefile src/plugins/fake/Makefile src/plugins/accumulate/Makefile src/plugins/hierarchical/Makefile])
 						   
 ## Check for papi plugin
@@ -132,8 +134,9 @@ AS_IF([test "x$build_papi" = xyes],
       [AS_IF([test `cat /proc/sys/kernel/perf_event_paranoid` -gt -1],
              [AC_MSG_NOTICE([If you are willing to use papi, you should set /proc/sys/kernel/perf_event_paranoid to -1])]
 	    )
+       perf_plugins="$perf_plugins papi"	    
       ])
-
+   
 ## Check for maqao plugin
 build_maqao="yes"
 AC_CHECK_LIB([lprof], [counting_start_counters], [], [build_maqao=no])
@@ -141,11 +144,13 @@ AS_IF([test "x$build_maqao" = xyes],
       [AS_IF([test `cat /proc/sys/kernel/perf_event_paranoid` -gt -1],
              [AC_MSG_NOTICE([If you are willing to use maqao, you should set /proc/sys/kernel/perf_event_paranoid to -1])]
 	    )
+       perf_plugins="$perf_plugins maqao"	    
       ])
-
 
 AC_DEFINE_UNQUOTED([STAT_PLUGINS], ["$stat_plugins"], [desc])
 m4_pattern_allow([STAT_PLUGINS])
+AC_DEFINE_UNQUOTED([PERF_PLUGINS], ["$perf_plugins"], [desc])
+m4_pattern_allow([PERF_PLUGINS])
 
 #AC_CONFIG_FILES([src/plugins/system/Makefile])
 AC_CONFIG_FILES([src/plugins/proc/Makefile])

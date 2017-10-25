@@ -15,6 +15,10 @@ static harray stat_plugins = NULL;
 #define STAT_PLUGINS "defstats"
 #endif
 
+#ifndef PERF_PLUGINS
+#define PERF_PLUGINS "proc accumulate hierarchical"
+#endif
+
 static char * unsuffix_plugin_name(const char * name){
   size_t namelen = strlen(name);
   size_t suffixlen = strlen(plugin_suffix);   
@@ -32,56 +36,7 @@ static void delete_hmon_plugin(void * plugin){
   free(p);
 }
 
-static void __attribute__((constructor)) plugins_init(){
-  /* Greeting new plugins */
-  perf_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
-  stat_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
-
-  /* Checking for stat plugins */
-  char * plugins_env = getenv("HMON_STAT_PLUGINS");
-  char * plugin_env;
-  if(plugins_env != NULL){
-    plugin_env = strtok(plugins_env, " ");
-    if(plugin_env != NULL) do{
-	hmon_plugin_load(plugin_env, HMON_PLUGIN_STAT);
-      } while((plugin_env = strtok(NULL, " ")) != NULL);
-  }
-  char * plugins = strdup(STAT_PLUGINS), * save_ptr;
-  char * plugin = strtok_r(plugins, " ", &save_ptr);
-  do{
-    hmon_plugin_load(plugin, HMON_PLUGIN_STAT);
-    plugin = strtok_r(NULL, " ", &save_ptr);
-  } while(plugin != NULL);
-  free(plugins);
-}
-
-
-static void __attribute__((destructor)) plugins_at_exit(){
-  delete_harray(perf_plugins);
-  delete_harray(stat_plugins);
-}
-
-
-static struct hmon_plugin * hmon_plugin_lookup(const char * name, int type){
-  unsigned i;
-  struct hmon_plugin * p;
-  if(type == HMON_PLUGIN_STAT){
-    for(i=0; i<harray_length(stat_plugins); i++){
-      p=harray_get(stat_plugins,i);
-      if(!strcmp(p->id,name)){return p;}
-    }
-  }
-  else if(type == HMON_PLUGIN_PERF){
-    for(i=0; i<harray_length(perf_plugins); i++){
-      p=harray_get(perf_plugins,i);
-      if(!strcmp(p->id,name)){return p;}
-    }
-  }
-  return NULL;
-}
-
-
-struct hmon_plugin * hmon_plugin_load(const char * name, int plugin_type){
+static struct hmon_plugin * hmon_plugin_load(const char * name, int plugin_type){
   struct hmon_plugin * p = NULL;
   char * prefix;
   char path[256]; memset(path,0,sizeof(path));
@@ -119,6 +74,69 @@ struct hmon_plugin * hmon_plugin_load(const char * name, int plugin_type){
   return p;
 }
 
+static void __attribute__((constructor)) plugins_init(){
+  /* Greeting new plugins */
+  perf_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
+  stat_plugins = new_harray(sizeof(struct hmon_plugin*), 16, delete_hmon_plugin);
+
+  /* Checking for stat plugins */
+  char * plugins_env = getenv("HMON_STAT_PLUGINS");
+  char * plugin_env;
+  if(plugins_env != NULL){
+    plugin_env = strtok(plugins_env, " ");
+    if(plugin_env != NULL) do{
+	hmon_plugin_load(plugin_env, HMON_PLUGIN_STAT);
+      } while((plugin_env = strtok(NULL, " ")) != NULL);
+  }
+  char * plugins = strdup(STAT_PLUGINS), * save_ptr;
+  char * plugin = strtok_r(plugins, " ", &save_ptr);
+  do{
+    hmon_plugin_load(plugin, HMON_PLUGIN_STAT);
+    plugin = strtok_r(NULL, " ", &save_ptr);
+  } while(plugin != NULL);
+  free(plugins);
+
+  /* Checking for perf plugins */
+  plugins_env = getenv("HMON_PERF_PLUGINS");
+  if(plugins_env != NULL){
+    plugin_env = strtok(plugins_env, " ");
+    if(plugin_env != NULL) do{
+	hmon_plugin_load(plugin_env, HMON_PLUGIN_PERF);
+      } while((plugin_env = strtok(NULL, " ")) != NULL);
+  }
+  plugins = strdup(PERF_PLUGINS), * save_ptr;
+  plugin = strtok_r(plugins, " ", &save_ptr);
+  do{
+    hmon_plugin_load(plugin, HMON_PLUGIN_PERF);
+    plugin = strtok_r(NULL, " ", &save_ptr);
+  } while(plugin != NULL);
+  free(plugins);  
+}
+
+
+static void __attribute__((destructor)) plugins_at_exit(){
+  delete_harray(perf_plugins);
+  delete_harray(stat_plugins);
+}
+
+
+struct hmon_plugin * hmon_plugin_lookup(const char * name, int type){
+  unsigned i;
+  struct hmon_plugin * p;
+  if(type == HMON_PLUGIN_STAT){
+    for(i=0; i<harray_length(stat_plugins); i++){
+      p=harray_get(stat_plugins,i);
+      if(!strcmp(p->id,name)){return p;}
+    }
+  }
+  else if(type == HMON_PLUGIN_PERF){
+    for(i=0; i<harray_length(perf_plugins); i++){
+      p=harray_get(perf_plugins,i);
+      if(!strcmp(p->id,name)){return p;}
+    }
+  }
+  return NULL;
+}
 
 void * hmon_plugin_load_fun(struct hmon_plugin * plugin, const char * name, int print_error){
   void * fun = dlsym(plugin->dlhandle,name);
@@ -129,17 +147,31 @@ void * hmon_plugin_load_fun(struct hmon_plugin * plugin, const char * name, int 
   return fun;
 }
 
+void hmon_perf_plugins_list(){
+  unsigned i;
+  struct hmon_plugin * p;
+  if(harray_length(perf_plugins)>0){
+    p=harray_get(perf_plugins,0);
+    printf( "%s", p->id);
+    for(i=1; i<harray_length(perf_plugins); i++){
+      p=harray_get(perf_plugins,i);
+      printf( ", %s", p->id);
+    }
+    printf( "\n");
+  }
+}
+
 void hmon_stat_plugins_list(){
   unsigned i;
   struct hmon_plugin * p;
   if(harray_length(stat_plugins)>0){
     p=harray_get(stat_plugins,0);
-    fprintf(stderr, "%s", p->id);
+    printf( "%s", p->id);
     for(i=1; i<harray_length(stat_plugins); i++){
       p=harray_get(stat_plugins,i);
-      fprintf(stderr, ", %s", p->id);
+      printf( ", %s", p->id);
     }
-    fprintf(stderr, "\n");
+    printf( "\n");
   }
 }
 

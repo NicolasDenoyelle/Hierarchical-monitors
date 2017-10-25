@@ -77,9 +77,12 @@ new_hmonitor(const char *id, const hwloc_obj_t location, const char ** event_nam
   monitor->owner = pthread_self();
   monitor->output = output;
   /* Load perf plugin functions */
-  struct hmon_plugin * plugin = hmon_plugin_load(perf_plugin, HMON_PLUGIN_PERF);
+  struct hmon_plugin * plugin = hmon_plugin_lookup(perf_plugin, HMON_PLUGIN_PERF);
   if(plugin == NULL){
-    fprintf(stderr, "Monitor on %s:%d, performance initialization failed\n", hwloc_type_name(location->type), location->logical_index);
+    fprintf(stderr, "Unfound plugin %s\n", perf_plugin);
+    fprintf(stderr, "Monitor on %s:%d, performance initialization failed\n",
+	    hwloc_type_name(location->type),
+	    location->logical_index);
     exit(EXIT_FAILURE);
   }
   monitor->eventset_start    = hmon_plugin_load_fun(plugin, "hmonitor_eventset_start",   1);
