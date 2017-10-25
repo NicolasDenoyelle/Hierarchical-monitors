@@ -69,7 +69,7 @@ void hmonitor_events_var(hmon m){
 
     for(c=0;c<cols;c++){sum[c] = ct*sum[c]*sum[c];}
     ct = (1.0/(double)rows);
-    for(c=0;c<cols;c++){out[c] = ct*square_sum[c]-sum[c];}
+    for(c=0;c<m->n_samples;c++){out[c] = ct*square_sum[c]-sum[c];}
 }
 
 void hmonitor_evset_var(hmon m){
